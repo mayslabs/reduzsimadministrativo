@@ -704,8 +704,27 @@ h3 {
   align-items: end;
 }
 
+.manager-item.user-row {
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 0.9fr) 160px minmax(170px, 0.7fr) auto;
+}
+
 .manager-item.status-row {
   grid-template-columns: 1fr 150px auto;
+}
+
+.account-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 16px;
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
 }
 
 .timeline-item header {
@@ -804,6 +823,7 @@ h3 {
   .list-item,
   .doc-item,
   .manager-item,
+  .manager-item.user-row,
   .manager-item.status-row {
     grid-template-columns: 1fr;
   }

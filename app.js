@@ -194,6 +194,13 @@ const el = {
   statusManager: document.getElementById("statusManager"),
   addUserButton: document.getElementById("addUserButton"),
   userManager: document.getElementById("userManager"),
+  accountName: document.getElementById("accountName"),
+  accountEmail: document.getElementById("accountEmail"),
+  accountRole: document.getElementById("accountRole"),
+  accountPassword: document.getElementById("accountPassword"),
+  accountPasswordConfirm: document.getElementById("accountPasswordConfirm"),
+  saveAccountPasswordButton: document.getElementById("saveAccountPasswordButton"),
+  accountMessage: document.getElementById("accountMessage"),
   simpleDialog: document.getElementById("simpleDialog"),
   simpleDialogTitle: document.getElementById("simpleDialogTitle"),
   simpleDialogBody: document.getElementById("simpleDialogBody"),
@@ -400,6 +407,7 @@ function bindEvents() {
   });
   el.addStatusButton.addEventListener("click", openStatusDialog);
   el.addUserButton.addEventListener("click", openUserDialog);
+  el.saveAccountPasswordButton.addEventListener("click", changeOwnPassword);
 
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => switchSection(button.dataset.section));
@@ -471,9 +479,24 @@ function showApp() {
   el.appView.hidden = false;
   el.loginView.style.display = "none";
   el.appView.style.display = "grid";
-  el.currentUserLabel.textContent = `${currentUser.name} | ${currentUser.role === "admin" ? "Administrador" : "Usuario"}`;
-  document.querySelector('[data-section="usersSection"]').style.display = currentUser.role === "admin" ? "" : "none";
+  updateCurrentUserDisplay();
+  configureNavigationForRole();
   renderAll();
+}
+
+function updateCurrentUserDisplay() {
+  el.currentUserLabel.textContent = `${currentUser.name} | ${currentUser.role === "admin" ? "Administrador" : "Usuario"}`;
+}
+
+function configureNavigationForRole() {
+  const isAdmin = currentUser.role === "admin";
+  document.querySelector('[data-section="usersSection"]').style.display = isAdmin ? "" : "none";
+  document.querySelector('[data-section="accountSection"]').style.display = isAdmin ? "none" : "";
+
+  const activeSection = document.querySelector(".nav-item.active")?.dataset.section;
+  if ((!isAdmin && activeSection === "usersSection") || (isAdmin && activeSection === "accountSection")) {
+    switchSection("clientsSection");
+  }
 }
 
 function renderAll() {
@@ -482,6 +505,7 @@ function renderAll() {
   renderClients();
   renderStatusManager();
   renderUserManager();
+  renderAccount();
   refreshIcons();
 }
 
@@ -886,17 +910,26 @@ function renderStatusManager() {
 }
 
 function renderUserManager() {
+  if (currentUser.role !== "admin") {
+    el.userManager.innerHTML = "";
+    return;
+  }
+
   el.userManager.innerHTML = state.users
     .map(
       (user) => `
-        <div class="manager-item" data-user-manager="${user.id}">
+        <div class="manager-item user-row" data-user-manager="${user.id}">
           <label>Nome<input value="${escapeAttr(user.name)}" data-user-manager-field="name" /></label>
           <label>E-mail<input value="${escapeAttr(user.email)}" data-user-manager-field="email" /></label>
           <label>Perfil<select data-user-manager-field="role">
             <option value="admin" ${user.role === "admin" ? "selected" : ""}>Administrador</option>
             <option value="user" ${user.role === "user" ? "selected" : ""}>Usuario</option>
           </select></label>
-          <button class="danger-button" type="button" data-remove-user="${user.id}" ${user.id === currentUser?.id ? "disabled" : ""}><i data-lucide="trash-2"></i> Remover</button>
+          <label>Nova senha<input type="password" data-user-password="${user.id}" autocomplete="new-password" placeholder="Digite para alterar" /></label>
+          <div class="inline-actions">
+            <button class="secondary-button" type="button" data-change-user-password="${user.id}"><i data-lucide="key-round"></i> Alterar</button>
+            <button class="danger-button" type="button" data-remove-user="${user.id}" ${user.id === currentUser?.id ? "disabled" : ""}><i data-lucide="trash-2"></i> Remover</button>
+          </div>
         </div>
       `
     )
@@ -908,11 +941,30 @@ function renderUserManager() {
       input.addEventListener("input", () => {
         user[input.dataset.userManagerField] = input.value;
         saveState();
+        syncCurrentUser(user);
       });
       input.addEventListener("change", () => {
         user[input.dataset.userManagerField] = input.value;
         saveState();
+        syncCurrentUser(user);
       });
+    });
+  });
+  document.querySelectorAll("[data-change-user-password]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const user = state.users.find((item) => item.id === button.dataset.changeUserPassword);
+      const input = document.querySelector(`[data-user-password="${user.id}"]`);
+      const password = input.value.trim();
+      if (password.length < 4) {
+        alert("A senha precisa ter pelo menos 4 caracteres.");
+        return;
+      }
+
+      user.password = password;
+      input.value = "";
+      saveState();
+      syncCurrentUser(user);
+      alert("Senha alterada.");
     });
   });
   document.querySelectorAll("[data-remove-user]").forEach((button) => {
@@ -923,6 +975,48 @@ function renderUserManager() {
     });
   });
   refreshIcons();
+}
+
+function syncCurrentUser(user) {
+  if (user.id !== currentUser.id) return;
+  currentUser = user;
+  updateCurrentUserDisplay();
+  configureNavigationForRole();
+  renderAccount();
+}
+
+function renderAccount() {
+  if (!currentUser) return;
+
+  el.accountName.value = currentUser.name || "";
+  el.accountEmail.value = currentUser.email || "";
+  el.accountRole.value = currentUser.role === "admin" ? "Administrador" : "Usuario";
+}
+
+function changeOwnPassword() {
+  const password = el.accountPassword.value.trim();
+  const confirmation = el.accountPasswordConfirm.value.trim();
+  el.accountMessage.textContent = "";
+
+  if (password.length < 4) {
+    el.accountMessage.textContent = "A senha precisa ter pelo menos 4 caracteres.";
+    return;
+  }
+
+  if (password !== confirmation) {
+    el.accountMessage.textContent = "As senhas nao conferem.";
+    return;
+  }
+
+  const user = state.users.find((item) => item.id === currentUser.id);
+  if (!user) return;
+
+  user.password = password;
+  currentUser = user;
+  el.accountPassword.value = "";
+  el.accountPasswordConfirm.value = "";
+  el.accountMessage.textContent = "Senha alterada.";
+  saveState();
 }
 
 function openStatusDialog() {
@@ -979,6 +1073,9 @@ function openSimpleDialog(title, fields, onSave) {
 }
 
 function switchSection(sectionId) {
+  if (sectionId === "usersSection" && currentUser.role !== "admin") return;
+  if (sectionId === "accountSection" && currentUser.role === "admin") return;
+
   document.querySelectorAll(".app-section").forEach((section) => {
     section.hidden = section.id !== sectionId;
   });

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=7" />
+    <link rel="stylesheet" href="./styles.css?v=8" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -45,6 +45,7 @@
           <button class="nav-item active" data-section="clientsSection"><i data-lucide="layout-dashboard"></i> Painel</button>
           <button class="nav-item" data-section="statusSection"><i data-lucide="tags"></i> Status</button>
           <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuarios</button>
+          <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
         </nav>
         <div class="sidebar-footer">
           <span id="currentUserLabel"></span>
@@ -100,6 +101,28 @@
             <button id="addUserButton" class="secondary-button" type="button"><i data-lucide="user-plus"></i> Criar usuario</button>
           </div>
           <div id="userManager" class="manager-list"></div>
+        </section>
+
+        <section id="accountSection" class="app-section" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Acesso pessoal</p>
+              <h2>Minha conta</h2>
+            </div>
+          </div>
+          <div class="account-panel">
+            <div class="form-grid">
+              <label>Nome<input id="accountName" type="text" disabled /></label>
+              <label>E-mail<input id="accountEmail" type="text" disabled /></label>
+              <label>Perfil<input id="accountRole" type="text" disabled /></label>
+              <label>Nova senha<input id="accountPassword" type="password" autocomplete="new-password" /></label>
+              <label>Confirmar senha<input id="accountPasswordConfirm" type="password" autocomplete="new-password" /></label>
+            </div>
+            <div class="account-actions">
+              <button id="saveAccountPasswordButton" class="primary-button" type="button"><i data-lucide="key-round"></i> Alterar senha</button>
+              <p id="accountMessage" class="login-status" aria-live="polite"></p>
+            </div>
+          </div>
         </section>
       </section>
     </main>
@@ -275,6 +298,6 @@
       </form>
     </dialog>
 
-    <script src="./app.js?v=7"></script>
+    <script src="./app.js?v=8"></script>
   </body>
 </html>
