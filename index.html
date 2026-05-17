@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=8" />
+    <link rel="stylesheet" href="./styles.css?v=9" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -41,10 +41,10 @@
             <span>Clientes ativos</span>
           </div>
         </div>
-        <nav class="side-nav" aria-label="Navegacao principal">
+        <nav class="side-nav" aria-label="Navegação principal">
           <button class="nav-item active" data-section="clientsSection"><i data-lucide="layout-dashboard"></i> Painel</button>
           <button class="nav-item" data-section="statusSection"><i data-lucide="tags"></i> Status</button>
-          <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuarios</button>
+          <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuários</button>
           <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
         </nav>
         <div class="sidebar-footer">
@@ -56,7 +56,7 @@
       <section class="content-shell">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Operacao INSS de obras</p>
+            <p class="eyebrow">Operação INSS de obras</p>
             <h1>Fluxo de clientes ativos</h1>
           </div>
           <button id="newClientButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo cliente</button>
@@ -68,10 +68,10 @@
           <div class="toolbar">
             <label class="search-field">
               <i data-lucide="search"></i>
-              <input id="searchInput" type="search" placeholder="Buscar cliente, CPF, obra ou responsavel" />
+              <input id="searchInput" type="search" placeholder="Buscar cliente, CPF, obra ou responsável" />
             </label>
             <select id="statusFilter" aria-label="Filtrar por status"></select>
-            <div class="segmented-control" role="group" aria-label="Modo de visualizacao">
+            <div class="segmented-control" role="group" aria-label="Modo de visualização">
               <button id="listModeButton" class="active" type="button"><i data-lucide="list"></i> Lista</button>
               <button id="boardModeButton" type="button"><i data-lucide="columns-3"></i> Por status</button>
             </div>
@@ -84,7 +84,7 @@
         <section id="statusSection" class="app-section" hidden>
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Etiquetas simultaneas</p>
+              <p class="eyebrow">Etiquetas simultâneas</p>
               <h2>Status do processo</h2>
             </div>
             <button id="addStatusButton" class="secondary-button" type="button"><i data-lucide="plus"></i> Criar status</button>
@@ -96,9 +96,9 @@
           <div class="section-heading">
             <div>
               <p class="eyebrow">Acesso interno</p>
-              <h2>Usuarios</h2>
+              <h2>Usuários</h2>
             </div>
-            <button id="addUserButton" class="secondary-button" type="button"><i data-lucide="user-plus"></i> Criar usuario</button>
+            <button id="addUserButton" class="secondary-button" type="button"><i data-lucide="user-plus"></i> Criar usuário</button>
           </div>
           <div id="userManager" class="manager-list"></div>
         </section>
@@ -143,7 +143,7 @@
           <button class="tab-button" type="button" data-tab="monthlyTab">Mensal</button>
           <button class="tab-button" type="button" data-tab="tasksTab">Tarefas</button>
           <button class="tab-button" type="button" data-tab="deadlinesTab">Prazos</button>
-          <button class="tab-button" type="button" data-tab="notesTab">Anotacoes</button>
+          <button class="tab-button" type="button" data-tab="notesTab">Anotações</button>
           <button class="tab-button" type="button" data-tab="financeTab">Financeiro</button>
           <button class="tab-button" type="button" data-tab="docsTab">Documentos</button>
           <button class="tab-button" type="button" data-tab="workersTab">Trabalhadores</button>
@@ -153,8 +153,8 @@
           <div class="summary-layout">
             <div class="field-stack">
               <label>Nome do cliente<input data-field="clientName" type="text" /></label>
-              <label>Responsavel interno<select data-field="internalOwner"></select></label>
-              <label>Proxima acao<textarea data-field="nextAction" rows="3"></textarea></label>
+              <label>Responsável interno<select data-field="internalOwner"></select></label>
+              <label>Próxima ação<textarea data-field="nextAction" rows="3"></textarea></label>
               <label>Pasta no OneDrive<input data-field="folderPath" type="text" placeholder="Cole o caminho ou link da pasta" /></label>
             </div>
             <div>
@@ -180,15 +180,15 @@
                 <option value="63">DDD 63</option>
               </select>
             </label>
-            <label>Responsavel por informacoes/documentos<input data-field="infoOwner" type="text" /></label>
-            <label>Responsavel da obra<input data-field="workResponsible" type="text" /></label>
-            <label>Destinacao<input data-field="destination" type="text" /></label>
+            <label>Responsável por informações/documentos<input data-field="infoOwner" type="text" /></label>
+            <label>Responsável da obra<input data-field="workResponsible" type="text" /></label>
+            <label>Destinação<input data-field="destination" type="text" /></label>
             <label>Tipo de obra<input data-field="workType" type="text" /></label>
             <label>Concreto usinado<input data-field="concrete" type="text" /></label>
             <label>Estado<input data-field="state" type="text" maxlength="2" /></label>
-            <label>Inicio da obra<input data-field="startDate" type="date" /></label>
+            <label>Início da obra<input data-field="startDate" type="date" /></label>
             <label>Fim da obra<input data-field="endDate" type="date" /></label>
-            <label>Area<input data-field="area" type="text" placeholder="Ex.: 180 m2" /></label>
+            <label>Área<input data-field="area" type="text" placeholder="Ex.: 180 m²" /></label>
           </div>
         </section>
 
@@ -197,17 +197,17 @@
             <h3>Controle mensal</h3>
             <div class="inline-actions">
               <button id="generateMonthsButton" class="small-button" type="button"><i data-lucide="calendar-plus"></i> Gerar pela obra</button>
-              <button id="addMonthButton" class="small-button" type="button"><i data-lucide="plus"></i> Adicionar mes</button>
+              <button id="addMonthButton" class="small-button" type="button"><i data-lucide="plus"></i> Adicionar mês</button>
             </div>
           </div>
           <div class="table-wrap">
             <table class="data-table" id="monthlyTable">
               <thead>
                 <tr>
-                  <th>Competencia</th>
+                  <th>Competência</th>
                   <th>Recibo pago</th>
                   <th>Recibo assinado</th>
-                  <th>Remuneracao enviada</th>
+                  <th>Remuneração enviada</th>
                   <th>Guia emitida</th>
                   <th>Guia enviada</th>
                   <th>Guia paga</th>
@@ -237,15 +237,15 @@
 
         <section id="notesTab" class="tab-panel">
           <div class="note-composer">
-            <textarea id="newNoteText" rows="3" placeholder="Registrar anotacao do atendimento, decisao ou pendencia"></textarea>
-            <button id="addNoteButton" class="secondary-button" type="button"><i data-lucide="send"></i> Salvar anotacao</button>
+            <textarea id="newNoteText" rows="3" placeholder="Registrar anotação do atendimento, decisão ou pendência"></textarea>
+            <button id="addNoteButton" class="secondary-button" type="button"><i data-lucide="send"></i> Salvar anotação</button>
           </div>
           <div id="notesList" class="timeline-list"></div>
         </section>
 
         <section id="financeTab" class="tab-panel">
           <div class="form-grid">
-            <label>Valor dos honorarios<input data-field="feeValue" type="text" placeholder="R$" /></label>
+            <label>Valor dos honorários<input data-field="feeValue" type="text" placeholder="R$" /></label>
             <label>Forma de pagamento<input data-field="paymentMethod" type="text" placeholder="Ex.: Pix, boleto, parcelas Asaas" /></label>
             <label>Parcelas<input data-field="installments" type="text" /></label>
             <label>Status financeiro
@@ -256,9 +256,9 @@
                 <option value="Atrasado">Atrasado</option>
               </select>
             </label>
-            <label>Comissao de indicacao<input data-field="referralCommission" type="text" placeholder="Valor ou percentual" /></label>
+            <label>Comissão de indicação<input data-field="referralCommission" type="text" placeholder="Valor ou percentual" /></label>
             <label>Quem indicou<input data-field="referrer" type="text" /></label>
-            <label class="wide-field">Observacoes financeiras<textarea data-field="financeNotes" rows="4"></textarea></label>
+            <label class="wide-field">Observações financeiras<textarea data-field="financeNotes" rows="4"></textarea></label>
           </div>
         </section>
 
@@ -272,8 +272,8 @@
 
         <section id="workersTab" class="tab-panel">
           <label class="full-textarea">
-            Informacoes dos trabalhadores e remuneracoes
-            <textarea data-field="workersNotes" rows="14" placeholder="Espaco livre para nomes, remuneracoes mensais, periodos trabalhados e observacoes"></textarea>
+            Informações dos trabalhadores e remunerações
+            <textarea data-field="workersNotes" rows="14" placeholder="Espaço livre para nomes, remunerações mensais, períodos trabalhados e observações"></textarea>
           </label>
         </section>
 
@@ -298,6 +298,6 @@
       </form>
     </dialog>
 
-    <script src="./app.js?v=8"></script>
+    <script src="./app.js?v=9"></script>
   </body>
 </html>

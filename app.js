@@ -15,30 +15,43 @@ function cloneData(value) {
 
 const defaultStatuses = [
   ["Contrato pago", "#009f7f"],
-  ["Procuracao e-CAC pendente", "#c78000"],
+  ["Procuração e-CAC pendente", "#c78000"],
   ["Documentos da obra pendentes", "#2f80ed"],
   ["Aguardando engenheiro", "#7c3aed"],
   ["Dados dos trabalhadores", "#455a64"],
-  ["Recibos em elaboracao", "#007f68"],
+  ["Recibos em elaboração", "#007f68"],
   ["Recibos para assinatura", "#d14343"],
   ["CNO pendente", "#9a6b00"],
   ["eSocial em andamento", "#2563eb"],
-  ["Remuneracao mensal enviada", "#0f766e"],
+  ["Remuneração mensal enviada", "#0f766e"],
   ["Guia emitida", "#0891b2"],
   ["Guia enviada ao cliente", "#0284c7"],
   ["Aguardando pagamento da guia", "#d14343"],
   ["Requerimento Receita", "#7c3aed"],
-  ["Aguardando decisao Receita", "#9333ea"],
+  ["Aguardando decisão Receita", "#9333ea"],
   ["CND emitida", "#15803d"],
   ["NF pendente", "#f97316"],
-  ["Pendencia do cliente", "#b91c1c"],
+  ["Pendência do cliente", "#b91c1c"],
   ["Finalizado", "#4d4d4d"],
 ].map(([name, color]) => ({ id: id(), name, color }));
+
+const labelReplacements = {
+  "Procuracao e-CAC pendente": "Procuração e-CAC pendente",
+  "Recibos em elaboracao": "Recibos em elaboração",
+  "Remuneracao mensal enviada": "Remuneração mensal enviada",
+  "Aguardando decisao Receita": "Aguardando decisão Receita",
+  "Pendencia do cliente": "Pendência do cliente",
+  "Concluida": "Concluída",
+  "Invalido": "Inválido",
+  "Nao possui": "Não possui",
+  "Proprietaria": "Proprietária",
+  "Alvara": "Alvará",
+};
 
 const defaultUsers = [
   {
     id: id(),
-    name: "Proprietaria",
+    name: "Proprietária",
     email: "admin@reduzsim.com.br",
     password: "admin123",
     role: "admin",
@@ -64,15 +77,15 @@ const defaultClient = () => {
     infoOwner: "Cliente",
     internalOwner: state.users[0]?.id || "",
     folderPath: "C:\\Users\\...\\OneDrive\\Clientes\\Cliente exemplo",
-    nextAction: "Conferir procuracao e validar documentos iniciais.",
+    nextAction: "Conferir procuração e validar documentos iniciais.",
     statusIds: [
-      statusByName["Procuracao e-CAC pendente"],
+      statusByName["Procuração e-CAC pendente"],
       statusByName["Documentos da obra pendentes"],
       statusByName["Aguardando pagamento da guia"],
     ].filter(Boolean),
-    workResponsible: "Engenheiro responsavel",
+    workResponsible: "Engenheiro responsável",
     destination: "Residencial",
-    workType: "Construcao",
+    workType: "Construção",
     concrete: "Sim",
     state: "TO",
     startDate: "2026-01-01",
@@ -130,10 +143,10 @@ const defaultClient = () => {
       },
     ],
     documents: [
-      { id: id(), name: "Alvara", status: "Pendente", path: "" },
-      { id: id(), name: "Habite-se", status: "Nao possui", path: "" },
+      { id: id(), name: "Alvará", status: "Pendente", path: "" },
+      { id: id(), name: "Habite-se", status: "Não possui", path: "" },
     ],
-    workersNotes: "Joao - R$ 2.200,00 - jan/2026\nMaria - R$ 2.000,00 - jan/2026",
+    workersNotes: "João - R$ 2.200,00 - jan/2026\nMaria - R$ 2.000,00 - jan/2026",
     feeValue: "R$ 4.500,00",
     paymentMethod: "Asaas - 3 parcelas",
     installments: "3x",
@@ -252,6 +265,10 @@ function migrateState(savedState = {}) {
     users: Array.isArray(savedState.users) ? savedState.users : [],
     clients: Array.isArray(savedState.clients) ? savedState.clients : [],
   };
+  migrated.statuses = migrated.statuses.map((status) => ({
+    ...status,
+    name: localizeLabel(status.name),
+  }));
 
   const userCleanup = normalizeUsersForMigration(migrated.users);
   migrated.users = userCleanup.users;
@@ -293,10 +310,10 @@ function migrateState(savedState = {}) {
     updatedAt: new Date().toISOString(),
     ...client,
     monthly: Array.isArray(client.monthly) ? client.monthly : [],
-    tasks: Array.isArray(client.tasks) ? client.tasks : [],
+    tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => ({ ...task, status: localizeLabel(task.status) })) : [],
     deadlines: Array.isArray(client.deadlines) ? client.deadlines : [],
     notes: Array.isArray(client.notes) ? client.notes : [],
-    documents: Array.isArray(client.documents) ? client.documents : [],
+    documents: Array.isArray(client.documents) ? client.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
     statusIds: Array.isArray(client.statusIds) ? client.statusIds : [],
   }));
 
@@ -304,6 +321,10 @@ function migrateState(savedState = {}) {
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
   return migrated;
+}
+
+function localizeLabel(value) {
+  return labelReplacements[value] || value;
 }
 
 function normalizeUsersForMigration(users) {
@@ -315,7 +336,7 @@ function normalizeUsersForMigration(users) {
   const defaultNames = new Set(defaultUsers.map((user) => normalize(user.name)));
   const prepared = users.map((user) => ({
     id: user.id || id(),
-    name: user.name || "Usuario",
+    name: localizeLabel(user.name) || "Usuário",
     email: user.email || "",
     password: user.password || "",
     role: user.role === "admin" ? "admin" : "user",
@@ -450,7 +471,7 @@ function repairAccess() {
   state = migrateState(state);
   const admin = state.users.find((user) => user.email?.toLowerCase() === "admin@reduzsim.com.br");
   if (admin) {
-    admin.name = admin.name || "Proprietaria";
+    admin.name = admin.name || "Proprietária";
     admin.password = "admin123";
     admin.role = "admin";
   }
@@ -485,7 +506,7 @@ function showApp() {
 }
 
 function updateCurrentUserDisplay() {
-  el.currentUserLabel.textContent = `${currentUser.name} | ${currentUser.role === "admin" ? "Administrador" : "Usuario"}`;
+  el.currentUserLabel.textContent = `${currentUser.name} | ${currentUser.role === "admin" ? "Administrador" : "Usuário"}`;
 }
 
 function configureNavigationForRole() {
@@ -518,7 +539,7 @@ function renderStatusFilter() {
 }
 
 function renderMetrics() {
-  const openTasks = state.clients.flatMap((client) => client.tasks || []).filter((task) => task.status !== "Concluida").length;
+  const openTasks = state.clients.flatMap((client) => client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída").length;
   const deadlines = state.clients.flatMap((client) => client.deadlines || []).length;
   const pendingFinance = state.clients.filter((client) => client.financeStatus && client.financeStatus !== "Pago").length;
   el.metricsGrid.innerHTML = [
@@ -587,10 +608,10 @@ function renderClientCard(client) {
       <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
       <div class="card-meta">
         <span><i data-lucide="user"></i>${escapeHtml(ownerName(client.internalOwner))}</span>
-        <span><i data-lucide="calendar"></i>${nextDue ? `Proximo prazo: ${formatDate(nextDue.date)}` : "Sem prazo registrado"}</span>
-        <span><i data-lucide="folder"></i>${client.folderPath ? "Pasta registrada" : "Pasta nao informada"}</span>
+        <span><i data-lucide="calendar"></i>${nextDue ? `Próximo prazo: ${formatDate(nextDue.date)}` : "Sem prazo registrado"}</span>
+        <span><i data-lucide="folder"></i>${client.folderPath ? "Pasta registrada" : "Pasta não informada"}</span>
       </div>
-      <p>${escapeHtml(client.nextAction || "Sem proxima acao registrada.")}</p>
+      <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
     </button>
   `;
 }
@@ -727,7 +748,7 @@ function renderTasks() {
           (task) => `
             <div class="list-item" data-task="${task.id}">
               <label>Tarefa<input value="${escapeAttr(task.title || "")}" data-task-field="title" /></label>
-              <label>Responsavel<select data-task-field="ownerId">${userOptions(task.ownerId)}</select></label>
+              <label>Responsável<select data-task-field="ownerId">${userOptions(task.ownerId)}</select></label>
               <label>Prazo<input type="date" value="${task.dueDate || ""}" data-task-field="dueDate" /></label>
               <label>Status<select data-task-field="status">${taskStatusOptions(task.status)}</select></label>
               <button class="icon-button" type="button" data-remove-task="${task.id}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>
@@ -748,7 +769,7 @@ function renderDeadlines() {
               <label>Prazo<input value="${escapeAttr(deadline.title || "")}" data-deadline-field="title" /></label>
               <label>Tipo<select data-deadline-field="type">${deadlineTypeOptions(deadline.type)}</select></label>
               <label>Data<input type="date" value="${deadline.date || ""}" data-deadline-field="date" /></label>
-              <label>Responsavel<select data-deadline-field="ownerId">${userOptions(deadline.ownerId)}</select></label>
+              <label>Responsável<select data-deadline-field="ownerId">${userOptions(deadline.ownerId)}</select></label>
               <button class="icon-button" type="button" data-remove-deadline="${deadline.id}" aria-label="Remover prazo"><i data-lucide="trash-2"></i></button>
             </div>
           `
@@ -775,12 +796,12 @@ function renderNotes() {
                   ? `<textarea data-note-field="text">${escapeHtml(note.text || "")}</textarea>`
                   : `<p>${escapeHtml(note.text || "")}</p>`
               }
-              ${canEdit ? `<button class="small-button" type="button" data-save-note="${note.id}"><i data-lucide="save"></i> Salvar edicao</button>` : ""}
+              ${canEdit ? `<button class="small-button" type="button" data-save-note="${note.id}"><i data-lucide="save"></i> Salvar edição</button>` : ""}
             </article>
           `;
         })
         .join("")
-    : `<p class="empty-state">Nenhuma anotacao registrada.</p>`;
+    : `<p class="empty-state">Nenhuma anotação registrada.</p>`;
 
   document.querySelectorAll("[data-save-note]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -923,7 +944,7 @@ function renderUserManager() {
           <label>E-mail<input value="${escapeAttr(user.email)}" data-user-manager-field="email" /></label>
           <label>Perfil<select data-user-manager-field="role">
             <option value="admin" ${user.role === "admin" ? "selected" : ""}>Administrador</option>
-            <option value="user" ${user.role === "user" ? "selected" : ""}>Usuario</option>
+            <option value="user" ${user.role === "user" ? "selected" : ""}>Usuário</option>
           </select></label>
           <label>Nova senha<input type="password" data-user-password="${user.id}" autocomplete="new-password" placeholder="Digite para alterar" /></label>
           <div class="inline-actions">
@@ -990,7 +1011,7 @@ function renderAccount() {
 
   el.accountName.value = currentUser.name || "";
   el.accountEmail.value = currentUser.email || "";
-  el.accountRole.value = currentUser.role === "admin" ? "Administrador" : "Usuario";
+  el.accountRole.value = currentUser.role === "admin" ? "Administrador" : "Usuário";
 }
 
 function changeOwnPassword() {
@@ -1004,7 +1025,7 @@ function changeOwnPassword() {
   }
 
   if (password !== confirmation) {
-    el.accountMessage.textContent = "As senhas nao conferem.";
+    el.accountMessage.textContent = "As senhas não conferem.";
     return;
   }
 
@@ -1032,14 +1053,14 @@ function openStatusDialog() {
 
 function openUserDialog() {
   if (currentUser.role !== "admin") return;
-  openSimpleDialog("Criar usuario", [
+  openSimpleDialog("Criar usuário", [
     { label: "Nome", name: "name", type: "text", value: "" },
     { label: "E-mail", name: "email", type: "email", value: "" },
     { label: "Senha", name: "password", type: "text", value: "" },
   ], (values) => {
     state.users.push({
       id: id(),
-      name: values.name || "Novo usuario",
+      name: values.name || "Novo usuário",
       email: values.email,
       password: values.password || "123456",
       role: "user",
@@ -1136,7 +1157,7 @@ function generateMonthsFromWorkDates() {
   const start = activeClient.startDate;
   const end = activeClient.endDate;
   if (!start || !end) {
-    alert("Informe inicio e fim da obra na aba Cliente e obra.");
+    alert("Informe início e fim da obra na aba Cliente e obra.");
     return;
   }
   const months = monthRange(start, end);
@@ -1195,7 +1216,7 @@ function chip(status) {
 }
 
 function ownerName(userId) {
-  return state.users.find((user) => user.id === userId)?.name || "Sem responsavel";
+  return state.users.find((user) => user.id === userId)?.name || "Sem responsável";
 }
 
 function userOptions(selectedId) {
@@ -1203,7 +1224,7 @@ function userOptions(selectedId) {
 }
 
 function taskStatusOptions(selected = "Pendente") {
-  return ["Pendente", "Em andamento", "Concluida"]
+  return ["Pendente", "Em andamento", "Concluída"]
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
     .join("");
 }
@@ -1215,7 +1236,7 @@ function deadlineTypeOptions(selected = "Interno") {
 }
 
 function documentStatusOptions(selected = "Pendente") {
-  return ["Pendente", "Recebido", "Aprovado", "Invalido", "Nao possui"]
+  return ["Pendente", "Recebido", "Aprovado", "Inválido", "Não possui"]
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
     .join("");
 }
