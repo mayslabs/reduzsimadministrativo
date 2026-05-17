@@ -104,6 +104,14 @@ textarea:focus {
   font-weight: 700;
 }
 
+.login-status {
+  min-height: 18px;
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .login-hint {
   margin: 16px 0 0;
   color: var(--muted);

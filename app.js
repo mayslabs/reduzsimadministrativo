@@ -2,6 +2,16 @@ const STORAGE_KEY = "reduzsim_client_flow_v1";
 const SESSION_KEY = "reduzsim_current_user";
 const NOTE_EDIT_WINDOW_MS = 15 * 60 * 1000;
 
+function makeId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function cloneData(value) {
+  if (window.structuredClone) return window.structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+}
+
 const defaultStatuses = [
   ["Contrato pago", "#009f7f"],
   ["Procuracao e-CAC pendente", "#c78000"],
@@ -148,6 +158,7 @@ const el = {
   loginEmail: document.getElementById("loginEmail"),
   loginPassword: document.getElementById("loginPassword"),
   loginError: document.getElementById("loginError"),
+  loginStatus: document.getElementById("loginStatus"),
   repairAccessButton: document.getElementById("repairAccessButton"),
   currentUserLabel: document.getElementById("currentUserLabel"),
   logoutButton: document.getElementById("logoutButton"),
@@ -339,19 +350,22 @@ function bindEvents() {
 
 function handleLogin(event) {
   event.preventDefault();
+  el.loginStatus.textContent = "Verificando acesso...";
   const email = el.loginEmail.value.trim().toLowerCase();
   const password = el.loginPassword.value;
   state = migrateState(state);
-  const user = state.users.find((item) => item.email.toLowerCase() === email && item.password === password);
+  const user = state.users.find((item) => item.email?.toLowerCase() === email && item.password === password);
 
   if (!user) {
     el.loginError.hidden = false;
+    el.loginStatus.textContent = "";
     return;
   }
 
   currentUser = user;
   sessionStorage.setItem(SESSION_KEY, user.id);
   el.loginError.hidden = true;
+  el.loginStatus.textContent = "Acesso liberado.";
   showApp();
 }
 
@@ -367,6 +381,7 @@ function repairAccess() {
   el.loginEmail.value = "admin@reduzsim.com.br";
   el.loginPassword.value = "admin123";
   el.loginError.hidden = true;
+  el.loginStatus.textContent = "Acesso inicial reparado. Clique em Entrar.";
 }
 
 function handleLogout() {
@@ -509,7 +524,7 @@ function setViewMode(mode) {
 
 function openClientById(clientId) {
   const client = state.clients.find((item) => item.id === clientId);
-  if (client) openClient(structuredClone(client));
+  if (client) openClient(cloneData(client));
 }
 
 function openClient(client) {
@@ -743,8 +758,8 @@ function saveActiveClient() {
   }
   activeClient.updatedAt = new Date().toISOString();
   const index = state.clients.findIndex((client) => client.id === activeClient.id);
-  if (index >= 0) state.clients[index] = structuredClone(activeClient);
-  else state.clients.unshift(structuredClone(activeClient));
+  if (index >= 0) state.clients[index] = cloneData(activeClient);
+  else state.clients.unshift(cloneData(activeClient));
   saveState();
   el.clientDialog.close();
   renderAll();
@@ -1087,7 +1102,7 @@ function escapeAttr(value) {
 }
 
 function id() {
-  return crypto.randomUUID();
+  return makeId();
 }
 
 function capitalize(value) {
