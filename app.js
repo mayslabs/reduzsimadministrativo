@@ -1,5 +1,6 @@
-const STORAGE_KEY = "reduzsim_client_flow_v1";
-const SESSION_KEY = "reduzsim_current_user";
+const STORAGE_KEY = "reduzsim_client_flow_v2";
+const LEGACY_STORAGE_KEYS = ["reduzsim_client_flow_v1"];
+const SESSION_KEY = "reduzsim_current_user_v2";
 const NOTE_EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 function makeId() {
@@ -210,9 +211,9 @@ function bootstrap() {
 }
 
 function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
+  const saved = readStoredState();
   if (saved) {
-    return migrateState(JSON.parse(saved));
+    return migrateState(saved);
   }
 
   const initial = {
@@ -224,6 +225,18 @@ function loadState() {
   initial.clients = [defaultClient()];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
   return initial;
+}
+
+function readStoredState() {
+  const current = localStorage.getItem(STORAGE_KEY);
+  if (current) return JSON.parse(current);
+
+  for (const key of LEGACY_STORAGE_KEYS) {
+    const legacy = localStorage.getItem(key);
+    if (legacy) return JSON.parse(legacy);
+  }
+
+  return null;
 }
 
 function migrateState(savedState = {}) {
