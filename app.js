@@ -393,11 +393,15 @@ function handleLogout() {
 function showLogin() {
   el.loginView.hidden = false;
   el.appView.hidden = true;
+  el.loginView.style.display = "grid";
+  el.appView.style.display = "none";
 }
 
 function showApp() {
   el.loginView.hidden = true;
   el.appView.hidden = false;
+  el.loginView.style.display = "none";
+  el.appView.style.display = "grid";
   el.currentUserLabel.textContent = `${currentUser.name} | ${currentUser.role === "admin" ? "Administrador" : "Usuario"}`;
   document.querySelector('[data-section="usersSection"]').style.display = currentUser.role === "admin" ? "" : "none";
   renderAll();
