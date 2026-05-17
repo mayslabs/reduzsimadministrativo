@@ -246,17 +246,8 @@ function migrateState(savedState = {}) {
     clients: Array.isArray(savedState.clients) ? savedState.clients : [],
   };
 
-  defaultUsers.forEach((defaultUser) => {
-    const existing = migrated.users.find((user) => user.email?.toLowerCase() === defaultUser.email.toLowerCase());
-    if (!existing) {
-      migrated.users.push({ ...defaultUser });
-      return;
-    }
-
-    existing.name ||= defaultUser.name;
-    existing.password ||= defaultUser.password;
-    existing.role ||= defaultUser.role;
-  });
+  const userCleanup = normalizeUsersForMigration(migrated.users);
+  migrated.users = userCleanup.users;
 
   migrated.clients = migrated.clients.map((client) => ({
     id: id(),
@@ -302,8 +293,73 @@ function migrateState(savedState = {}) {
     statusIds: Array.isArray(client.statusIds) ? client.statusIds : [],
   }));
 
+  remapUserReferences(migrated, userCleanup.idMap);
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
   return migrated;
+}
+
+function normalizeUsersForMigration(users) {
+  if (!users.length) {
+    return { users: defaultUsers.map((user) => ({ ...user })), idMap: {} };
+  }
+
+  const defaultEmails = new Set(defaultUsers.map((user) => user.email.toLowerCase()));
+  const defaultNames = new Set(defaultUsers.map((user) => normalize(user.name)));
+  const prepared = users.map((user) => ({
+    id: user.id || id(),
+    name: user.name || "Usuario",
+    email: user.email || "",
+    password: user.password || "",
+    role: user.role === "admin" ? "admin" : "user",
+  }));
+  const customUsers = prepared.filter((user) => !isUntouchedDefaultUser(user, defaultEmails, defaultNames));
+  const untouchedDefaults = prepared.filter((user) => isUntouchedDefaultUser(user, defaultEmails, defaultNames));
+  const idMap = {};
+
+  if (customUsers.length && untouchedDefaults.length) {
+    const fallbackAdmin = customUsers.find((user) => user.role === "admin") || customUsers[0];
+    const fallbackUser = customUsers.find((user) => user.role !== "admin") || fallbackAdmin;
+    untouchedDefaults.forEach((user) => {
+      idMap[user.id] = user.role === "admin" ? fallbackAdmin.id : fallbackUser.id;
+    });
+    return { users: dedupeUsers(customUsers), idMap };
+  }
+
+  return { users: dedupeUsers(prepared), idMap };
+}
+
+function isUntouchedDefaultUser(user, defaultEmails, defaultNames) {
+  return defaultEmails.has(user.email.toLowerCase()) && defaultNames.has(normalize(user.name));
+}
+
+function dedupeUsers(users) {
+  const seenEmails = new Set();
+  const seenIds = new Set();
+  return users.filter((user) => {
+    const emailKey = user.email.toLowerCase();
+    if (seenIds.has(user.id) || (emailKey && seenEmails.has(emailKey))) return false;
+    seenIds.add(user.id);
+    if (emailKey) seenEmails.add(emailKey);
+    return true;
+  });
+}
+
+function remapUserReferences(migrated, idMap) {
+  if (!Object.keys(idMap).length) return;
+
+  migrated.clients.forEach((client) => {
+    client.internalOwner = idMap[client.internalOwner] || client.internalOwner;
+    (client.tasks || []).forEach((task) => {
+      task.ownerId = idMap[task.ownerId] || task.ownerId;
+    });
+    (client.deadlines || []).forEach((deadline) => {
+      deadline.ownerId = idMap[deadline.ownerId] || deadline.ownerId;
+    });
+    (client.notes || []).forEach((note) => {
+      note.userId = idMap[note.userId] || note.userId;
+    });
+  });
 }
 
 function saveState() {
