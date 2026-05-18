@@ -647,6 +647,23 @@ h3 {
   color: var(--green-dark);
 }
 
+.task-source {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+  background: #eef4ff;
+  color: #2563eb;
+}
+
+.task-source.admin-only {
+  background: #fff1f1;
+  color: var(--red);
+}
+
 .urgency-pill,
 .task-type-pill {
   background: var(--soft);
@@ -675,6 +692,10 @@ h3 {
   padding: 7px 9px;
   font-size: 12px;
   font-weight: 800;
+}
+
+.task-row-actions {
+  justify-content: flex-end;
 }
 
 .client-dialog {

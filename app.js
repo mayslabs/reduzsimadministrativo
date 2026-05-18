@@ -189,6 +189,7 @@ const el = {
   logoutButton: document.getElementById("logoutButton"),
   newClientButton: document.getElementById("newClientButton"),
   metricsGrid: document.getElementById("metricsGrid"),
+  addInternalTaskButton: document.getElementById("addInternalTaskButton"),
   taskOverview: document.getElementById("taskOverview"),
   taskSearchInput: document.getElementById("taskSearchInput"),
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
@@ -260,6 +261,7 @@ function loadState() {
     statuses: defaultStatuses,
     users: defaultUsers,
     clients: [],
+    internalTasks: [],
   };
   state = initial;
   initial.clients = [defaultClient()];
@@ -284,6 +286,7 @@ function migrateState(savedState = {}) {
     statuses: Array.isArray(savedState.statuses) && savedState.statuses.length ? savedState.statuses : defaultStatuses,
     users: Array.isArray(savedState.users) ? savedState.users : [],
     clients: Array.isArray(savedState.clients) ? savedState.clients : [],
+    internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
   };
   migrated.statuses = migrated.statuses.map((status) => ({
     ...status,
@@ -361,6 +364,20 @@ function normalizeHistoryEntry(entry) {
   };
 }
 
+function normalizeInternalTask(task) {
+  return {
+    id: task.id || id(),
+    title: task.title || "",
+    ownerId: task.ownerId || "",
+    dueDate: task.dueDate || "",
+    status: localizeLabel(task.status || "Pendente"),
+    visibility: task.visibility === "admin" ? "admin" : "team",
+    createdBy: task.createdBy || "",
+    createdAt: task.createdAt || new Date().toISOString(),
+    updatedAt: task.updatedAt || null,
+  };
+}
+
 function normalizeUsersForMigration(users) {
   if (!users.length) {
     return { users: defaultUsers.map((user) => ({ ...user })), idMap: {} };
@@ -433,6 +450,7 @@ function bindEvents() {
   el.repairAccessButton.addEventListener("click", repairAccess);
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
+  el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
   el.searchInput.addEventListener("input", renderClients);
   el.statusFilter.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
@@ -578,7 +596,7 @@ function renderStatusFilter() {
 }
 
 function renderMetrics() {
-  const openTasks = state.clients.flatMap((client) => client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída").length;
+  const openTasks = taskCenterItems().filter((item) => item.kind !== "Prazo" && item.urgency !== "done").length;
   const deadlines = state.clients.flatMap((client) => client.deadlines || []).length;
   const pendingFinance = state.clients.filter((client) => client.financeStatus && client.financeStatus !== "Pago").length;
   el.metricsGrid.innerHTML = [
@@ -607,6 +625,17 @@ function renderTaskCenter() {
 
   document.querySelectorAll("[data-center-task-status]").forEach((select) => {
     select.addEventListener("change", () => {
+      if (select.dataset.taskSource === "internal") {
+        const task = state.internalTasks.find((item) => item.id === select.dataset.taskId);
+        if (!task) return;
+        task.status = select.value;
+        task.updatedAt = new Date().toISOString();
+        saveState();
+        renderMetrics();
+        renderTaskCenter();
+        return;
+      }
+
       const client = state.clients.find((item) => item.id === select.dataset.clientId);
       const task = client?.tasks?.find((item) => item.id === select.dataset.taskId);
       if (!task) return;
@@ -617,6 +646,19 @@ function renderTaskCenter() {
       addHistoryEntry(client, "Status de tarefa alterado", [
         `${task.title || "Tarefa sem título"}: ${oldStatus} -> ${select.value}.`,
       ]);
+      saveState();
+      renderMetrics();
+      renderTaskCenter();
+    });
+  });
+
+  document.querySelectorAll("[data-edit-internal-task]").forEach((button) => {
+    button.addEventListener("click", () => openInternalTaskDialog(button.dataset.editInternalTask));
+  });
+
+  document.querySelectorAll("[data-remove-internal-task]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.internalTasks = state.internalTasks.filter((task) => task.id !== button.dataset.removeInternalTask);
       saveState();
       renderMetrics();
       renderTaskCenter();
@@ -656,7 +698,7 @@ function renderTaskOverview(items) {
 }
 
 function taskCenterItems() {
-  return state.clients.flatMap((client) => {
+  const clientItems = state.clients.flatMap((client) => {
     const tasks = (client.tasks || []).map((task) => {
       const item = {
         id: task.id,
@@ -691,6 +733,27 @@ function taskCenterItems() {
 
     return [...tasks, ...deadlines];
   });
+
+  const internalItems = (state.internalTasks || [])
+    .filter((task) => task.visibility !== "admin" || currentUser.role === "admin")
+    .map((task) => {
+      const item = {
+        id: task.id,
+        source: "Interno",
+        kind: "Tarefa interna",
+        title: task.title || "Tarefa interna sem título",
+        ownerId: task.ownerId,
+        date: task.dueDate || "",
+        status: localizeLabel(task.status || "Pendente"),
+        visibility: task.visibility || "team",
+        internalTaskId: task.id,
+        clientName: task.visibility === "admin" ? "Somente admin" : "Equipe interna",
+      };
+      item.urgency = taskUrgency(item);
+      return item;
+    });
+
+  return [...clientItems, ...internalItems];
 }
 
 function filterTaskCenterItems(items) {
@@ -700,7 +763,7 @@ function filterTaskCenterItems(items) {
 
   return items
     .filter((item) => {
-      const haystack = normalize([item.title, item.clientName, item.kind, item.status, ownerName(item.ownerId), item.source].join(" "));
+      const haystack = normalize([item.title, item.clientName, item.kind, item.status, ownerName(item.ownerId), item.source, item.visibility].join(" "));
       const matchesQuery = !query || haystack.includes(query);
       const matchesOwner = !ownerId || item.ownerId === ownerId;
       const matchesStatus =
@@ -723,15 +786,23 @@ function filterTaskCenterItems(items) {
 
 function renderTaskCenterItem(item) {
   const statusControl =
-    item.kind === "Tarefa"
-      ? `<select class="task-status-select" data-center-task-status="${item.id}" data-client-id="${item.clientId}" data-task-id="${item.id}">${taskStatusOptions(item.status)}</select>`
+    item.kind !== "Prazo"
+      ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-task-id="${item.id}">${taskStatusOptions(item.status)}</select>`
       : `<span class="task-type-pill">${escapeHtml(item.status)}</span>`;
+  const sourceClass = item.visibility === "admin" ? " admin-only" : "";
+  const actionControl = item.internalTaskId
+    ? `<div class="inline-actions task-row-actions">
+        <button class="small-button" type="button" data-edit-internal-task="${item.internalTaskId}"><i data-lucide="pencil"></i> Editar</button>
+        <button class="icon-button" type="button" data-remove-internal-task="${item.internalTaskId}" aria-label="Remover tarefa interna"><i data-lucide="trash-2"></i></button>
+      </div>`
+    : `<button class="small-button" type="button" data-open-task-client="${item.clientId}"><i data-lucide="external-link"></i> Abrir card</button>`;
 
   return `
     <article class="task-center-item ${item.urgency}">
       <div class="task-main">
         <div class="task-badges">
           <span class="task-kind">${item.kind}</span>
+          <span class="task-source${sourceClass}">${item.visibility === "admin" ? "Somente admin" : escapeHtml(item.source)}</span>
           <span class="urgency-pill">${urgencyLabel(item.urgency)}</span>
         </div>
         <h3>${escapeHtml(item.title)}</h3>
@@ -740,7 +811,7 @@ function renderTaskCenterItem(item) {
       <div class="task-detail"><i data-lucide="user"></i>${escapeHtml(ownerName(item.ownerId))}</div>
       <div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>
       <div class="task-detail">${statusControl}</div>
-      <button class="small-button" type="button" data-open-task-client="${item.clientId}"><i data-lucide="external-link"></i> Abrir card</button>
+      ${actionControl}
     </article>
   `;
 }
@@ -1453,13 +1524,61 @@ function openUserDialog() {
   });
 }
 
+function openInternalTaskDialog(taskId = null) {
+  const task = state.internalTasks.find((item) => item.id === taskId) || null;
+  const visibilityOptions = currentUser.role === "admin"
+    ? [
+        { value: "team", label: "Equipe" },
+        { value: "admin", label: "Somente admin" },
+      ]
+    : [{ value: "team", label: "Equipe" }];
+
+  openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa interna", [
+    { label: "Tarefa", name: "title", type: "text", value: task?.title || "" },
+    { label: "Responsável", name: "ownerId", type: "select", value: task?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
+    { label: "Status", name: "status", type: "select", value: task?.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
+    { label: "Visibilidade", name: "visibility", type: "select", value: task?.visibility || "team", options: visibilityOptions },
+  ], (values) => {
+    if (!values.title) {
+      alert("Informe o nome da tarefa.");
+      return false;
+    }
+
+    const payload = {
+      title: values.title,
+      ownerId: values.ownerId || currentUser.id,
+      dueDate: values.dueDate,
+      status: values.status || "Pendente",
+      visibility: currentUser.role === "admin" ? values.visibility || "team" : "team",
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (task) {
+      Object.assign(task, payload);
+    } else {
+      state.internalTasks.unshift({
+        id: id(),
+        ...payload,
+        createdBy: currentUser.id,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    saveState();
+    renderMetrics();
+    renderTaskCenter();
+    return true;
+  });
+}
+
 function openSimpleDialog(title, fields, onSave) {
   el.simpleDialogTitle.textContent = title;
   el.simpleDialogBody.innerHTML = fields
     .map(
       (field) => `
         <label>${field.label}
-          <input class="${field.type === "color" ? "color-input" : ""}" type="${field.type}" value="${escapeAttr(field.value)}" data-simple-field="${field.name}" />
+          ${simpleFieldControl(field)}
         </label>
       `
     )
@@ -1469,11 +1588,21 @@ function openSimpleDialog(title, fields, onSave) {
     el.simpleDialogBody.querySelectorAll("[data-simple-field]").forEach((input) => {
       values[input.dataset.simpleField] = input.value.trim();
     });
-    onSave(values);
-    el.simpleDialog.close();
+    const shouldClose = onSave(values);
+    if (shouldClose !== false) el.simpleDialog.close();
   };
   el.simpleDialog.showModal();
   refreshIcons();
+}
+
+function simpleFieldControl(field) {
+  if (field.type === "select") {
+    return `<select data-simple-field="${field.name}">${(field.options || [])
+      .map((option) => `<option value="${escapeAttr(option.value)}" ${option.value === field.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
+      .join("")}</select>`;
+  }
+
+  return `<input class="${field.type === "color" ? "color-input" : ""}" type="${field.type}" value="${escapeAttr(field.value)}" data-simple-field="${field.name}" />`;
 }
 
 function switchSection(sectionId) {
@@ -1608,9 +1737,13 @@ function userOptions(selectedId) {
 }
 
 function taskStatusOptions(selected = "Pendente") {
-  return ["Pendente", "Em andamento", "Concluída"]
+  return taskStatusValues()
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
     .join("");
+}
+
+function taskStatusValues() {
+  return ["Pendente", "Em andamento", "Concluída"];
 }
 
 function deadlineTypeOptions(selected = "Interno") {
