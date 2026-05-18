@@ -178,6 +178,11 @@ const el = {
   logoutButton: document.getElementById("logoutButton"),
   newClientButton: document.getElementById("newClientButton"),
   metricsGrid: document.getElementById("metricsGrid"),
+  taskOverview: document.getElementById("taskOverview"),
+  taskSearchInput: document.getElementById("taskSearchInput"),
+  taskOwnerFilter: document.getElementById("taskOwnerFilter"),
+  taskStatusFilter: document.getElementById("taskStatusFilter"),
+  taskCenterList: document.getElementById("taskCenterList"),
   searchInput: document.getElementById("searchInput"),
   statusFilter: document.getElementById("statusFilter"),
   listModeButton: document.getElementById("listModeButton"),
@@ -401,6 +406,9 @@ function bindEvents() {
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.searchInput.addEventListener("input", renderClients);
   el.statusFilter.addEventListener("change", renderClients);
+  el.taskSearchInput.addEventListener("input", renderTaskCenter);
+  el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
+  el.taskStatusFilter.addEventListener("change", renderTaskCenter);
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.boardModeButton.addEventListener("click", () => setViewMode("board"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
@@ -524,6 +532,7 @@ function renderAll() {
   renderStatusFilter();
   renderMetrics();
   renderClients();
+  renderTaskCenter();
   renderStatusManager();
   renderUserManager();
   renderAccount();
@@ -550,6 +559,155 @@ function renderMetrics() {
   ]
     .map(([label, value]) => `<article class="metric"><span>${label}</span><strong>${value}</strong></article>`)
     .join("");
+}
+
+function renderTaskCenter() {
+  renderTaskOwnerFilter();
+  const items = taskCenterItems();
+  renderTaskOverview(items);
+  const filtered = filterTaskCenterItems(items);
+
+  el.taskCenterList.innerHTML = filtered.length
+    ? filtered.map((item) => renderTaskCenterItem(item)).join("")
+    : `<p class="empty-state">Nenhuma tarefa ou prazo encontrado.</p>`;
+
+  document.querySelectorAll("[data-open-task-client]").forEach((button) => {
+    button.addEventListener("click", () => openClientById(button.dataset.openTaskClient));
+  });
+
+  document.querySelectorAll("[data-center-task-status]").forEach((select) => {
+    select.addEventListener("change", () => {
+      const client = state.clients.find((item) => item.id === select.dataset.clientId);
+      const task = client?.tasks?.find((item) => item.id === select.dataset.taskId);
+      if (!task) return;
+      task.status = select.value;
+      client.updatedAt = new Date().toISOString();
+      saveState();
+      renderMetrics();
+      renderTaskCenter();
+    });
+  });
+
+  refreshIcons();
+}
+
+function renderTaskOwnerFilter() {
+  const selected = el.taskOwnerFilter.value;
+  el.taskOwnerFilter.innerHTML = `<option value="">Todos os responsáveis</option>${state.users
+    .map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`)
+    .join("")}`;
+  el.taskOwnerFilter.value = selected;
+}
+
+function renderTaskOverview(items) {
+  const openItems = items.filter((item) => item.urgency !== "done");
+  const stats = [
+    ["Atrasadas", openItems.filter((item) => item.urgency === "overdue").length, "overdue"],
+    ["Hoje", openItems.filter((item) => item.urgency === "today").length, "today"],
+    ["Próximas", openItems.filter((item) => item.urgency === "upcoming").length, "upcoming"],
+    ["Sem prazo", openItems.filter((item) => item.urgency === "no-date").length, "no-date"],
+  ];
+
+  el.taskOverview.innerHTML = stats
+    .map(
+      ([label, value, urgency]) => `
+        <article class="task-stat ${urgency}">
+          <span>${label}</span>
+          <strong>${value}</strong>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function taskCenterItems() {
+  return state.clients.flatMap((client) => {
+    const tasks = (client.tasks || []).map((task) => {
+      const item = {
+        id: task.id,
+        source: "Administrativo",
+        kind: "Tarefa",
+        title: task.title || "Tarefa sem título",
+        ownerId: task.ownerId,
+        date: task.dueDate || "",
+        status: localizeLabel(task.status || "Pendente"),
+        clientId: client.id,
+        clientName: client.clientName || "Cliente sem nome",
+      };
+      item.urgency = taskUrgency(item);
+      return item;
+    });
+
+    const deadlines = (client.deadlines || []).map((deadline) => {
+      const item = {
+        id: deadline.id,
+        source: "Administrativo",
+        kind: "Prazo",
+        title: deadline.title || "Prazo sem título",
+        ownerId: deadline.ownerId,
+        date: deadline.date || "",
+        status: deadline.type || "Prazo",
+        clientId: client.id,
+        clientName: client.clientName || "Cliente sem nome",
+      };
+      item.urgency = taskUrgency(item);
+      return item;
+    });
+
+    return [...tasks, ...deadlines];
+  });
+}
+
+function filterTaskCenterItems(items) {
+  const query = normalize(el.taskSearchInput.value);
+  const ownerId = el.taskOwnerFilter.value;
+  const status = el.taskStatusFilter.value;
+
+  return items
+    .filter((item) => {
+      const haystack = normalize([item.title, item.clientName, item.kind, item.status, ownerName(item.ownerId), item.source].join(" "));
+      const matchesQuery = !query || haystack.includes(query);
+      const matchesOwner = !ownerId || item.ownerId === ownerId;
+      const matchesStatus =
+        !status ||
+        item.urgency === status ||
+        (status === "open" && item.urgency !== "done") ||
+        (status === "done" && item.urgency === "done");
+      return matchesQuery && matchesOwner && matchesStatus;
+    })
+    .sort((a, b) => {
+      const order = { overdue: 0, today: 1, upcoming: 2, "no-date": 3, done: 4 };
+      const orderDiff = order[a.urgency] - order[b.urgency];
+      if (orderDiff) return orderDiff;
+      if (!a.date && !b.date) return a.clientName.localeCompare(b.clientName);
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return a.date.localeCompare(b.date);
+    });
+}
+
+function renderTaskCenterItem(item) {
+  const statusControl =
+    item.kind === "Tarefa"
+      ? `<select class="task-status-select" data-center-task-status="${item.id}" data-client-id="${item.clientId}" data-task-id="${item.id}">${taskStatusOptions(item.status)}</select>`
+      : `<span class="task-type-pill">${escapeHtml(item.status)}</span>`;
+
+  return `
+    <article class="task-center-item ${item.urgency}">
+      <div class="task-main">
+        <div class="task-badges">
+          <span class="task-kind">${item.kind}</span>
+          <span class="urgency-pill">${urgencyLabel(item.urgency)}</span>
+        </div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.clientName)}</p>
+      </div>
+      <div class="task-detail"><i data-lucide="user"></i>${escapeHtml(ownerName(item.ownerId))}</div>
+      <div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>
+      <div class="task-detail">${statusControl}</div>
+      <button class="small-button" type="button" data-open-task-client="${item.clientId}"><i data-lucide="external-link"></i> Abrir card</button>
+    </article>
+  `;
 }
 
 function renderClients() {
@@ -1239,6 +1397,29 @@ function documentStatusOptions(selected = "Pendente") {
   return ["Pendente", "Recebido", "Aprovado", "Inválido", "Não possui"]
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
     .join("");
+}
+
+function taskUrgency(item) {
+  if (item.kind === "Tarefa" && localizeLabel(item.status) === "Concluída") return "done";
+  if (!item.date) return "no-date";
+  const today = localDateKey();
+  if (item.date < today) return "overdue";
+  if (item.date === today) return "today";
+  return "upcoming";
+}
+
+function urgencyLabel(urgency) {
+  return {
+    overdue: "Atrasada",
+    today: "Hoje",
+    upcoming: "Próxima",
+    "no-date": "Sem prazo",
+    done: "Concluída",
+  }[urgency] || "Aberta";
+}
+
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function nearestDate(deadlines) {
