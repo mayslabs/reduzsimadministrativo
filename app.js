@@ -142,6 +142,17 @@ const defaultClient = () => {
         updatedAt: null,
       },
     ],
+    history: [
+      {
+        id: id(),
+        title: "Card criado",
+        details: ["Registro inicial do cliente exemplo."],
+        userId: state.users[0]?.id || "",
+        type: "system",
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      },
+    ],
     documents: [
       { id: id(), name: "Alvará", status: "Pendente", path: "" },
       { id: id(), name: "Habite-se", status: "Não possui", path: "" },
@@ -206,6 +217,10 @@ const el = {
   newNoteText: document.getElementById("newNoteText"),
   addNoteButton: document.getElementById("addNoteButton"),
   notesList: document.getElementById("notesList"),
+  historyAdminControls: document.getElementById("historyAdminControls"),
+  newHistoryText: document.getElementById("newHistoryText"),
+  addHistoryButton: document.getElementById("addHistoryButton"),
+  historyList: document.getElementById("historyList"),
   addDocButton: document.getElementById("addDocButton"),
   documentsList: document.getElementById("documentsList"),
   addStatusButton: document.getElementById("addStatusButton"),
@@ -302,6 +317,7 @@ function migrateState(savedState = {}) {
     tasks: [],
     deadlines: [],
     notes: [],
+    history: [],
     documents: [],
     workersNotes: "",
     feeValue: "",
@@ -318,6 +334,7 @@ function migrateState(savedState = {}) {
     tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => ({ ...task, status: localizeLabel(task.status) })) : [],
     deadlines: Array.isArray(client.deadlines) ? client.deadlines : [],
     notes: Array.isArray(client.notes) ? client.notes : [],
+    history: Array.isArray(client.history) ? client.history.map(normalizeHistoryEntry) : [],
     documents: Array.isArray(client.documents) ? client.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
     statusIds: Array.isArray(client.statusIds) ? client.statusIds : [],
   }));
@@ -330,6 +347,18 @@ function migrateState(savedState = {}) {
 
 function localizeLabel(value) {
   return labelReplacements[value] || value;
+}
+
+function normalizeHistoryEntry(entry) {
+  return {
+    id: entry.id || id(),
+    title: entry.title || "Registro do histórico",
+    details: Array.isArray(entry.details) ? entry.details : [entry.text || entry.detail || ""].filter(Boolean),
+    userId: entry.userId || "",
+    type: entry.type || "manual",
+    createdAt: entry.createdAt || new Date().toISOString(),
+    updatedAt: entry.updatedAt || null,
+  };
 }
 
 function normalizeUsersForMigration(users) {
@@ -430,6 +459,7 @@ function bindEvents() {
     renderDeadlines();
   });
   el.addNoteButton.addEventListener("click", addNote);
+  el.addHistoryButton.addEventListener("click", addManualHistory);
   el.addDocButton.addEventListener("click", () => {
     activeClient.documents.push(emptyDocument());
     renderDocuments();
@@ -580,8 +610,13 @@ function renderTaskCenter() {
       const client = state.clients.find((item) => item.id === select.dataset.clientId);
       const task = client?.tasks?.find((item) => item.id === select.dataset.taskId);
       if (!task) return;
+      const oldStatus = localizeLabel(task.status || "Pendente");
+      if (oldStatus === select.value) return;
       task.status = select.value;
       client.updatedAt = new Date().toISOString();
+      addHistoryEntry(client, "Status de tarefa alterado", [
+        `${task.title || "Tarefa sem título"}: ${oldStatus} -> ${select.value}.`,
+      ]);
       saveState();
       renderMetrics();
       renderTaskCenter();
@@ -816,6 +851,7 @@ function openClient(client) {
   renderTasks();
   renderDeadlines();
   renderNotes();
+  renderHistory();
   renderDocuments();
   switchTab("summaryTab");
   el.clientDialog.showModal();
@@ -973,6 +1009,69 @@ function renderNotes() {
   refreshIcons();
 }
 
+function renderHistory() {
+  const isAdmin = currentUser.role === "admin";
+  el.historyAdminControls.hidden = !isAdmin;
+  const history = Array.isArray(activeClient.history) ? activeClient.history : [];
+
+  el.historyList.innerHTML = history.length
+    ? [...history]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map((entry) => {
+          const details = Array.isArray(entry.details) ? entry.details : [];
+          return `
+            <article class="timeline-item history-item" data-history="${entry.id}">
+              <header>
+                <div>
+                  ${
+                    isAdmin
+                      ? `<input class="history-title-input" value="${escapeAttr(entry.title || "")}" data-history-title="${entry.id}" />`
+                      : `<strong>${escapeHtml(entry.title || "Registro do histórico")}</strong>`
+                  }
+                  <span>${escapeHtml(ownerName(entry.userId))} | ${entry.type === "system" ? "Automático" : "Manual"}</span>
+                </div>
+                <span>${formatDateTime(entry.createdAt)}${entry.updatedAt ? " | editado" : ""}</span>
+              </header>
+              ${
+                isAdmin
+                  ? `<textarea data-history-details="${entry.id}" rows="4">${escapeHtml(details.join("\n"))}</textarea>
+                    <div class="inline-actions history-actions">
+                      <button class="small-button" type="button" data-save-history="${entry.id}"><i data-lucide="save"></i> Salvar edição</button>
+                      <button class="danger-button" type="button" data-remove-history="${entry.id}"><i data-lucide="trash-2"></i> Remover</button>
+                    </div>`
+                  : `<ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>`
+              }
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="empty-state">Nenhum histórico registrado.</p>`;
+
+  document.querySelectorAll("[data-save-history]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (currentUser.role !== "admin") return;
+      const entry = activeClient.history.find((item) => item.id === button.dataset.saveHistory);
+      if (!entry) return;
+      const titleInput = document.querySelector(`[data-history-title="${entry.id}"]`);
+      const detailsInput = document.querySelector(`[data-history-details="${entry.id}"]`);
+      entry.title = titleInput.value.trim() || "Registro do histórico";
+      entry.details = detailsInput.value.split("\n").map((line) => line.trim()).filter(Boolean);
+      entry.updatedAt = new Date().toISOString();
+      renderHistory();
+    });
+  });
+
+  document.querySelectorAll("[data-remove-history]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (currentUser.role !== "admin") return;
+      activeClient.history = activeClient.history.filter((entry) => entry.id !== button.dataset.removeHistory);
+      renderHistory();
+    });
+  });
+
+  refreshIcons();
+}
+
 function renderDocuments() {
   el.documentsList.innerHTML = (activeClient.documents || []).length
     ? activeClient.documents
@@ -1028,17 +1127,143 @@ function addNote() {
   renderNotes();
 }
 
+function addManualHistory() {
+  if (currentUser.role !== "admin") return;
+  const text = el.newHistoryText.value.trim();
+  if (!text) return;
+  addHistoryEntry(activeClient, "Registro manual", text.split("\n").map((line) => line.trim()).filter(Boolean), "manual");
+  el.newHistoryText.value = "";
+  renderHistory();
+}
+
 function saveActiveClient() {
   if (!activeClient.clientName.trim()) {
     activeClient.clientName = activeClient.fullName || "Cliente sem nome";
   }
-  activeClient.updatedAt = new Date().toISOString();
   const index = state.clients.findIndex((client) => client.id === activeClient.id);
-  if (index >= 0) state.clients[index] = cloneData(activeClient);
-  else state.clients.unshift(cloneData(activeClient));
+  const previousClient = index >= 0 ? state.clients[index] : null;
+  const changes = previousClient ? summarizeClientChanges(previousClient, activeClient) : [];
+  activeClient.updatedAt = new Date().toISOString();
+
+  if (previousClient && changes.length) {
+    addHistoryEntry(activeClient, "Card atualizado", changes, "system");
+  }
+
+  if (index >= 0) {
+    state.clients[index] = cloneData(activeClient);
+  } else {
+    addHistoryEntry(activeClient, "Card criado", ["Novo card incluído no administrativo."], "system");
+    state.clients.unshift(cloneData(activeClient));
+  }
   saveState();
   el.clientDialog.close();
   renderAll();
+}
+
+function addHistoryEntry(client, title, details, type = "system") {
+  client.history = Array.isArray(client.history) ? client.history : [];
+  client.history.unshift({
+    id: id(),
+    title,
+    details: Array.isArray(details) ? details : [details],
+    userId: currentUser?.id || "",
+    type,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+  });
+}
+
+function summarizeClientChanges(previousClient, nextClient) {
+  const changes = [];
+  const fieldLabels = {
+    clientName: "Nome do cliente",
+    fullName: "Nome completo",
+    cpf: "CPF",
+    phone: "Telefone",
+    whatsappDdd: "DDD do WhatsApp",
+    infoOwner: "Responsável por informações",
+    internalOwner: "Responsável interno",
+    folderPath: "Pasta no OneDrive",
+    nextAction: "Próxima ação",
+    workResponsible: "Responsável da obra",
+    destination: "Destinação",
+    workType: "Tipo de obra",
+    concrete: "Concreto usinado",
+    state: "Estado",
+    startDate: "Início da obra",
+    endDate: "Fim da obra",
+    area: "Área",
+    workersNotes: "Informações dos trabalhadores",
+    feeValue: "Honorários",
+    paymentMethod: "Forma de pagamento",
+    installments: "Parcelas",
+    financeStatus: "Status financeiro",
+    referralCommission: "Comissão de indicação",
+    referrer: "Quem indicou",
+    financeNotes: "Observações financeiras",
+  };
+
+  Object.entries(fieldLabels).forEach(([field, label]) => {
+    const before = historyFieldValue(previousClient[field], field);
+    const after = historyFieldValue(nextClient[field], field);
+    if (before !== after) changes.push(`${label}: ${before} -> ${after}.`);
+  });
+
+  const previousStatuses = statusNames(previousClient.statusIds);
+  const nextStatuses = statusNames(nextClient.statusIds);
+  if (previousStatuses !== nextStatuses) changes.push(`Status do processo: ${previousStatuses} -> ${nextStatuses}.`);
+
+  collectionChangeSummary(changes, "Controle mensal", previousClient.monthly, nextClient.monthly, (item) => item.month || "mês sem competência");
+  collectionChangeSummary(changes, "Tarefas", previousClient.tasks, nextClient.tasks, (item) => item.title || "tarefa sem título");
+  collectionChangeSummary(changes, "Prazos", previousClient.deadlines, nextClient.deadlines, (item) => item.title || "prazo sem título");
+  collectionChangeSummary(changes, "Anotações", previousClient.notes, nextClient.notes, (item) => item.text || "anotação sem texto");
+  collectionChangeSummary(changes, "Documentos", previousClient.documents, nextClient.documents, (item) => item.name || "documento sem nome");
+
+  const maxVisibleChanges = 12;
+  if (changes.length > maxVisibleChanges) {
+    const hiddenCount = changes.length - maxVisibleChanges;
+    return [...changes.slice(0, maxVisibleChanges), `Mais ${hiddenCount} alteração(ões) registrada(s) neste salvamento.`];
+  }
+
+  return changes;
+}
+
+function historyFieldValue(value, field) {
+  if (field === "internalOwner") return ownerName(value);
+  if (field === "startDate" || field === "endDate") return value ? formatDate(value) : "vazio";
+  if (value === undefined || value === null || value === "") return "vazio";
+  return truncateHistoryValue(String(value));
+}
+
+function statusNames(statusIds = []) {
+  const names = state.statuses
+    .filter((status) => statusIds.includes(status.id))
+    .map((status) => status.name);
+  return names.length ? names.join(", ") : "sem status";
+}
+
+function collectionChangeSummary(changes, label, previousItems = [], nextItems = [], getLabel) {
+  const previous = Array.isArray(previousItems) ? previousItems : [];
+  const next = Array.isArray(nextItems) ? nextItems : [];
+  const previousById = new Map(previous.map((item) => [item.id, item]));
+  const nextById = new Map(next.map((item) => [item.id, item]));
+  const added = next.filter((item) => !previousById.has(item.id));
+  const removed = previous.filter((item) => !nextById.has(item.id));
+  const changed = next.filter((item) => previousById.has(item.id) && JSON.stringify(previousById.get(item.id)) !== JSON.stringify(item));
+
+  if (added.length) changes.push(`${label}: ${added.length} item(ns) adicionado(s) (${shortItemList(added, getLabel)}).`);
+  if (removed.length) changes.push(`${label}: ${removed.length} item(ns) removido(s) (${shortItemList(removed, getLabel)}).`);
+  if (changed.length) changes.push(`${label}: ${changed.length} item(ns) alterado(s) (${shortItemList(changed, getLabel)}).`);
+}
+
+function shortItemList(items, getLabel) {
+  return items.slice(0, 3).map((item) => truncateHistoryValue(getLabel(item), 36)).join(", ") + (items.length > 3 ? "..." : "");
+}
+
+function truncateHistoryValue(value, maxLength = 80) {
+  const clean = String(value).replace(/\s+/g, " ").trim();
+  if (!clean) return "vazio";
+  return clean.length > maxLength ? `${clean.slice(0, maxLength - 3)}...` : clean;
 }
 
 function deleteActiveClient() {
@@ -1297,6 +1522,7 @@ function createEmptyClient() {
     tasks: [],
     deadlines: [],
     notes: [],
+    history: [],
     documents: [],
     workersNotes: "",
     feeValue: "",

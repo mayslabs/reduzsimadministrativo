@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=10" />
+    <link rel="stylesheet" href="./styles.css?v=11" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -175,6 +175,7 @@
           <button class="tab-button" type="button" data-tab="tasksTab">Tarefas</button>
           <button class="tab-button" type="button" data-tab="deadlinesTab">Prazos</button>
           <button class="tab-button" type="button" data-tab="notesTab">Anotações</button>
+          <button class="tab-button" type="button" data-tab="historyTab">Histórico</button>
           <button class="tab-button" type="button" data-tab="financeTab">Financeiro</button>
           <button class="tab-button" type="button" data-tab="docsTab">Documentos</button>
           <button class="tab-button" type="button" data-tab="workersTab">Trabalhadores</button>
@@ -274,6 +275,14 @@
           <div id="notesList" class="timeline-list"></div>
         </section>
 
+        <section id="historyTab" class="tab-panel">
+          <div id="historyAdminControls" class="note-composer">
+            <textarea id="newHistoryText" rows="3" placeholder="Registrar complemento interno no histórico"></textarea>
+            <button id="addHistoryButton" class="secondary-button" type="button"><i data-lucide="file-clock"></i> Registrar no histórico</button>
+          </div>
+          <div id="historyList" class="timeline-list"></div>
+        </section>
+
         <section id="financeTab" class="tab-panel">
           <div class="form-grid">
             <label>Valor dos honorários<input data-field="feeValue" type="text" placeholder="R$" /></label>
@@ -329,6 +338,6 @@
       </form>
     </dialog>
 
-    <script src="./app.js?v=10"></script>
+    <script src="./app.js?v=11"></script>
   </body>
 </html>
