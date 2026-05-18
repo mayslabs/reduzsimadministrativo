@@ -417,6 +417,31 @@ h3 {
   grid-template-columns: minmax(240px, 1fr) 230px 180px;
 }
 
+.calendar-controls {
+  display: grid;
+  grid-template-columns: 38px minmax(220px, 1fr) 38px auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.calendar-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--charcoal);
+  font-weight: 900;
+}
+
+.calendar-mode {
+  min-width: 210px;
+}
+
 .search-field {
   position: relative;
   display: block;
@@ -570,40 +595,177 @@ h3 {
 
 .task-center-list {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
-.task-center-item {
+.task-week-board {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 190px 150px 160px auto;
-  gap: 12px;
+  grid-template-columns: repeat(7, minmax(220px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.task-day-column,
+.task-month-day,
+.no-date-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.task-day-column {
+  min-width: 220px;
+  background: var(--soft);
+  padding: 14px;
+}
+
+.task-day-column.today,
+.task-month-day.today {
+  border-color: rgba(0, 159, 127, 0.6);
+  box-shadow: inset 0 0 0 2px rgba(0, 159, 127, 0.08);
+}
+
+.task-day-column > header,
+.no-date-panel > header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
   align-items: center;
+  margin-bottom: 10px;
+}
+
+.task-day-column > header span {
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.task-day-column > header strong {
+  color: var(--charcoal);
+  font-size: 18px;
+}
+
+.task-day-column > header small,
+.no-date-panel > header span,
+.task-month-day header span {
+  justify-self: end;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.task-day-items,
+.no-date-grid {
+  display: grid;
+  gap: 9px;
+}
+
+.task-calendar-card {
+  display: grid;
+  gap: 10px;
   border: 1px solid var(--line);
   border-left: 5px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
-  padding: 14px;
+  padding: 12px;
 }
 
-.task-center-item.overdue {
+.task-calendar-card.overdue {
   border-left-color: var(--red);
 }
 
-.task-center-item.today {
+.task-calendar-card.today {
   border-left-color: var(--amber);
 }
 
-.task-center-item.upcoming {
+.task-calendar-card.upcoming {
   border-left-color: var(--blue);
 }
 
-.task-center-item.no-date {
+.task-calendar-card.no-date {
   border-left-color: var(--muted);
 }
 
-.task-center-item.done {
+.task-calendar-card.done {
   border-left-color: #15803d;
   opacity: 0.78;
+}
+
+.task-calendar-card.compact {
+  padding: 9px;
+  gap: 8px;
+}
+
+.task-calendar-card.compact .task-badges .urgency-pill,
+.task-calendar-card.compact .task-row-actions .icon-button {
+  display: none;
+}
+
+.task-calendar-card.compact .small-button {
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.month-weekdays,
+.task-month-board {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(135px, 1fr));
+  gap: 8px;
+}
+
+.month-weekdays span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.task-month-board {
+  overflow-x: auto;
+}
+
+.task-month-day {
+  min-height: 170px;
+  padding: 9px;
+  background: #fff;
+}
+
+.task-month-day.outside {
+  background: #f8fbfa;
+  opacity: 0.58;
+}
+
+.task-month-day header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.task-month-items {
+  display: grid;
+  gap: 7px;
+}
+
+.task-month-items small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.no-date-panel {
+  padding: 14px;
+  background: #fff;
+}
+
+.no-date-grid {
+  grid-template-columns: repeat(3, minmax(230px, 1fr));
 }
 
 .task-main {
@@ -999,13 +1161,14 @@ h3 {
 
   .toolbar,
   .task-toolbar,
+  .calendar-controls,
   .summary-layout,
   .form-grid {
     grid-template-columns: 1fr;
   }
 
-  .task-center-item {
-    grid-template-columns: 1fr 1fr;
+  .calendar-mode {
+    min-width: 0;
   }
 }
 
@@ -1026,7 +1189,7 @@ h3 {
   .client-grid,
   .metrics-grid,
   .task-overview,
-  .task-center-item {
+  .no-date-grid {
     grid-template-columns: 1fr;
   }
 

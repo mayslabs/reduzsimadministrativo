@@ -175,6 +175,8 @@ state = loadState();
 let currentUser = null;
 let activeClient = null;
 let activeViewMode = "list";
+let activeTaskCalendarMode = "week";
+let activeTaskDate = new Date();
 
 const el = {
   loginView: document.getElementById("loginView"),
@@ -191,6 +193,12 @@ const el = {
   metricsGrid: document.getElementById("metricsGrid"),
   addInternalTaskButton: document.getElementById("addInternalTaskButton"),
   taskOverview: document.getElementById("taskOverview"),
+  previousTaskPeriodButton: document.getElementById("previousTaskPeriodButton"),
+  nextTaskPeriodButton: document.getElementById("nextTaskPeriodButton"),
+  todayTaskButton: document.getElementById("todayTaskButton"),
+  taskPeriodLabel: document.getElementById("taskPeriodLabel"),
+  taskWeekModeButton: document.getElementById("taskWeekModeButton"),
+  taskMonthModeButton: document.getElementById("taskMonthModeButton"),
   taskSearchInput: document.getElementById("taskSearchInput"),
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
   taskStatusFilter: document.getElementById("taskStatusFilter"),
@@ -451,6 +459,14 @@ function bindEvents() {
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
+  el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
+  el.nextTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(1));
+  el.todayTaskButton.addEventListener("click", () => {
+    activeTaskDate = new Date();
+    renderTaskCenter();
+  });
+  el.taskWeekModeButton.addEventListener("click", () => setTaskCalendarMode("week"));
+  el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
   el.searchInput.addEventListener("input", renderClients);
   el.statusFilter.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
@@ -614,11 +630,114 @@ function renderTaskCenter() {
   const items = taskCenterItems();
   renderTaskOverview(items);
   const filtered = filterTaskCenterItems(items);
+  renderTaskPeriodControls();
 
-  el.taskCenterList.innerHTML = filtered.length
-    ? filtered.map((item) => renderTaskCenterItem(item)).join("")
-    : `<p class="empty-state">Nenhuma tarefa ou prazo encontrado.</p>`;
+  renderTaskCalendar(filtered);
+  bindTaskCenterActions();
+  refreshIcons();
+}
 
+function renderTaskPeriodControls() {
+  el.taskWeekModeButton.classList.toggle("active", activeTaskCalendarMode === "week");
+  el.taskMonthModeButton.classList.toggle("active", activeTaskCalendarMode === "month");
+
+  if (activeTaskCalendarMode === "week") {
+    const days = weekDays(activeTaskDate);
+    el.taskPeriodLabel.textContent = `${formatShortDate(days[0])} a ${formatShortDate(days[6])}`;
+    return;
+  }
+
+  el.taskPeriodLabel.textContent = activeTaskDate.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function renderTaskCalendar(items) {
+  const datedItems = items.filter((item) => item.date);
+  const noDateItems = items.filter((item) => !item.date);
+  const calendarMarkup = activeTaskCalendarMode === "week" ? renderTaskWeekBoard(datedItems) : renderTaskMonthBoard(datedItems);
+
+  el.taskCenterList.innerHTML = `
+    ${calendarMarkup}
+    ${renderNoDateTasks(noDateItems)}
+  `;
+}
+
+function renderTaskWeekBoard(items) {
+  const today = localDateKey();
+  return `
+    <div class="task-week-board">
+      ${weekDays(activeTaskDate)
+        .map((day) => {
+          const key = localDateKey(day);
+          const dayItems = items.filter((item) => item.date === key);
+          return `
+            <section class="task-day-column ${key === today ? "today" : ""}">
+              <header>
+                <span>${weekdayLabel(day)}</span>
+                <strong>${formatShortDate(day)}</strong>
+                <small>${dayItems.length}</small>
+              </header>
+              <div class="task-day-items">
+                ${dayItems.map((item) => renderTaskCalendarCard(item)).join("") || `<p class="empty-state">Sem tarefas.</p>`}
+              </div>
+            </section>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderTaskMonthBoard(items) {
+  const today = localDateKey();
+  const days = monthCalendarDays(activeTaskDate);
+  return `
+    <div class="month-weekdays">
+      ${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}
+    </div>
+    <div class="task-month-board">
+      ${days
+        .map((day) => {
+          const key = localDateKey(day);
+          const inMonth = day.getMonth() === activeTaskDate.getMonth();
+          const dayItems = items.filter((item) => item.date === key);
+          return `
+            <section class="task-month-day ${inMonth ? "" : "outside"} ${key === today ? "today" : ""}">
+              <header>
+                <strong>${day.getDate()}</strong>
+                <span>${dayItems.length}</span>
+              </header>
+              <div class="task-month-items">
+                ${dayItems.slice(0, 4).map((item) => renderTaskCalendarCard(item, true)).join("") || ""}
+                ${dayItems.length > 4 ? `<small>+${dayItems.length - 4} tarefa(s)</small>` : ""}
+              </div>
+            </section>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderNoDateTasks(items) {
+  if (!items.length) return "";
+
+  return `
+    <section class="no-date-panel">
+      <header>
+        <strong>Sem prazo</strong>
+        <span>${items.length}</span>
+      </header>
+      <div class="no-date-grid">
+        ${items.map((item) => renderTaskCalendarCard(item)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function bindTaskCenterActions() {
   document.querySelectorAll("[data-open-task-client]").forEach((button) => {
     button.addEventListener("click", () => openClientById(button.dataset.openTaskClient));
   });
@@ -664,8 +783,6 @@ function renderTaskCenter() {
       renderTaskCenter();
     });
   });
-
-  refreshIcons();
 }
 
 function renderTaskOwnerFilter() {
@@ -784,7 +901,7 @@ function filterTaskCenterItems(items) {
     });
 }
 
-function renderTaskCenterItem(item) {
+function renderTaskCalendarCard(item, compact = false) {
   const statusControl =
     item.kind !== "Prazo"
       ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-task-id="${item.id}">${taskStatusOptions(item.status)}</select>`
@@ -798,7 +915,7 @@ function renderTaskCenterItem(item) {
     : `<button class="small-button" type="button" data-open-task-client="${item.clientId}"><i data-lucide="external-link"></i> Abrir card</button>`;
 
   return `
-    <article class="task-center-item ${item.urgency}">
+    <article class="task-calendar-card ${item.urgency} ${compact ? "compact" : ""}">
       <div class="task-main">
         <div class="task-badges">
           <span class="task-kind">${item.kind}</span>
@@ -809,8 +926,8 @@ function renderTaskCenterItem(item) {
         <p>${escapeHtml(item.clientName)}</p>
       </div>
       <div class="task-detail"><i data-lucide="user"></i>${escapeHtml(ownerName(item.ownerId))}</div>
-      <div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>
-      <div class="task-detail">${statusControl}</div>
+      ${compact ? "" : `<div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>`}
+      ${compact ? "" : `<div class="task-detail">${statusControl}</div>`}
       ${actionControl}
     </article>
   `;
@@ -902,6 +1019,23 @@ function setViewMode(mode) {
   el.listModeButton.classList.toggle("active", mode === "list");
   el.boardModeButton.classList.toggle("active", mode === "board");
   renderClients();
+}
+
+function setTaskCalendarMode(mode) {
+  activeTaskCalendarMode = mode;
+  renderTaskCenter();
+}
+
+function moveTaskPeriod(direction) {
+  const nextDate = new Date(activeTaskDate);
+  if (activeTaskCalendarMode === "week") {
+    nextDate.setDate(nextDate.getDate() + direction * 7);
+  } else {
+    nextDate.setDate(1);
+    nextDate.setMonth(nextDate.getMonth() + direction);
+  }
+  activeTaskDate = nextDate;
+  renderTaskCenter();
 }
 
 function openClientById(clientId) {
@@ -1777,6 +1911,43 @@ function urgencyLabel(urgency) {
   }[urgency] || "Aberta";
 }
 
+function weekDays(date) {
+  const start = startOfWeek(date);
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+}
+
+function startOfWeek(date) {
+  const start = new Date(date);
+  const day = start.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + diff);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function monthCalendarDays(date) {
+  const first = new Date(date.getFullYear(), date.getMonth(), 1);
+  const last = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const start = startOfWeek(first);
+  const end = addDays(startOfWeek(last), 6);
+  const days = [];
+  for (let cursor = new Date(start); cursor <= end; cursor = addDays(cursor, 1)) {
+    days.push(new Date(cursor));
+  }
+  return days;
+}
+
+function addDays(date, amount) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function weekdayLabel(date) {
+  return date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+}
+
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -1800,6 +1971,11 @@ function formatDate(dateValue) {
   if (!dateValue) return "";
   const date = new Date(`${dateValue}T00:00:00`);
   return date.toLocaleDateString("pt-BR");
+}
+
+function formatShortDate(dateValue) {
+  const date = dateValue instanceof Date ? dateValue : new Date(`${dateValue}T00:00:00`);
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 function formatDateTime(dateValue) {

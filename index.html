@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=12" />
+    <link rel="stylesheet" href="./styles.css?v=13" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -92,6 +92,19 @@
           </div>
 
           <div id="taskOverview" class="task-overview"></div>
+
+          <div class="calendar-controls">
+            <button id="previousTaskPeriodButton" class="icon-button" type="button" aria-label="Período anterior"><i data-lucide="chevron-left"></i></button>
+            <div class="calendar-title">
+              <strong id="taskPeriodLabel"></strong>
+              <button id="todayTaskButton" class="small-button" type="button">Hoje</button>
+            </div>
+            <button id="nextTaskPeriodButton" class="icon-button" type="button" aria-label="Próximo período"><i data-lucide="chevron-right"></i></button>
+            <div class="segmented-control calendar-mode" role="group" aria-label="Modo do calendário">
+              <button id="taskWeekModeButton" class="active" type="button"><i data-lucide="columns-3"></i> Semana</button>
+              <button id="taskMonthModeButton" type="button"><i data-lucide="calendar-days"></i> Mês</button>
+            </div>
+          </div>
 
           <div class="toolbar task-toolbar">
             <label class="search-field">
@@ -339,6 +352,6 @@
       </form>
     </dialog>
 
-    <script src="./app.js?v=12"></script>
+    <script src="./app.js?v=13"></script>
   </body>
 </html>
