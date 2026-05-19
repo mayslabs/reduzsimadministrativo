@@ -2,6 +2,17 @@ const STORAGE_KEY = "reduzsim_client_flow_v2";
 const LEGACY_STORAGE_KEYS = ["reduzsim_client_flow_v1"];
 const SESSION_KEY = "reduzsim_current_user_v2";
 const NOTE_EDIT_WINDOW_MS = 15 * 60 * 1000;
+const FIRESTORE_COLLECTION = "reduzsim_admin";
+const FIRESTORE_STATE_DOC = "shared_state";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAwgOrvq2QGUEPObgkAPXyG_KyJ3l-305w",
+  authDomain: "reduzsim-2a6f2.firebaseapp.com",
+  projectId: "reduzsim-2a6f2",
+  storageBucket: "reduzsim-2a6f2.firebasestorage.app",
+  messagingSenderId: "350622536875",
+  appId: "1:350622536875:web:ed0f9bf3f11b32c894d3ee",
+};
 
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -50,22 +61,20 @@ const labelReplacements = {
 
 const fixedUserIds = {
   mayssa: "user-mayssa",
-  camilli: "user-camilli",
+  contato: "user-contato",
 };
 
 const defaultUsers = [
   {
     id: fixedUserIds.mayssa,
     name: "Mayssa",
-    email: "mayssa@reduzsim.com.br",
-    password: "123456",
+    email: "mayssa@reduzsiminss.com.br",
     role: "admin",
   },
   {
-    id: fixedUserIds.camilli,
-    name: "Camilli",
-    email: "camilli@reduzsim.com.br",
-    password: "123456",
+    id: fixedUserIds.contato,
+    name: "Contato",
+    email: "contato@reduzsiminss.com.br",
     role: "user",
   },
 ];
@@ -182,6 +191,13 @@ let activeClient = null;
 let activeViewMode = "list";
 let activeTaskCalendarMode = "week";
 let activeTaskDate = new Date();
+let firebaseApp = null;
+let firebaseAuth = null;
+let firebaseDb = null;
+let firebaseStateRef = null;
+let unsubscribeCloudState = null;
+let cloudSaveTimer = null;
+let isApplyingCloudState = false;
 
 const el = {
   loginView: document.getElementById("loginView"),
@@ -258,10 +274,58 @@ bootstrap();
 
 function bootstrap() {
   bindEvents();
+  if (initializeFirebaseServices()) {
+    el.loginStatus.textContent = "Conectando ao Firebase...";
+    firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
+      if (!firebaseUser) {
+        stopCloudStateListener();
+        sessionStorage.removeItem(SESSION_KEY);
+        currentUser = null;
+        showLogin();
+        el.loginStatus.textContent = "";
+        return;
+      }
+
+      try {
+        await loadCloudState();
+        currentUser = userForFirebaseUser(firebaseUser);
+        if (!currentUser) {
+          await firebaseAuth.signOut();
+          el.loginError.hidden = false;
+          el.loginStatus.textContent = "Este e-mail nÃ£o estÃ¡ autorizado neste sistema.";
+          return;
+        }
+        sessionStorage.setItem(SESSION_KEY, currentUser.id);
+        subscribeCloudState();
+        showApp();
+      } catch (error) {
+        console.error(error);
+        el.loginError.hidden = false;
+        el.loginStatus.textContent = "NÃ£o foi possÃ­vel carregar os dados online.";
+      }
+    });
+    return;
+  }
+
   const userId = sessionStorage.getItem(SESSION_KEY);
   currentUser = state.users.find((user) => user.id === userId) || null;
   if (currentUser) showApp();
   else showLogin();
+}
+
+function initializeFirebaseServices() {
+  if (!window.firebase?.initializeApp) return false;
+
+  try {
+    firebaseApp = window.firebase.apps?.length ? window.firebase.app() : window.firebase.initializeApp(firebaseConfig);
+    firebaseAuth = window.firebase.auth();
+    firebaseDb = window.firebase.firestore();
+    firebaseStateRef = firebaseDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_STATE_DOC);
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
 }
 
 function loadState() {
@@ -409,10 +473,11 @@ function targetUserIdForMigration(user) {
   if (
     identity.includes("camilli") ||
     identity.includes("camila") ||
+    identity.includes("contato") ||
     identity.includes("colaboradora") ||
     identity.includes("colaborador")
   ) {
-    return fixedUserIds.camilli;
+    return fixedUserIds.contato;
   }
 
   if (
@@ -424,7 +489,7 @@ function targetUserIdForMigration(user) {
     return fixedUserIds.mayssa;
   }
 
-  return user.role === "admin" ? fixedUserIds.mayssa : fixedUserIds.camilli;
+  return user.role === "admin" ? fixedUserIds.mayssa : fixedUserIds.contato;
 }
 
 function remapUserReferences(migrated, idMap) {
@@ -454,6 +519,73 @@ function remapUserReferences(migrated, idMap) {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  scheduleCloudSave();
+}
+
+function scheduleCloudSave() {
+  if (!firebaseStateRef || !firebaseAuth?.currentUser || isApplyingCloudState) return;
+  window.clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = window.setTimeout(() => {
+    saveCloudStateNow().catch((error) => {
+      console.error(error);
+      if (el.loginStatus) el.loginStatus.textContent = "NÃ£o foi possÃ­vel sincronizar com o Firebase.";
+    });
+  }, 350);
+}
+
+async function saveCloudStateNow() {
+  if (!firebaseStateRef || !firebaseAuth?.currentUser) return;
+  await firebaseStateRef.set(
+    {
+      state: cloneData(state),
+      updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: firebaseAuth.currentUser.uid,
+      updatedByEmail: firebaseAuth.currentUser.email || "",
+    },
+    { merge: true }
+  );
+}
+
+async function loadCloudState() {
+  const localState = migrateState(state);
+  const snapshot = await firebaseStateRef.get();
+  if (snapshot.exists && snapshot.data()?.state) {
+    state = migrateState(snapshot.data().state);
+    return;
+  }
+
+  state = localState;
+  await saveCloudStateNow();
+}
+
+function subscribeCloudState() {
+  if (unsubscribeCloudState || !firebaseStateRef) return;
+  unsubscribeCloudState = firebaseStateRef.onSnapshot((snapshot) => {
+    if (!snapshot.exists || !snapshot.data()?.state) return;
+    const remoteState = migrateState(snapshot.data().state, false);
+    if (JSON.stringify(remoteState) === JSON.stringify(state)) return;
+
+    isApplyingCloudState = true;
+    state = remoteState;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    currentUser = currentUser ? state.users.find((user) => user.id === currentUser.id) || null : null;
+    if (!currentUser && firebaseAuth?.currentUser) {
+      currentUser = userForFirebaseUser(firebaseAuth.currentUser);
+    }
+    if (currentUser) renderAll();
+    isApplyingCloudState = false;
+  });
+}
+
+function stopCloudStateListener() {
+  if (!unsubscribeCloudState) return;
+  unsubscribeCloudState();
+  unsubscribeCloudState = null;
+}
+
+function userForFirebaseUser(firebaseUser) {
+  const email = firebaseUser?.email?.toLowerCase() || "";
+  return state.users.find((user) => user.email?.toLowerCase() === email) || null;
 }
 
 function bindEvents() {
@@ -535,11 +667,25 @@ function handleStorageSync(event) {
   }
 }
 
-function handleLogin(event) {
+async function handleLogin(event) {
   event.preventDefault();
   el.loginStatus.textContent = "Verificando acesso...";
   const email = el.loginEmail.value.trim().toLowerCase();
   const password = el.loginPassword.value;
+
+  if (firebaseAuth) {
+    try {
+      await firebaseAuth.signInWithEmailAndPassword(email, password);
+      el.loginError.hidden = true;
+      el.loginStatus.textContent = "Acesso liberado.";
+    } catch (error) {
+      console.error(error);
+      el.loginError.hidden = false;
+      el.loginStatus.textContent = "Confira se o usuÃ¡rio existe no Firebase e se a senha estÃ¡ correta.";
+    }
+    return;
+  }
+
   state = migrateState(state);
   const user = state.users.find((item) => item.email?.toLowerCase() === email && item.password === password);
 
@@ -560,13 +706,19 @@ function repairAccess() {
   state = migrateState(state);
   state.users = defaultUsers.map((user) => ({ ...user }));
   saveState();
-  el.loginEmail.value = "mayssa@reduzsim.com.br";
+  el.loginEmail.value = "mayssa@reduzsiminss.com.br";
   el.loginPassword.value = "123456";
   el.loginError.hidden = true;
-  el.loginStatus.textContent = "Acessos oficiais reparados. Clique em Entrar.";
+  el.loginStatus.textContent = firebaseAuth
+    ? "Acessos locais reparados. No Firebase, confirme os usuÃ¡rios em Authentication."
+    : "Acessos oficiais reparados. Clique em Entrar.";
 }
 
 function handleLogout() {
+  if (firebaseAuth?.currentUser) {
+    firebaseAuth.signOut();
+  }
+  stopCloudStateListener();
   sessionStorage.removeItem(SESSION_KEY);
   currentUser = null;
   showLogin();
@@ -1547,7 +1699,7 @@ function renderUserManager() {
             <option value="admin" ${user.role === "admin" ? "selected" : ""}>Administrador</option>
             <option value="user" ${user.role === "user" ? "selected" : ""}>Usuário</option>
           </select></label>
-          <label>Senha<input type="text" value="${escapeAttr(user.password)}" data-user-manager-field="password" disabled /></label>
+          <label>Senha<input type="text" value="Gerenciada no Firebase" data-user-manager-field="password" disabled /></label>
           <div class="inline-actions">
             <span class="locked-user-note">Usuário fixo</span>
           </div>
@@ -1590,7 +1742,7 @@ function renderAccount() {
   el.accountRole.value = currentUser.role === "admin" ? "Administrador" : "Usuário";
 }
 
-function changeOwnPassword() {
+async function changeOwnPassword() {
   const password = el.accountPassword.value.trim();
   const confirmation = el.accountPasswordConfirm.value.trim();
   el.accountMessage.textContent = "";
@@ -1602,6 +1754,19 @@ function changeOwnPassword() {
 
   if (password !== confirmation) {
     el.accountMessage.textContent = "As senhas não conferem.";
+    return;
+  }
+
+  if (firebaseAuth?.currentUser) {
+    try {
+      await firebaseAuth.currentUser.updatePassword(password);
+      el.accountPassword.value = "";
+      el.accountPasswordConfirm.value = "";
+      el.accountMessage.textContent = "Senha alterada no Firebase.";
+    } catch (error) {
+      console.error(error);
+      el.accountMessage.textContent = "Nao foi possivel alterar a senha. Saia, entre novamente e tente outra vez.";
+    }
     return;
   }
 
@@ -1628,7 +1793,7 @@ function openStatusDialog() {
 }
 
 function openUserDialog() {
-  alert("Os usuários agora são fixos: mayssa@reduzsim.com.br e camilli@reduzsim.com.br.");
+  alert("Os usuários agora são fixos: mayssa@reduzsiminss.com.br e contato@reduzsiminss.com.br.");
 }
 
 function openInternalTaskDialog(taskId = null) {

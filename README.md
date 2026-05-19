@@ -1,6 +1,6 @@
 # ReduzSim - Clientes ativos
 
-Painel interno para acompanhamento de clientes ativos da ReduzSim no fluxo de redução de INSS de obras.
+Painel interno para acompanhamento de clientes ativos da ReduzSim no fluxo de reducao de INSS de obras.
 
 ## Como abrir localmente
 
@@ -8,20 +8,20 @@ Abra o arquivo `index.html` no navegador.
 
 ## Como publicar no GitHub Pages
 
-1. Crie um repositório no GitHub.
+1. Crie um repositorio no GitHub.
 2. Envie estes arquivos para a branch principal.
 3. No GitHub, acesse `Settings > Pages`.
 4. Em `Build and deployment`, selecione `Deploy from a branch`.
 5. Escolha a branch principal e a pasta `/root`.
-6. Salve. O GitHub vai gerar uma URL pública.
+6. Salve. O GitHub vai gerar uma URL publica.
 
 ## Acessos
 
-- E-mail: `mayssa@reduzsim.com.br`
-- E-mail: `camilli@reduzsim.com.br`
-- Senha das duas contas: `123456`
+- E-mail: `mayssa@reduzsiminss.com.br`
+- E-mail: `contato@reduzsiminss.com.br`
+- Senhas gerenciadas pelo Firebase Authentication.
 
-## Observação importante
+## Observacao importante
 
-Esta versão é um protótipo estático. Os dados ficam salvos no navegador de cada pessoa via `localStorage`.
-Para uso definitivo com dados sensíveis de clientes, o ideal é evoluir para login real com banco de dados e autenticação.
+Esta versao usa Firebase Authentication para login e Cloud Firestore para sincronizar os dados entre computadores.
+O `localStorage` continua sendo usado apenas como apoio local e migracao dos dados antigos.
