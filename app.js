@@ -1423,20 +1423,29 @@ function renderNotes() {
         .map(
           (note) => `
             <article class="note-message" data-note="${note.id}">
-              <header>
-                <strong>${escapeHtml(ownerName(note.userId))}</strong>
-                <span>${formatDateTime(note.createdAt)}${note.updatedAt ? " | editada" : ""}</span>
-              </header>
-              <textarea data-note-field="text">${escapeHtml(note.text || "")}</textarea>
-              <div class="note-actions">
-                <button class="small-button" type="button" data-save-note="${note.id}"><i data-lucide="save"></i> Salvar edição</button>
-                <button class="icon-button" type="button" data-remove-note="${note.id}" aria-label="Remover anotação"><i data-lucide="trash-2"></i></button>
+              <p class="note-text">${escapeHtml(note.text || "")}</p>
+              <textarea class="note-edit-field" data-note-field="text" hidden>${escapeHtml(note.text || "")}</textarea>
+              <div class="note-footer">
+                <span>${escapeHtml(ownerName(note.userId))} | ${formatDateTime(note.createdAt)}${note.updatedAt ? " | editada" : ""}</span>
+                <button type="button" data-edit-note="${note.id}">Editar</button>
+                <button type="button" data-save-note="${note.id}" hidden>Salvar</button>
+                <button type="button" data-remove-note="${note.id}" aria-label="Remover anotação">×</button>
               </div>
             </article>
           `
         )
         .join("")
     : `<p class="empty-state">Nenhuma anotação registrada.</p>`;
+
+  document.querySelectorAll("[data-edit-note]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const wrapper = button.closest("[data-note]");
+      wrapper.querySelector(".note-text").hidden = true;
+      wrapper.querySelector("[data-note-field]").hidden = false;
+      button.hidden = true;
+      wrapper.querySelector("[data-save-note]").hidden = false;
+    });
+  });
 
   document.querySelectorAll("[data-save-note]").forEach((button) => {
     button.addEventListener("click", () => {

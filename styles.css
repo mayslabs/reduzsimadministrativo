@@ -1173,44 +1173,52 @@ h3 {
 }
 
 .note-message {
-  width: min(780px, 100%);
-  border: 1px solid rgba(0, 159, 127, 0.18);
+  width: min(720px, 100%);
+  border: 1px solid rgba(0, 159, 127, 0.28);
   border-radius: var(--radius);
   background: #e7f7f2;
-  padding: 12px;
-  box-shadow: 0 4px 12px rgba(31, 41, 51, 0.05);
+  padding: 12px 14px 10px;
 }
 
-.note-message header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.note-message header strong {
-  color: var(--charcoal);
+.note-text {
+  margin: 0 0 8px;
+  color: #005c49;
   font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 
-.note-message header span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.note-message textarea {
-  min-height: 78px;
+.note-edit-field {
+  min-height: 88px;
+  margin-bottom: 8px;
   border-color: rgba(0, 159, 127, 0.2);
   background: rgba(255, 255, 255, 0.72);
 }
 
-.note-actions {
+.note-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
+  align-items: center;
+  gap: 9px;
+  color: var(--green-dark);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.note-footer button {
+  border: 0;
+  background: transparent;
+  color: var(--green-dark);
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  min-height: 0;
+}
+
+.note-footer [data-remove-note] {
+  color: var(--red);
+  font-size: 14px;
+  line-height: 1;
 }
 
 .timeline-item header {
