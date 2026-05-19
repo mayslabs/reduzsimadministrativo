@@ -48,19 +48,24 @@ const labelReplacements = {
   "Alvara": "Alvará",
 };
 
+const fixedUserIds = {
+  mayssa: "user-mayssa",
+  camilli: "user-camilli",
+};
+
 const defaultUsers = [
   {
-    id: id(),
-    name: "Proprietária",
-    email: "admin@reduzsim.com.br",
-    password: "admin123",
+    id: fixedUserIds.mayssa,
+    name: "Mayssa",
+    email: "mayssa@reduzsim.com.br",
+    password: "123456",
     role: "admin",
   },
   {
-    id: id(),
-    name: "Colaboradora",
-    email: "colaboradora@reduzsim.com.br",
-    password: "reduzsim123",
+    id: fixedUserIds.camilli,
+    name: "Camilli",
+    email: "camilli@reduzsim.com.br",
+    password: "123456",
     role: "user",
   },
 ];
@@ -289,7 +294,7 @@ function readStoredState() {
   return null;
 }
 
-function migrateState(savedState = {}) {
+function migrateState(savedState = {}, persist = true) {
   const migrated = {
     statuses: Array.isArray(savedState.statuses) && savedState.statuses.length ? savedState.statuses : defaultStatuses,
     users: Array.isArray(savedState.users) ? savedState.users : [],
@@ -352,7 +357,7 @@ function migrateState(savedState = {}) {
 
   remapUserReferences(migrated, userCleanup.idMap);
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+  if (persist) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
   return migrated;
 }
 
@@ -387,49 +392,39 @@ function normalizeInternalTask(task) {
 }
 
 function normalizeUsersForMigration(users) {
-  if (!users.length) {
-    return { users: defaultUsers.map((user) => ({ ...user })), idMap: {} };
-  }
-
-  const defaultEmails = new Set(defaultUsers.map((user) => user.email.toLowerCase()));
-  const defaultNames = new Set(defaultUsers.map((user) => normalize(user.name)));
-  const prepared = users.map((user) => ({
-    id: user.id || id(),
-    name: localizeLabel(user.name) || "Usuário",
-    email: user.email || "",
-    password: user.password || "",
-    role: user.role === "admin" ? "admin" : "user",
-  }));
-  const customUsers = prepared.filter((user) => !isUntouchedDefaultUser(user, defaultEmails, defaultNames));
-  const untouchedDefaults = prepared.filter((user) => isUntouchedDefaultUser(user, defaultEmails, defaultNames));
   const idMap = {};
+  (users || []).forEach((user) => {
+    if (!user?.id) return;
+    idMap[user.id] = targetUserIdForMigration(user);
+  });
 
-  if (customUsers.length && untouchedDefaults.length) {
-    const fallbackAdmin = customUsers.find((user) => user.role === "admin") || customUsers[0];
-    const fallbackUser = customUsers.find((user) => user.role !== "admin") || fallbackAdmin;
-    untouchedDefaults.forEach((user) => {
-      idMap[user.id] = user.role === "admin" ? fallbackAdmin.id : fallbackUser.id;
-    });
-    return { users: dedupeUsers(customUsers), idMap };
+  return {
+    users: defaultUsers.map((user) => ({ ...user })),
+    idMap,
+  };
+}
+
+function targetUserIdForMigration(user) {
+  const identity = normalize([user.name, user.email, user.role].join(" "));
+  if (
+    identity.includes("camilli") ||
+    identity.includes("camila") ||
+    identity.includes("colaboradora") ||
+    identity.includes("colaborador")
+  ) {
+    return fixedUserIds.camilli;
   }
 
-  return { users: dedupeUsers(prepared), idMap };
-}
+  if (
+    identity.includes("mayssa") ||
+    identity.includes("may") ||
+    identity.includes("proprietaria") ||
+    identity.includes("admin")
+  ) {
+    return fixedUserIds.mayssa;
+  }
 
-function isUntouchedDefaultUser(user, defaultEmails, defaultNames) {
-  return defaultEmails.has(user.email.toLowerCase()) && defaultNames.has(normalize(user.name));
-}
-
-function dedupeUsers(users) {
-  const seenEmails = new Set();
-  const seenIds = new Set();
-  return users.filter((user) => {
-    const emailKey = user.email.toLowerCase();
-    if (seenIds.has(user.id) || (emailKey && seenEmails.has(emailKey))) return false;
-    seenIds.add(user.id);
-    if (emailKey) seenEmails.add(emailKey);
-    return true;
-  });
+  return user.role === "admin" ? fixedUserIds.mayssa : fixedUserIds.camilli;
 }
 
 function remapUserReferences(migrated, idMap) {
@@ -446,6 +441,14 @@ function remapUserReferences(migrated, idMap) {
     (client.notes || []).forEach((note) => {
       note.userId = idMap[note.userId] || note.userId;
     });
+    (client.history || []).forEach((entry) => {
+      entry.userId = idMap[entry.userId] || entry.userId;
+    });
+  });
+
+  (migrated.internalTasks || []).forEach((task) => {
+    task.ownerId = idMap[task.ownerId] || task.ownerId;
+    task.createdBy = idMap[task.createdBy] || task.createdBy;
   });
 }
 
@@ -454,6 +457,7 @@ function saveState() {
 }
 
 function bindEvents() {
+  window.addEventListener("storage", handleStorageSync);
   el.loginForm.addEventListener("submit", handleLogin);
   el.repairAccessButton.addEventListener("click", repairAccess);
   el.logoutButton.addEventListener("click", handleLogout);
@@ -518,6 +522,19 @@ function bindEvents() {
   });
 }
 
+function handleStorageSync(event) {
+  if (event.key !== STORAGE_KEY || !event.newValue) return;
+  state = migrateState(JSON.parse(event.newValue), false);
+  if (currentUser) {
+    currentUser = state.users.find((user) => user.id === currentUser.id) || null;
+    if (!currentUser) {
+      handleLogout();
+      return;
+    }
+    renderAll();
+  }
+}
+
 function handleLogin(event) {
   event.preventDefault();
   el.loginStatus.textContent = "Verificando acesso...";
@@ -541,17 +558,12 @@ function handleLogin(event) {
 
 function repairAccess() {
   state = migrateState(state);
-  const admin = state.users.find((user) => user.email?.toLowerCase() === "admin@reduzsim.com.br");
-  if (admin) {
-    admin.name = admin.name || "Proprietária";
-    admin.password = "admin123";
-    admin.role = "admin";
-  }
+  state.users = defaultUsers.map((user) => ({ ...user }));
   saveState();
-  el.loginEmail.value = "admin@reduzsim.com.br";
-  el.loginPassword.value = "admin123";
+  el.loginEmail.value = "mayssa@reduzsim.com.br";
+  el.loginPassword.value = "123456";
   el.loginError.hidden = true;
-  el.loginStatus.textContent = "Acesso inicial reparado. Clique em Entrar.";
+  el.loginStatus.textContent = "Acessos oficiais reparados. Clique em Entrar.";
 }
 
 function handleLogout() {
@@ -585,6 +597,7 @@ function configureNavigationForRole() {
   const isAdmin = currentUser.role === "admin";
   document.querySelector('[data-section="usersSection"]').style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="accountSection"]').style.display = isAdmin ? "none" : "";
+  el.addUserButton.style.display = "none";
 
   const activeSection = document.querySelector(".nav-item.active")?.dataset.section;
   if ((!isAdmin && activeSection === "usersSection") || (isAdmin && activeSection === "accountSection")) {
@@ -1528,16 +1541,15 @@ function renderUserManager() {
     .map(
       (user) => `
         <div class="manager-item user-row" data-user-manager="${user.id}">
-          <label>Nome<input value="${escapeAttr(user.name)}" data-user-manager-field="name" /></label>
-          <label>E-mail<input value="${escapeAttr(user.email)}" data-user-manager-field="email" /></label>
-          <label>Perfil<select data-user-manager-field="role">
+          <label>Nome<input value="${escapeAttr(user.name)}" data-user-manager-field="name" disabled /></label>
+          <label>E-mail<input value="${escapeAttr(user.email)}" data-user-manager-field="email" disabled /></label>
+          <label>Perfil<select data-user-manager-field="role" disabled>
             <option value="admin" ${user.role === "admin" ? "selected" : ""}>Administrador</option>
             <option value="user" ${user.role === "user" ? "selected" : ""}>Usuário</option>
           </select></label>
-          <label>Nova senha<input type="password" data-user-password="${user.id}" autocomplete="new-password" placeholder="Digite para alterar" /></label>
+          <label>Senha<input type="text" value="${escapeAttr(user.password)}" data-user-manager-field="password" disabled /></label>
           <div class="inline-actions">
-            <button class="secondary-button" type="button" data-change-user-password="${user.id}"><i data-lucide="key-round"></i> Alterar</button>
-            <button class="danger-button" type="button" data-remove-user="${user.id}" ${user.id === currentUser?.id ? "disabled" : ""}><i data-lucide="trash-2"></i> Remover</button>
+            <span class="locked-user-note">Usuário fixo</span>
           </div>
         </div>
       `
@@ -1557,30 +1569,6 @@ function renderUserManager() {
         saveState();
         syncCurrentUser(user);
       });
-    });
-  });
-  document.querySelectorAll("[data-change-user-password]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const user = state.users.find((item) => item.id === button.dataset.changeUserPassword);
-      const input = document.querySelector(`[data-user-password="${user.id}"]`);
-      const password = input.value.trim();
-      if (password.length < 4) {
-        alert("A senha precisa ter pelo menos 4 caracteres.");
-        return;
-      }
-
-      user.password = password;
-      input.value = "";
-      saveState();
-      syncCurrentUser(user);
-      alert("Senha alterada.");
-    });
-  });
-  document.querySelectorAll("[data-remove-user]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.users = state.users.filter((user) => user.id !== button.dataset.removeUser);
-      saveState();
-      renderUserManager();
     });
   });
   refreshIcons();
@@ -1640,22 +1628,7 @@ function openStatusDialog() {
 }
 
 function openUserDialog() {
-  if (currentUser.role !== "admin") return;
-  openSimpleDialog("Criar usuário", [
-    { label: "Nome", name: "name", type: "text", value: "" },
-    { label: "E-mail", name: "email", type: "email", value: "" },
-    { label: "Senha", name: "password", type: "text", value: "" },
-  ], (values) => {
-    state.users.push({
-      id: id(),
-      name: values.name || "Novo usuário",
-      email: values.email,
-      password: values.password || "123456",
-      role: "user",
-    });
-    saveState();
-    renderUserManager();
-  });
+  alert("Os usuários agora são fixos: mayssa@reduzsim.com.br e camilli@reduzsim.com.br.");
 }
 
 function openInternalTaskDialog(taskId = null) {

@@ -1067,6 +1067,15 @@ h3 {
   flex-wrap: wrap;
 }
 
+.locked-user-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .timeline-item header {
   display: flex;
   align-items: center;

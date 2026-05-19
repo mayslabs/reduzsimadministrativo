@@ -15,10 +15,11 @@ Abra o arquivo `index.html` no navegador.
 5. Escolha a branch principal e a pasta `/root`.
 6. Salve. O GitHub vai gerar uma URL pública.
 
-## Acesso inicial
+## Acessos
 
-- E-mail: `admin@reduzsim.com.br`
-- Senha: `admin123`
+- E-mail: `mayssa@reduzsim.com.br`
+- E-mail: `camilli@reduzsim.com.br`
+- Senha das duas contas: `123456`
 
 ## Observação importante
 
