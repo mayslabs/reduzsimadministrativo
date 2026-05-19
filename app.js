@@ -172,6 +172,15 @@ const defaultClient = () => {
       { id: id(), name: "Habite-se", status: "Não possui", path: "" },
     ],
     workersNotes: "João - R$ 2.200,00 - jan/2026\nMaria - R$ 2.000,00 - jan/2026",
+    workerMessages: [
+      {
+        id: id(),
+        text: "João - R$ 2.200,00 - jan/2026\nMaria - R$ 2.000,00 - jan/2026",
+        userId: state.users[0]?.id || "",
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      },
+    ],
     feeValue: "R$ 4.500,00",
     paymentMethod: "Asaas - 3 parcelas",
     installments: "3x",
@@ -253,6 +262,9 @@ const el = {
   historyList: document.getElementById("historyList"),
   addDocButton: document.getElementById("addDocButton"),
   documentsList: document.getElementById("documentsList"),
+  newWorkerMessageText: document.getElementById("newWorkerMessageText"),
+  addWorkerMessageButton: document.getElementById("addWorkerMessageButton"),
+  workerMessagesList: document.getElementById("workerMessagesList"),
   addStatusButton: document.getElementById("addStatusButton"),
   statusManager: document.getElementById("statusManager"),
   addUserButton: document.getElementById("addUserButton"),
@@ -401,6 +413,7 @@ function migrateState(savedState = {}, persist = true) {
     history: [],
     documents: [],
     workersNotes: "",
+    workerMessages: [],
     feeValue: "",
     paymentMethod: "",
     installments: "",
@@ -417,6 +430,7 @@ function migrateState(savedState = {}, persist = true) {
     notes: Array.isArray(client.notes) ? client.notes : [],
     history: Array.isArray(client.history) ? client.history.map(normalizeHistoryEntry) : [],
     documents: Array.isArray(client.documents) ? client.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
+    workerMessages: normalizeWorkerMessages(client, migrated.users[0]?.id || ""),
     statusIds: Array.isArray(client.statusIds) ? client.statusIds : [],
   }));
 
@@ -467,6 +481,31 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
     createdAt: task.createdAt || client.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
   };
+}
+
+function normalizeWorkerMessages(client = {}, fallbackUserId = "") {
+  if (Array.isArray(client.workerMessages) && client.workerMessages.length) {
+    return client.workerMessages.map((message) => ({
+      id: message.id || id(),
+      text: message.text || "",
+      userId: message.userId || client.internalOwner || fallbackUserId,
+      createdAt: message.createdAt || client.createdAt || new Date().toISOString(),
+      updatedAt: message.updatedAt || null,
+    }));
+  }
+
+  const legacyText = String(client.workersNotes || "").trim();
+  if (!legacyText) return [];
+
+  return [
+    {
+      id: id(),
+      text: legacyText,
+      userId: client.internalOwner || fallbackUserId,
+      createdAt: client.createdAt || new Date().toISOString(),
+      updatedAt: null,
+    },
+  ];
 }
 
 function normalizeUsersForMigration(users) {
@@ -520,6 +559,9 @@ function remapUserReferences(migrated, idMap) {
     });
     (client.notes || []).forEach((note) => {
       note.userId = idMap[note.userId] || note.userId;
+    });
+    (client.workerMessages || []).forEach((message) => {
+      message.userId = idMap[message.userId] || message.userId;
     });
     (client.history || []).forEach((entry) => {
       entry.userId = idMap[entry.userId] || entry.userId;
@@ -642,6 +684,7 @@ function bindEvents() {
     openClientDeadlineDialog();
   });
   el.addNoteButton.addEventListener("click", addNote);
+  el.addWorkerMessageButton.addEventListener("click", addWorkerMessage);
   el.addHistoryButton.addEventListener("click", addManualHistory);
   el.addDocButton.addEventListener("click", () => {
     activeClient.documents.push(emptyDocument());
@@ -1260,6 +1303,7 @@ function openClient(client) {
   renderNotes();
   renderHistory();
   renderDocuments();
+  renderWorkerMessages();
   switchTab("summaryTab");
   el.clientDialog.showModal();
   refreshIcons();
@@ -1534,6 +1578,57 @@ function renderNotes() {
   refreshIcons();
 }
 
+function renderWorkerMessages() {
+  const messages = Array.isArray(activeClient.workerMessages) ? activeClient.workerMessages : [];
+  el.workerMessagesList.innerHTML = messages.length
+    ? [...messages]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(
+          (message) => `
+            <article class="note-message" data-worker-message="${message.id}">
+              <p class="note-text">${escapeHtml(message.text || "")}</p>
+              <textarea class="note-edit-field" data-worker-message-field="text" hidden>${escapeHtml(message.text || "")}</textarea>
+              <div class="note-footer">
+                <span>${escapeHtml(ownerName(message.userId))} | ${formatDateTime(message.createdAt)}${message.updatedAt ? " | editada" : ""}</span>
+                <button type="button" data-edit-worker-message="${message.id}">Editar</button>
+                <button type="button" data-save-worker-message="${message.id}" hidden>Salvar</button>
+                <button type="button" data-remove-worker-message="${message.id}" aria-label="Remover mensagem">×</button>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state">Nenhuma mensagem registrada.</p>`;
+
+  document.querySelectorAll("[data-edit-worker-message]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const wrapper = button.closest("[data-worker-message]");
+      wrapper.querySelector(".note-text").hidden = true;
+      wrapper.querySelector("[data-worker-message-field]").hidden = false;
+      button.hidden = true;
+      wrapper.querySelector("[data-save-worker-message]").hidden = false;
+    });
+  });
+
+  document.querySelectorAll("[data-save-worker-message]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const message = activeClient.workerMessages.find((item) => item.id === button.dataset.saveWorkerMessage);
+      const box = document.querySelector(`[data-worker-message="${message.id}"] [data-worker-message-field="text"]`);
+      message.text = box.value.trim();
+      message.updatedAt = new Date().toISOString();
+      renderWorkerMessages();
+    });
+  });
+
+  document.querySelectorAll("[data-remove-worker-message]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeClient.workerMessages = activeClient.workerMessages.filter((message) => message.id !== button.dataset.removeWorkerMessage);
+      renderWorkerMessages();
+    });
+  });
+  refreshIcons();
+}
+
 function renderHistory() {
   const isAdmin = currentUser.role === "admin";
   el.historyAdminControls.hidden = !isAdmin;
@@ -1642,6 +1737,21 @@ function addNote() {
   renderNotes();
 }
 
+function addWorkerMessage() {
+  const text = el.newWorkerMessageText.value.trim();
+  if (!text) return;
+  activeClient.workerMessages = Array.isArray(activeClient.workerMessages) ? activeClient.workerMessages : [];
+  activeClient.workerMessages.unshift({
+    id: id(),
+    text,
+    userId: currentUser.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+  });
+  el.newWorkerMessageText.value = "";
+  renderWorkerMessages();
+}
+
 function addManualHistory() {
   if (currentUser.role !== "admin") return;
   const text = el.newHistoryText.value.trim();
@@ -1730,7 +1840,6 @@ function summarizeClientChanges(previousClient, nextClient) {
     startDate: "Início da obra",
     endDate: "Fim da obra",
     area: "Área",
-    workersNotes: "Informações dos trabalhadores",
     feeValue: "Honorários",
     paymentMethod: "Forma de pagamento",
     installments: "Parcelas",
@@ -1754,6 +1863,7 @@ function summarizeClientChanges(previousClient, nextClient) {
   collectionChangeSummary(changes, "Tarefas", previousClient.tasks, nextClient.tasks, (item) => item.title || "tarefa sem título");
   collectionChangeSummary(changes, "Prazos", previousClient.deadlines, nextClient.deadlines, (item) => item.title || "prazo sem título");
   collectionChangeSummary(changes, "Anotações", previousClient.notes, nextClient.notes, (item) => item.text || "anotação sem texto");
+  collectionChangeSummary(changes, "Trabalhadores", previousClient.workerMessages, nextClient.workerMessages, (item) => item.text || "mensagem sem texto");
   collectionChangeSummary(changes, "Documentos", previousClient.documents, nextClient.documents, (item) => item.name || "documento sem nome");
 
   const maxVisibleChanges = 12;
@@ -2171,6 +2281,7 @@ function createEmptyClient() {
     history: [],
     documents: [],
     workersNotes: "",
+    workerMessages: [],
     feeValue: "",
     paymentMethod: "",
     installments: "",

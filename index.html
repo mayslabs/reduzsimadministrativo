@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=26" />
+    <link rel="stylesheet" href="./styles.css?v=27" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -384,10 +384,11 @@
         </section>
 
         <section id="workersTab" class="tab-panel">
-          <label class="full-textarea">
-            Informações dos trabalhadores e remunerações
-            <textarea data-field="workersNotes" rows="14" placeholder="Espaço livre para nomes, remunerações mensais, períodos trabalhados e observações"></textarea>
-          </label>
+          <div class="note-composer">
+            <textarea id="newWorkerMessageText" rows="3" placeholder="Registrar trabalhador, remuneração, período trabalhado ou observação"></textarea>
+            <button id="addWorkerMessageButton" class="secondary-button" type="button"><i data-lucide="send"></i> Enviar mensagem</button>
+          </div>
+          <div id="workerMessagesList" class="timeline-list"></div>
         </section>
 
         <footer class="dialog-footer">
@@ -414,6 +415,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=30"></script>
+    <script src="./app.js?v=31"></script>
   </body>
 </html>

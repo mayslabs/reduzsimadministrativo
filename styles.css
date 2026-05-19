@@ -1245,7 +1245,8 @@ h3 {
   min-height: 0;
 }
 
-.note-footer [data-remove-note] {
+.note-footer [data-remove-note],
+.note-footer [data-remove-worker-message] {
   color: var(--red);
   font-size: 14px;
   line-height: 1;
