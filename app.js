@@ -133,6 +133,8 @@ const defaultClient = () => {
         id: id(),
         title: "Confirmar acesso no e-CAC",
         ownerId: state.users[1]?.id || state.users[0]?.id || "",
+        createdBy: state.users[0]?.id || "",
+        createdAt: new Date().toISOString(),
         dueDate: "2026-05-20",
         status: "Pendente",
       },
@@ -411,7 +413,7 @@ function migrateState(savedState = {}, persist = true) {
     updatedAt: new Date().toISOString(),
     ...client,
     monthly: Array.isArray(client.monthly) ? client.monthly : [],
-    tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => ({ ...task, status: localizeLabel(task.status) })) : [],
+    tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => normalizeClientTask(task, client, migrated.users[0]?.id || "")) : [],
     deadlines: Array.isArray(client.deadlines) ? client.deadlines : [],
     notes: Array.isArray(client.notes) ? client.notes : [],
     history: Array.isArray(client.history) ? client.history.map(normalizeHistoryEntry) : [],
@@ -451,6 +453,19 @@ function normalizeInternalTask(task) {
     visibility: task.visibility === "admin" ? "admin" : "team",
     createdBy: task.createdBy || "",
     createdAt: task.createdAt || new Date().toISOString(),
+    updatedAt: task.updatedAt || null,
+  };
+}
+
+function normalizeClientTask(task, client = {}, fallbackUserId = "") {
+  return {
+    id: task.id || id(),
+    title: task.title || "",
+    ownerId: task.ownerId || client.internalOwner || fallbackUserId,
+    dueDate: task.dueDate || "",
+    status: localizeLabel(task.status || "Pendente"),
+    createdBy: task.createdBy || client.internalOwner || task.ownerId || fallbackUserId,
+    createdAt: task.createdAt || client.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
   };
 }
@@ -499,6 +514,7 @@ function remapUserReferences(migrated, idMap) {
     client.internalOwner = idMap[client.internalOwner] || client.internalOwner;
     (client.tasks || []).forEach((task) => {
       task.ownerId = idMap[task.ownerId] || task.ownerId;
+      task.createdBy = idMap[task.createdBy] || task.createdBy;
     });
     (client.deadlines || []).forEach((deadline) => {
       deadline.ownerId = idMap[deadline.ownerId] || deadline.ownerId;
@@ -621,8 +637,7 @@ function bindEvents() {
     renderMonthlyTable();
   });
   el.addTaskButton.addEventListener("click", () => {
-    activeClient.tasks.push(emptyTask());
-    renderTasks();
+    openClientTaskDialog();
   });
   el.addDeadlineButton.addEventListener("click", () => {
     activeClient.deadlines.push(emptyDeadline());
@@ -1322,19 +1337,39 @@ function renderTasks() {
   el.tasksList.innerHTML = (activeClient.tasks || []).length
     ? activeClient.tasks
         .map(
-          (task) => `
-            <div class="list-item" data-task="${task.id}">
-              <label>Tarefa<input value="${escapeAttr(task.title || "")}" data-task-field="title" /></label>
-              <label>Responsável<select data-task-field="ownerId">${userOptions(task.ownerId)}</select></label>
-              <label>Prazo<input type="date" value="${task.dueDate || ""}" data-task-field="dueDate" /></label>
-              <label>Status<select data-task-field="status">${taskStatusOptions(task.status)}</select></label>
-              <button class="icon-button" type="button" data-remove-task="${task.id}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>
+          (task) => {
+            const isDone = localizeLabel(task.status) === "Concluída";
+            return `
+            <div class="task-message ${isDone ? "done" : ""}" data-task="${task.id}">
+              <div class="task-message-body">
+                <p class="task-message-title">${escapeHtml(task.title || "Tarefa sem descrição")}</p>
+                <div class="task-message-meta">
+                  <span>Cadastrada por ${escapeHtml(ownerName(task.createdBy))}</span>
+                  <span>Responsável: ${escapeHtml(ownerName(task.ownerId))}</span>
+                  <span>${task.dueDate ? `Prazo: ${formatDate(task.dueDate)}` : "Sem prazo"}</span>
+                  <span>Status: ${escapeHtml(localizeLabel(task.status || "Pendente"))}</span>
+                </div>
+              </div>
+              <div class="task-message-actions">
+                <button class="small-button" type="button" data-edit-task="${task.id}"><i data-lucide="pencil"></i> Editar</button>
+                ${isDone ? "" : `<button class="icon-button" type="button" data-remove-task="${task.id}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>`}
+              </div>
             </div>
-          `
+          `;
+          }
         )
         .join("")
     : `<p class="empty-state">Nenhuma tarefa cadastrada.</p>`;
-  bindCollectionFields("task", activeClient.tasks, renderTasks);
+  document.querySelectorAll("[data-edit-task]").forEach((button) => {
+    button.addEventListener("click", () => openClientTaskDialog(button.dataset.editTask));
+  });
+  document.querySelectorAll("[data-remove-task]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeClient.tasks = activeClient.tasks.filter((task) => task.id !== button.dataset.removeTask);
+      renderTasks();
+    });
+  });
+  refreshIcons();
 }
 
 function renderDeadlines() {
@@ -1810,6 +1845,44 @@ function openUserDialog() {
   alert("Os usuários agora são fixos: Mayssa e Camilli.");
 }
 
+function openClientTaskDialog(taskId = null) {
+  const task = activeClient.tasks.find((item) => item.id === taskId) || null;
+  const draft = task || emptyTask();
+  openSimpleDialog(task ? "Editar tarefa" : "Nova tarefa", [
+    { label: "Tarefa", name: "title", type: "text", value: draft.title || "" },
+    { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "Prazo", name: "dueDate", type: "date", value: draft.dueDate || "" },
+    { label: "Status", name: "status", type: "select", value: draft.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
+  ], (values) => {
+    if (!values.title) {
+      alert("Informe o nome da tarefa.");
+      return false;
+    }
+
+    const payload = {
+      title: values.title,
+      ownerId: values.ownerId || currentUser.id,
+      dueDate: values.dueDate,
+      status: values.status || "Pendente",
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (task) {
+      Object.assign(task, payload);
+    } else {
+      activeClient.tasks.push({
+        ...draft,
+        ...payload,
+        createdBy: currentUser.id,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    renderTasks();
+    return true;
+  });
+}
+
 function openInternalTaskDialog(taskId = null) {
   const task = state.internalTasks.find((item) => item.id === taskId) || null;
   const visibilityOptions = currentUser.role === "admin"
@@ -1994,7 +2067,16 @@ function emptyMonth(month = "") {
 }
 
 function emptyTask() {
-  return { id: id(), title: "", ownerId: currentUser.id, dueDate: "", status: "Pendente" };
+  return {
+    id: id(),
+    title: "",
+    ownerId: currentUser.id,
+    dueDate: "",
+    status: "Pendente",
+    createdBy: currentUser.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+  };
 }
 
 function emptyDeadline() {
