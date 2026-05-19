@@ -85,6 +85,7 @@ const defaultClient = () => {
     id: id(),
     clientName: "Cliente exemplo",
     fullName: "Cliente exemplo",
+    documentType: "cpf",
     cpf: "000.000.000-00",
     phone: "(63) 99999-9999",
     whatsappDdd: "63",
@@ -377,6 +378,7 @@ function migrateState(savedState = {}, persist = true) {
     id: id(),
     clientName: "",
     fullName: "",
+    documentType: documentTypeForClient(client),
     cpf: "",
     phone: "",
     whatsappDdd: "",
@@ -647,7 +649,15 @@ function bindEvents() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     const syncField = () => {
       if (!activeClient) return;
+      input.value = formatFieldValue(input.dataset.field, input.value);
       activeClient[input.dataset.field] = input.value;
+      if (input.dataset.field === "documentType") {
+        const documentInput = document.querySelector('[data-field="cpf"]');
+        if (documentInput) {
+          documentInput.value = formatFieldValue("cpf", documentInput.value);
+          activeClient.cpf = documentInput.value;
+        }
+      }
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -1210,6 +1220,10 @@ function openClientById(clientId) {
 
 function openClient(client) {
   activeClient = client;
+  activeClient.documentType = documentTypeForClient(activeClient);
+  activeClient.cpf = formatFieldValue("cpf", activeClient.cpf || "");
+  activeClient.phone = formatFieldValue("phone", activeClient.phone || "");
+  activeClient.area = formatFieldValue("area", activeClient.area || "");
   el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = activeClient[input.dataset.field] || "";
@@ -1548,7 +1562,8 @@ function summarizeClientChanges(previousClient, nextClient) {
   const fieldLabels = {
     clientName: "Nome do cliente",
     fullName: "Nome completo",
-    cpf: "CPF",
+    documentType: "Tipo de documento",
+    cpf: "CPF/CNPJ",
     phone: "Telefone",
     whatsappDdd: "DDD do WhatsApp",
     infoOwner: "Responsável por informações",
@@ -1903,6 +1918,7 @@ function createEmptyClient() {
     id: id(),
     clientName: "",
     fullName: "",
+    documentType: "cpf",
     cpf: "",
     phone: "",
     whatsappDdd: "",
@@ -2028,6 +2044,66 @@ function documentStatusOptions(selected = "Pendente") {
   return ["Pendente", "Recebido", "Aprovado", "Inválido", "Não possui"]
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
     .join("");
+}
+
+function formatFieldValue(field, value) {
+  if (field === "cpf") return formatDocumentNumber(value, activeClient?.documentType || "cpf");
+  if (field === "phone") return formatPhoneNumber(value);
+  if (field === "area") return formatAreaValue(value);
+  return value;
+}
+
+function documentTypeForClient(client = {}) {
+  if (client.documentType === "cnpj" || client.documentType === "cpf") return client.documentType;
+  return onlyDigits(client.cpf).length > 11 ? "cnpj" : "cpf";
+}
+
+function formatDocumentNumber(value, type = "cpf") {
+  const digits = onlyDigits(value).slice(0, type === "cnpj" ? 14 : 11);
+  if (type === "cnpj") {
+    return digits
+      .replace(/^(\d{2})(\d)/, "$1.$2")
+      .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1/$2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+
+  return digits
+    .replace(/^(\d{3})(\d)/, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/(\d{3})(\d)/, "$1-$2");
+}
+
+function formatPhoneNumber(value) {
+  const digits = onlyDigits(value).slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 10) {
+    return digits.replace(/^(\d{2})(\d{0,4})(\d{0,4}).*/, (_, ddd, start, end) => {
+      return `(${ddd}) ${start}${end ? `-${end}` : ""}`;
+    });
+  }
+
+  return digits.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, (_, ddd, start, end) => {
+    return `(${ddd}) ${start}${end ? `-${end}` : ""}`;
+  });
+}
+
+function formatAreaValue(value) {
+  const clean = String(value || "")
+    .replace(/m²|m2/gi, "")
+    .replace(/[^\d,.]/g, "")
+    .replace(/\./g, ",");
+  if (!clean) return "";
+
+  const [integerRaw, decimalRaw = ""] = clean.split(",");
+  const integer = onlyDigits(integerRaw);
+  const decimal = onlyDigits(decimalRaw).slice(0, 2);
+  const number = decimal ? `${integer || "0"},${decimal}` : integer;
+  return number ? `${number} m²` : "";
+}
+
+function onlyDigits(value) {
+  return String(value || "").replace(/\D/g, "");
 }
 
 function taskUrgency(item) {
