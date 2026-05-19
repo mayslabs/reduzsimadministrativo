@@ -1299,18 +1299,86 @@ function renderActiveStatuses() {
 
 function renderStatusPicker() {
   const active = new Set(activeClient.statusIds || []);
-  el.statusPicker.innerHTML = state.statuses
-    .filter((status) => !active.has(status.id))
-    .map((status) => `<button type="button" class="status-option" data-add-status="${status.id}">${escapeHtml(status.name)}</button>`)
-    .join("");
+  el.statusPicker.innerHTML = `
+    <div class="status-editor-list">
+      ${state.statuses
+        .map(
+          (status) => `
+            <div class="status-editor-row" data-status-editor="${status.id}">
+              <label class="status-toggle">
+                <input type="checkbox" ${active.has(status.id) ? "checked" : ""} data-toggle-status="${status.id}" />
+                <span>Ativo</span>
+              </label>
+              <input value="${escapeAttr(status.name)}" data-status-editor-field="name" aria-label="Nome do status" />
+              <input class="color-input" type="color" value="${status.color}" data-status-editor-field="color" aria-label="Cor do status" />
+              <button class="icon-button" type="button" data-remove-global-status="${status.id}" aria-label="Remover status"><i data-lucide="trash-2"></i></button>
+            </div>
+          `
+        )
+        .join("")}
+      <div class="status-editor-row new-status-row">
+        <span></span>
+        <input id="newStatusName" type="text" placeholder="Novo status" />
+        <input id="newStatusColor" class="color-input" type="color" value="#009f7f" />
+        <button id="createStatusFromCard" class="small-button" type="button"><i data-lucide="plus"></i> Criar</button>
+      </div>
+    </div>
+  `;
 
-  document.querySelectorAll("[data-add-status]").forEach((button) => {
+  document.querySelectorAll("[data-toggle-status]").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), checkbox.dataset.toggleStatus])];
+      } else {
+        activeClient.statusIds = (activeClient.statusIds || []).filter((idValue) => idValue !== checkbox.dataset.toggleStatus);
+      }
+      renderActiveStatuses();
+    });
+  });
+
+  document.querySelectorAll("[data-status-editor]").forEach((row) => {
+    const status = state.statuses.find((item) => item.id === row.dataset.statusEditor);
+    row.querySelectorAll("[data-status-editor-field]").forEach((input) => {
+      input.addEventListener("input", () => {
+        status[input.dataset.statusEditorField] = input.value;
+        saveState();
+        renderStatusFilter();
+        renderClients();
+        renderActiveStatuses();
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-remove-global-status]").forEach((button) => {
     button.addEventListener("click", () => {
-      activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), button.dataset.addStatus])];
+      state.statuses = state.statuses.filter((status) => status.id !== button.dataset.removeGlobalStatus);
+      state.clients.forEach((client) => {
+        client.statusIds = (client.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
+      });
+      activeClient.statusIds = (activeClient.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
+      saveState();
+      renderStatusFilter();
+      renderClients();
       renderActiveStatuses();
       renderStatusPicker();
     });
   });
+
+  document.getElementById("createStatusFromCard")?.addEventListener("click", () => {
+    const nameInput = document.getElementById("newStatusName");
+    const colorInput = document.getElementById("newStatusColor");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    const status = { id: id(), name, color: colorInput.value || "#009f7f" };
+    state.statuses.push(status);
+    activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), status.id])];
+    saveState();
+    renderStatusFilter();
+    renderClients();
+    renderActiveStatuses();
+    renderStatusPicker();
+  });
+  refreshIcons();
 }
 
 function renderMonthlyTable() {

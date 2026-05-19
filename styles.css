@@ -1002,9 +1002,7 @@ h3 {
   border-radius: var(--radius);
   margin-top: 12px;
   padding: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: block;
 }
 
 .status-option {
@@ -1020,6 +1018,38 @@ h3 {
 .status-option:hover {
   border-color: rgba(0, 159, 127, 0.45);
   color: var(--green-dark);
+}
+
+.status-editor-list {
+  display: grid;
+  gap: 10px;
+}
+
+.status-editor-row {
+  display: grid;
+  grid-template-columns: 86px minmax(150px, 1fr) 64px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--charcoal);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+}
+
+.new-status-row {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
 }
 
 .table-wrap {
@@ -1398,6 +1428,7 @@ h3 {
   .doc-item,
   .task-message,
   .note-message,
+  .status-editor-row,
   .manager-item,
   .manager-item.user-row,
   .manager-item.status-row {
