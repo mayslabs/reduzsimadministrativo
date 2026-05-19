@@ -1176,7 +1176,6 @@ function renderClientCard(client) {
           <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
           <p>${escapeHtml(client.workType || "Obra sem tipo informado")} ${client.state ? `| ${escapeHtml(client.state)}` : ""}</p>
         </div>
-        <span class="chip" style="background:${financeColor(client.financeStatus)}">${escapeHtml(client.financeStatus || "Pendente")}</span>
       </header>
       <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
       <div class="card-alerts">
