@@ -58,6 +58,26 @@ const labelReplacements = {
   "Alvara": "Alvará",
 };
 
+const workFields = [
+  "workTitle",
+  "workResponsible",
+  "destination",
+  "workType",
+  "concrete",
+  "state",
+  "startDate",
+  "endDate",
+  "area",
+  "monthly",
+  "tasks",
+  "deadlines",
+  "documents",
+  "workersNotes",
+  "workerMessages",
+];
+
+const scalarWorkFields = workFields.filter((field) => !["monthly", "tasks", "deadlines", "documents", "workerMessages"].includes(field));
+
 const fixedUserIds = {
   mayssa: "user-mayssa",
   contato: "user-contato",
@@ -80,7 +100,7 @@ const defaultUsers = [
 
 const defaultClient = () => {
   const statusByName = Object.fromEntries(state.statuses.map((status) => [status.name, status.id]));
-  return {
+  const client = {
     id: id(),
     clientName: "Cliente exemplo",
     fullName: "Cliente exemplo",
@@ -97,6 +117,9 @@ const defaultClient = () => {
       statusByName["Documentos da obra pendentes"],
       statusByName["Aguardando pagamento da guia"],
     ].filter(Boolean),
+    activeWorkId: "",
+    works: [],
+    workTitle: "Obra principal",
     workResponsible: "Engenheiro responsável",
     destination: "Residencial",
     workType: "Construção",
@@ -191,6 +214,9 @@ const defaultClient = () => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  client.works = [createWorkFromClient(client, "Obra principal")];
+  client.activeWorkId = client.works[0].id;
+  return client;
 };
 
 let state;
@@ -246,6 +272,9 @@ const el = {
   openStatusPicker: document.getElementById("openStatusPicker"),
   activeStatusList: document.getElementById("activeStatusList"),
   statusPicker: document.getElementById("statusPicker"),
+  workSelect: document.getElementById("workSelect"),
+  addWorkButton: document.getElementById("addWorkButton"),
+  removeWorkButton: document.getElementById("removeWorkButton"),
   generateMonthsButton: document.getElementById("generateMonthsButton"),
   addMonthButton: document.getElementById("addMonthButton"),
   monthlyTable: document.querySelector("#monthlyTable tbody"),
@@ -398,6 +427,9 @@ function migrateState(savedState = {}, persist = true) {
     folderPath: "",
     nextAction: "",
     statusIds: [],
+    activeWorkId: "",
+    works: [],
+    workTitle: "",
     workResponsible: "",
     destination: "",
     workType: "",
@@ -433,6 +465,12 @@ function migrateState(savedState = {}, persist = true) {
     workerMessages: normalizeWorkerMessages(client, migrated.users[0]?.id || ""),
     statusIds: Array.isArray(client.statusIds) ? client.statusIds : [],
   }));
+
+  migrated.clients.forEach((client) => {
+    client.works = normalizeClientWorks(client, migrated.users[0]?.id || "");
+    client.activeWorkId = client.activeWorkId || client.works[0]?.id || "";
+    applyWorkToClient(client, currentClientWork(client));
+  });
 
   remapUserReferences(migrated, userCleanup.idMap);
 
@@ -508,6 +546,99 @@ function normalizeWorkerMessages(client = {}, fallbackUserId = "") {
   ];
 }
 
+function normalizeClientWorks(client = {}, fallbackUserId = "") {
+  const rawWorks = Array.isArray(client.works) && client.works.length ? client.works : [createWorkFromClient(client, client.workTitle || "Obra principal")];
+  return rawWorks.map((work, index) => ({
+    id: work.id || id(),
+    title: work.title || work.workTitle || (index === 0 ? "Obra principal" : `Obra ${index + 1}`),
+    workTitle: work.workTitle || work.title || (index === 0 ? "Obra principal" : `Obra ${index + 1}`),
+    workResponsible: work.workResponsible || "",
+    destination: localizeLabel(work.destination || ""),
+    workType: localizeLabel(work.workType || ""),
+    concrete: localizeLabel(work.concrete || ""),
+    state: work.state || "",
+    startDate: work.startDate || "",
+    endDate: work.endDate || "",
+    area: formatFieldValue("area", work.area || ""),
+    monthly: Array.isArray(work.monthly) ? work.monthly : [],
+    tasks: Array.isArray(work.tasks) ? work.tasks.map((task) => normalizeClientTask(task, client, fallbackUserId)) : [],
+    deadlines: Array.isArray(work.deadlines) ? work.deadlines : [],
+    documents: Array.isArray(work.documents) ? work.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
+    workersNotes: work.workersNotes || "",
+    workerMessages: Array.isArray(work.workerMessages) ? work.workerMessages : normalizeWorkerMessages(work, fallbackUserId),
+  }));
+}
+
+function createWorkFromClient(client = {}, fallbackTitle = "Obra principal") {
+  const work = { id: id() };
+  work.title = client.workTitle || fallbackTitle || "Obra principal";
+  workFields.forEach((field) => {
+    const emptyValue = ["monthly", "tasks", "deadlines", "documents", "workerMessages"].includes(field) ? [] : "";
+    work[field] = cloneData(client[field] ?? emptyValue);
+  });
+  work.workTitle = work.workTitle || work.title;
+  return work;
+}
+
+function emptyWork(order = 1) {
+  const title = `Obra ${order}`;
+  return {
+    id: id(),
+    title,
+    workTitle: title,
+    workResponsible: "",
+    destination: "",
+    workType: "",
+    concrete: "",
+    state: "",
+    startDate: "",
+    endDate: "",
+    area: "",
+    monthly: [],
+    tasks: [],
+    deadlines: [],
+    documents: [],
+    workersNotes: "",
+    workerMessages: [],
+  };
+}
+
+function currentClientWork(client = activeClient) {
+  if (!client) return null;
+  client.works = Array.isArray(client.works) && client.works.length ? client.works : [createWorkFromClient(client, "Obra principal")];
+  if (!client.activeWorkId || !client.works.some((work) => work.id === client.activeWorkId)) {
+    client.activeWorkId = client.works[0].id;
+  }
+  return client.works.find((work) => work.id === client.activeWorkId) || client.works[0];
+}
+
+function syncCurrentWorkFromClient(client = activeClient) {
+  const work = currentClientWork(client);
+  if (!work) return;
+  scalarWorkFields.forEach((field) => {
+    work[field] = client[field] || "";
+  });
+  work.title = client.workTitle || work.title || "Obra sem título";
+  work.workTitle = work.title;
+  ["monthly", "tasks", "deadlines", "documents", "workerMessages"].forEach((field) => {
+    work[field] = cloneData(Array.isArray(client[field]) ? client[field] : []);
+  });
+}
+
+function applyWorkToClient(client = activeClient, work = currentClientWork(client)) {
+  if (!client || !work) return;
+  scalarWorkFields.forEach((field) => {
+    client[field] = work[field] || "";
+  });
+  client.workTitle = work.workTitle || work.title || "Obra sem título";
+  ["monthly", "tasks", "deadlines", "documents", "workerMessages"].forEach((field) => {
+    client[field] = cloneData(Array.isArray(work[field]) ? work[field] : []);
+  });
+  client.workersNotes = work.workersNotes || "";
+  client.area = formatFieldValue("area", client.area || "");
+  normalizeClientSelectValues(client);
+}
+
 function normalizeUsersForMigration(users) {
   const idMap = {};
   (users || []).forEach((user) => {
@@ -562,6 +693,18 @@ function remapUserReferences(migrated, idMap) {
     });
     (client.workerMessages || []).forEach((message) => {
       message.userId = idMap[message.userId] || message.userId;
+    });
+    (client.works || []).forEach((work) => {
+      (work.tasks || []).forEach((task) => {
+        task.ownerId = idMap[task.ownerId] || task.ownerId;
+        task.createdBy = idMap[task.createdBy] || task.createdBy;
+      });
+      (work.deadlines || []).forEach((deadline) => {
+        deadline.ownerId = idMap[deadline.ownerId] || deadline.ownerId;
+      });
+      (work.workerMessages || []).forEach((message) => {
+        message.userId = idMap[message.userId] || message.userId;
+      });
     });
     (client.history || []).forEach((entry) => {
       entry.userId = idMap[entry.userId] || entry.userId;
@@ -672,6 +815,9 @@ function bindEvents() {
   el.openStatusPicker.addEventListener("click", () => {
     el.statusPicker.hidden = !el.statusPicker.hidden;
   });
+  el.workSelect.addEventListener("change", () => switchActiveWork(el.workSelect.value));
+  el.addWorkButton.addEventListener("click", addClientWork);
+  el.removeWorkButton.addEventListener("click", removeActiveWork);
   el.generateMonthsButton.addEventListener("click", generateMonthsFromWorkDates);
   el.addMonthButton.addEventListener("click", () => {
     activeClient.monthly.push(emptyMonth());
@@ -705,6 +851,7 @@ function bindEvents() {
       if (!activeClient) return;
       input.value = formatFieldValue(input.dataset.field, input.value);
       activeClient[input.dataset.field] = input.value;
+      if (input.dataset.field === "workTitle") renderWorkSelector();
       if (input.dataset.field === "documentType") {
         const documentInput = document.querySelector('[data-field="cpf"]');
         if (documentInput) {
@@ -1193,6 +1340,7 @@ function filteredClients() {
       client.infoOwner,
       client.workResponsible,
       client.folderPath,
+      (client.works || []).map((work) => [work.workTitle, work.workResponsible, work.destination, work.workType, work.state].join(" ")).join(" "),
     ].join(" "));
     const matchesQuery = !query || haystack.includes(query);
     const matchesStatus = !statusId || (client.statusIds || []).includes(statusId);
@@ -1209,12 +1357,13 @@ function renderClientCard(client) {
   const deadlines = client.deadlines || [];
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
   const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
+  const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   return `
     <button class="client-card" type="button" data-open-client="${client.id}">
       <header>
         <div>
           <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
-          <p>${escapeHtml(client.workType || "Obra sem tipo informado")} ${client.state ? `| ${escapeHtml(client.state)}` : ""}</p>
+          <p>${escapeHtml(`${workTitle}${client.workType || "Obra sem tipo informado"}`)} ${client.state ? `| ${escapeHtml(client.state)}` : ""}</p>
         </div>
       </header>
       <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
@@ -1284,16 +1433,18 @@ function openClientById(clientId) {
 
 function openClient(client) {
   activeClient = client;
+  activeClient.works = normalizeClientWorks(activeClient, currentUser?.id || "");
+  activeClient.activeWorkId = activeClient.activeWorkId || activeClient.works[0]?.id || "";
+  applyWorkToClient(activeClient, currentClientWork(activeClient));
   activeClient.documentType = documentTypeForClient(activeClient);
   activeClient.cpf = formatFieldValue("cpf", activeClient.cpf || "");
   activeClient.phone = formatFieldValue("phone", activeClient.phone || "");
   activeClient.area = formatFieldValue("area", activeClient.area || "");
   normalizeClientSelectValues(activeClient);
   el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
-  document.querySelectorAll("[data-field]").forEach((input) => {
-    input.value = activeClient[input.dataset.field] || "";
-  });
   renderUserSelects();
+  fillClientFields();
+  renderWorkSelector();
   renderActiveStatuses();
   renderStatusPicker();
   renderMonthlyTable();
@@ -1306,6 +1457,73 @@ function openClient(client) {
   switchTab("summaryTab");
   el.clientDialog.showModal();
   refreshIcons();
+}
+
+function fillClientFields() {
+  document.querySelectorAll("[data-field]").forEach((input) => {
+    input.value = activeClient[input.dataset.field] || "";
+  });
+}
+
+function renderWorkSelector() {
+  if (!activeClient || !el.workSelect) return;
+  const currentWork = currentClientWork(activeClient);
+  if (currentWork) {
+    currentWork.title = activeClient.workTitle || currentWork.title || "Obra sem título";
+    currentWork.workTitle = currentWork.title;
+  }
+  el.workSelect.innerHTML = activeClient.works
+    .map((work, index) => `<option value="${work.id}">${escapeHtml(work.workTitle || work.title || `Obra ${index + 1}`)}</option>`)
+    .join("");
+  el.workSelect.value = activeClient.activeWorkId;
+  el.removeWorkButton.hidden = activeClient.works.length <= 1;
+}
+
+function switchActiveWork(workId) {
+  if (!activeClient || activeClient.activeWorkId === workId) return;
+  syncCurrentWorkFromClient(activeClient);
+  activeClient.activeWorkId = workId;
+  applyWorkToClient(activeClient, currentClientWork(activeClient));
+  fillClientFields();
+  renderWorkSelector();
+  renderMonthlyTable();
+  renderTasks();
+  renderDeadlines();
+  renderDocuments();
+  renderWorkerMessages();
+}
+
+function addClientWork() {
+  if (!activeClient) return;
+  syncCurrentWorkFromClient(activeClient);
+  const newWork = emptyWork(activeClient.works.length + 1);
+  activeClient.works.push(newWork);
+  activeClient.activeWorkId = newWork.id;
+  applyWorkToClient(activeClient, newWork);
+  fillClientFields();
+  renderWorkSelector();
+  renderMonthlyTable();
+  renderTasks();
+  renderDeadlines();
+  renderDocuments();
+  renderWorkerMessages();
+}
+
+function removeActiveWork() {
+  if (!activeClient || activeClient.works.length <= 1) return;
+  const work = currentClientWork(activeClient);
+  const workName = work?.workTitle || work?.title || "esta obra";
+  if (!confirm(`Remover ${workName}? As tarefas, prazos, documentos e mensagens dessa obra também serão removidos deste card.`)) return;
+  activeClient.works = activeClient.works.filter((item) => item.id !== activeClient.activeWorkId);
+  activeClient.activeWorkId = activeClient.works[0]?.id || "";
+  applyWorkToClient(activeClient, currentClientWork(activeClient));
+  fillClientFields();
+  renderWorkSelector();
+  renderMonthlyTable();
+  renderTasks();
+  renderDeadlines();
+  renderDocuments();
+  renderWorkerMessages();
 }
 
 function renderUserSelects() {
@@ -1782,6 +2000,8 @@ function openHistoryEditDialog(historyId) {
 }
 
 function saveActiveClient() {
+  syncCurrentWorkFromClient(activeClient);
+  applyWorkToClient(activeClient, currentClientWork(activeClient));
   if (!activeClient.clientName.trim()) {
     activeClient.clientName = activeClient.fullName || "Cliente sem nome";
   }
@@ -1831,6 +2051,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     internalOwner: "Responsável interno",
     folderPath: "Pasta no OneDrive",
     nextAction: "Próxima ação",
+    workTitle: "Título da obra",
     workResponsible: "Responsável da obra",
     destination: "Destinação",
     workType: "Tipo de obra",
@@ -1858,6 +2079,7 @@ function summarizeClientChanges(previousClient, nextClient) {
   const nextStatuses = statusNames(nextClient.statusIds);
   if (previousStatuses !== nextStatuses) changes.push(`Status do processo: ${previousStatuses} -> ${nextStatuses}.`);
 
+  collectionChangeSummary(changes, "Obras", previousClient.works, nextClient.works, (item) => item.workTitle || item.title || "obra sem título");
   collectionChangeSummary(changes, "Controle mensal", previousClient.monthly, nextClient.monthly, (item) => item.month || "mês sem competência");
   collectionChangeSummary(changes, "Tarefas", previousClient.tasks, nextClient.tasks, (item) => item.title || "tarefa sem título");
   collectionChangeSummary(changes, "Prazos", previousClient.deadlines, nextClient.deadlines, (item) => item.title || "prazo sem título");
@@ -2252,7 +2474,7 @@ function switchTab(tabId) {
 }
 
 function createEmptyClient() {
-  return {
+  const client = {
     id: id(),
     clientName: "",
     fullName: "",
@@ -2265,6 +2487,9 @@ function createEmptyClient() {
     folderPath: "",
     nextAction: "",
     statusIds: [],
+    activeWorkId: "",
+    works: [],
+    workTitle: "Obra principal",
     workResponsible: "",
     destination: "",
     workType: "",
@@ -2291,6 +2516,9 @@ function createEmptyClient() {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  client.works = [createWorkFromClient(client, "Obra principal")];
+  client.activeWorkId = client.works[0].id;
+  return client;
 }
 
 function generateMonthsFromWorkDates() {

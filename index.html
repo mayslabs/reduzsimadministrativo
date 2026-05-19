@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=27" />
+    <link rel="stylesheet" href="./styles.css?v=28" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -215,7 +215,15 @@
         </section>
 
         <section id="clientTab" class="tab-panel">
+          <div class="work-switcher">
+            <label>Obra
+              <select id="workSelect"></select>
+            </label>
+            <button id="addWorkButton" class="small-button" type="button"><i data-lucide="plus"></i> Adicionar obra</button>
+            <button id="removeWorkButton" class="danger-button compact" type="button"><i data-lucide="trash-2"></i> Remover obra</button>
+          </div>
           <div class="form-grid">
+            <label>Título da obra<input data-field="workTitle" type="text" placeholder="Ex.: Casa principal, Galpão, Reforma" /></label>
             <label>Nome completo<input data-field="fullName" type="text" /></label>
             <label>Tipo de documento
               <select data-field="documentType">
@@ -415,6 +423,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=32"></script>
+    <script src="./app.js?v=33"></script>
   </body>
 </html>

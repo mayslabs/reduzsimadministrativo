@@ -1343,6 +1343,23 @@ h3 {
   margin-bottom: 14px;
 }
 
+.work-switcher {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.work-switcher label {
+  min-width: 0;
+}
+
+.compact {
+  min-height: 38px;
+  padding: 9px 12px;
+}
+
 .full-textarea {
   display: grid;
 }
@@ -1395,6 +1412,7 @@ h3 {
   .task-toolbar,
   .calendar-controls,
   .summary-layout,
+  .work-switcher,
   .form-grid {
     grid-template-columns: 1fr;
   }
