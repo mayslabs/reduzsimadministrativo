@@ -1,7 +1,6 @@
 const STORAGE_KEY = "reduzsim_client_flow_v2";
 const LEGACY_STORAGE_KEYS = ["reduzsim_client_flow_v1"];
 const SESSION_KEY = "reduzsim_current_user_v2";
-const NOTE_EDIT_WINDOW_MS = 15 * 60 * 1000;
 const FIRESTORE_COLLECTION = "reduzsim_admin";
 const FIRESTORE_STATE_DOC = "shared_state";
 
@@ -1421,23 +1420,21 @@ function renderNotes() {
   el.notesList.innerHTML = (activeClient.notes || []).length
     ? [...activeClient.notes]
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .map((note) => {
-          const canEdit = note.userId === currentUser.id && Date.now() - new Date(note.createdAt).getTime() <= NOTE_EDIT_WINDOW_MS;
-          return `
-            <article class="timeline-item" data-note="${note.id}">
+        .map(
+          (note) => `
+            <article class="note-message" data-note="${note.id}">
               <header>
                 <strong>${escapeHtml(ownerName(note.userId))}</strong>
                 <span>${formatDateTime(note.createdAt)}${note.updatedAt ? " | editada" : ""}</span>
               </header>
-              ${
-                canEdit
-                  ? `<textarea data-note-field="text">${escapeHtml(note.text || "")}</textarea>`
-                  : `<p>${escapeHtml(note.text || "")}</p>`
-              }
-              ${canEdit ? `<button class="small-button" type="button" data-save-note="${note.id}"><i data-lucide="save"></i> Salvar edição</button>` : ""}
+              <textarea data-note-field="text">${escapeHtml(note.text || "")}</textarea>
+              <div class="note-actions">
+                <button class="small-button" type="button" data-save-note="${note.id}"><i data-lucide="save"></i> Salvar edição</button>
+                <button class="icon-button" type="button" data-remove-note="${note.id}" aria-label="Remover anotação"><i data-lucide="trash-2"></i></button>
+              </div>
             </article>
-          `;
-        })
+          `
+        )
         .join("")
     : `<p class="empty-state">Nenhuma anotação registrada.</p>`;
 
@@ -1447,6 +1444,13 @@ function renderNotes() {
       const box = document.querySelector(`[data-note="${note.id}"] [data-note-field="text"]`);
       note.text = box.value.trim();
       note.updatedAt = new Date().toISOString();
+      renderNotes();
+    });
+  });
+
+  document.querySelectorAll("[data-remove-note]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeClient.notes = activeClient.notes.filter((note) => note.id !== button.dataset.removeNote);
       renderNotes();
     });
   });

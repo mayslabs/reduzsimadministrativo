@@ -1172,6 +1172,47 @@ h3 {
   font-weight: 900;
 }
 
+.note-message {
+  width: min(780px, 100%);
+  border: 1px solid rgba(0, 159, 127, 0.18);
+  border-radius: var(--radius);
+  background: #e7f7f2;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(31, 41, 51, 0.05);
+}
+
+.note-message header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.note-message header strong {
+  color: var(--charcoal);
+  font-size: 13px;
+}
+
+.note-message header span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.note-message textarea {
+  min-height: 78px;
+  border-color: rgba(0, 159, 127, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .timeline-item header {
   display: flex;
   align-items: center;
@@ -1301,6 +1342,7 @@ h3 {
   .list-item,
   .doc-item,
   .task-message,
+  .note-message,
   .manager-item,
   .manager-item.user-row,
   .manager-item.status-row {
