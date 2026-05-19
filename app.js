@@ -1165,6 +1165,10 @@ function renderClientCard(client) {
     .map((status) => chip(status))
     .join("");
   const nextDue = nearestDate(client.deadlines || []);
+  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
+  const deadlines = client.deadlines || [];
+  const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
+  const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   return `
     <button class="client-card" type="button" data-open-client="${client.id}">
       <header>
@@ -1175,6 +1179,16 @@ function renderClientCard(client) {
         <span class="chip" style="background:${financeColor(client.financeStatus)}">${escapeHtml(client.financeStatus || "Pendente")}</span>
       </header>
       <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
+      <div class="card-alerts">
+        <span class="card-alert ${openTasks.length ? "active" : ""}">
+          <i data-lucide="list-checks"></i>
+          ${openTasks.length ? `${openTasks.length} tarefa(s): ${escapeHtml(taskOwners)}` : "Sem tarefas abertas"}
+        </span>
+        <span class="card-alert ${deadlines.length ? "active deadline" : ""}">
+          <i data-lucide="calendar-clock"></i>
+          ${deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"}
+        </span>
+      </div>
       <div class="card-meta">
         <span><i data-lucide="user"></i>${escapeHtml(ownerName(client.internalOwner))}</span>
         <span><i data-lucide="calendar"></i>${nextDue ? `Próximo prazo: ${formatDate(nextDue.date)}` : "Sem prazo registrado"}</span>
@@ -2098,6 +2112,13 @@ function chip(status) {
 
 function ownerName(userId) {
   return state.users.find((user) => user.id === userId)?.name || "Sem responsável";
+}
+
+function ownerSummary(userIds = []) {
+  const names = [...new Set(userIds.filter(Boolean).map((userId) => ownerName(userId)))];
+  if (!names.length) return "sem responsável";
+  if (names.length <= 2) return names.join(", ");
+  return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
 }
 
 function userOptions(selectedId) {

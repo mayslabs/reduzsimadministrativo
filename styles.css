@@ -535,6 +535,42 @@ h3 {
   gap: 7px;
 }
 
+.card-alerts {
+  display: grid;
+  gap: 7px;
+}
+
+.card-alert {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8fbfa;
+  color: var(--muted);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.card-alert svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.card-alert.active {
+  border-color: rgba(209, 67, 67, 0.28);
+  background: #fff1f1;
+  color: var(--red);
+}
+
+.card-alert.active.deadline {
+  border-color: rgba(199, 128, 0, 0.3);
+  background: #fff8e8;
+  color: var(--amber);
+}
+
 .chip-list {
   display: flex;
   flex-wrap: wrap;
