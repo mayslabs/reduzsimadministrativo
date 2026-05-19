@@ -640,8 +640,7 @@ function bindEvents() {
     openClientTaskDialog();
   });
   el.addDeadlineButton.addEventListener("click", () => {
-    activeClient.deadlines.push(emptyDeadline());
-    renderDeadlines();
+    openClientDeadlineDialog();
   });
   el.addNoteButton.addEventListener("click", addNote);
   el.addHistoryButton.addEventListener("click", addManualHistory);
@@ -1164,7 +1163,6 @@ function renderClientCard(client) {
     .slice(0, 5)
     .map((status) => chip(status))
     .join("");
-  const nextDue = nearestDate(client.deadlines || []);
   const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
   const deadlines = client.deadlines || [];
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
@@ -1190,7 +1188,6 @@ function renderClientCard(client) {
       </div>
       <div class="card-meta">
         <span><i data-lucide="user"></i>${escapeHtml(ownerName(client.internalOwner))}</span>
-        <span><i data-lucide="calendar"></i>${nextDue ? `Próximo prazo: ${formatDate(nextDue.date)}` : "Sem prazo registrado"}</span>
         <span><i data-lucide="folder"></i>${client.folderPath ? "Pasta registrada" : "Pasta não informada"}</span>
       </div>
       <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
@@ -1390,18 +1387,34 @@ function renderDeadlines() {
     ? activeClient.deadlines
         .map(
           (deadline) => `
-            <div class="list-item" data-deadline="${deadline.id}">
-              <label>Prazo<input value="${escapeAttr(deadline.title || "")}" data-deadline-field="title" /></label>
-              <label>Tipo<select data-deadline-field="type">${deadlineTypeOptions(deadline.type)}</select></label>
-              <label>Data<input type="date" value="${deadline.date || ""}" data-deadline-field="date" /></label>
-              <label>Responsável<select data-deadline-field="ownerId">${userOptions(deadline.ownerId)}</select></label>
-              <button class="icon-button" type="button" data-remove-deadline="${deadline.id}" aria-label="Remover prazo"><i data-lucide="trash-2"></i></button>
+            <div class="task-message deadline-message" data-deadline="${deadline.id}">
+              <div class="task-message-body">
+                <p class="task-message-title">${escapeHtml(deadline.title || "Prazo sem descrição")}</p>
+                <div class="task-message-meta">
+                  <span>Tipo: ${escapeHtml(deadline.type || "Interno")}</span>
+                  <span>Responsável: ${escapeHtml(ownerName(deadline.ownerId))}</span>
+                  <span>${deadline.date ? `Data: ${formatDate(deadline.date)}` : "Sem data"}</span>
+                </div>
+              </div>
+              <div class="task-message-actions">
+                <button class="small-button" type="button" data-edit-deadline="${deadline.id}"><i data-lucide="pencil"></i> Editar</button>
+                <button class="icon-button" type="button" data-remove-deadline="${deadline.id}" aria-label="Remover prazo"><i data-lucide="trash-2"></i></button>
+              </div>
             </div>
           `
         )
         .join("")
     : `<p class="empty-state">Nenhum prazo cadastrado.</p>`;
-  bindCollectionFields("deadline", activeClient.deadlines, renderDeadlines);
+  document.querySelectorAll("[data-edit-deadline]").forEach((button) => {
+    button.addEventListener("click", () => openClientDeadlineDialog(button.dataset.editDeadline));
+  });
+  document.querySelectorAll("[data-remove-deadline]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeClient.deadlines = activeClient.deadlines.filter((deadline) => deadline.id !== button.dataset.removeDeadline);
+      renderDeadlines();
+    });
+  });
+  refreshIcons();
 }
 
 function renderNotes() {
@@ -1896,6 +1909,41 @@ function openClientTaskDialog(taskId = null) {
   });
 }
 
+function openClientDeadlineDialog(deadlineId = null) {
+  const deadline = activeClient.deadlines.find((item) => item.id === deadlineId) || null;
+  const draft = deadline || emptyDeadline();
+  openSimpleDialog(deadline ? "Editar prazo" : "Novo prazo", [
+    { label: "Prazo", name: "title", type: "text", value: draft.title || "" },
+    { label: "Tipo", name: "type", type: "select", value: draft.type || "Interno", options: deadlineTypeValues().map((value) => ({ value, label: value })) },
+    { label: "Data", name: "date", type: "date", value: draft.date || "" },
+    { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+  ], (values) => {
+    if (!values.title) {
+      alert("Informe o nome do prazo.");
+      return false;
+    }
+
+    const payload = {
+      title: values.title,
+      type: values.type || "Interno",
+      date: values.date,
+      ownerId: values.ownerId || currentUser.id,
+    };
+
+    if (deadline) {
+      Object.assign(deadline, payload);
+    } else {
+      activeClient.deadlines.push({
+        ...draft,
+        ...payload,
+      });
+    }
+
+    renderDeadlines();
+    return true;
+  });
+}
+
 function openInternalTaskDialog(taskId = null) {
   const task = state.internalTasks.find((item) => item.id === taskId) || null;
   const visibilityOptions = currentUser.role === "admin"
@@ -2135,9 +2183,13 @@ function taskStatusValues() {
 }
 
 function deadlineTypeOptions(selected = "Interno") {
-  return ["Guia", "Receita", "Cliente", "Interno", "NF", "Outro"]
+  return deadlineTypeValues()
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
     .join("");
+}
+
+function deadlineTypeValues() {
+  return ["Guia", "Receita", "Cliente", "Interno", "NF", "Outro"];
 }
 
 function documentStatusOptions(selected = "Pendente") {

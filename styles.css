@@ -1094,6 +1094,11 @@ h3 {
   border-color: var(--line);
 }
 
+.deadline-message {
+  border-color: rgba(199, 128, 0, 0.24);
+  background: #fff8e8;
+}
+
 .task-message-title {
   margin: 0 0 8px;
   color: var(--charcoal);
