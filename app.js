@@ -2260,17 +2260,13 @@ function formatPhoneNumber(value) {
 }
 
 function formatAreaValue(value) {
-  const clean = String(value || "")
-    .replace(/m²|m2/gi, "")
-    .replace(/[^\d,.]/g, "")
-    .replace(/\./g, ",");
-  if (!clean) return "";
+  const digits = onlyDigits(value);
+  if (!digits) return "";
 
-  const [integerRaw, decimalRaw = ""] = clean.split(",");
-  const integer = onlyDigits(integerRaw);
-  const decimal = onlyDigits(decimalRaw).slice(0, 2);
-  const number = decimal ? `${integer || "0"},${decimal}` : integer;
-  return number ? `${number} m²` : "";
+  const padded = digits.padStart(3, "0");
+  const integer = padded.slice(0, -2).replace(/^0+(?=\d)/, "");
+  const decimal = padded.slice(-2);
+  return `${integer},${decimal} m²`;
 }
 
 function onlyDigits(value) {
