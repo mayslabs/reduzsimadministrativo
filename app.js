@@ -110,7 +110,6 @@ const defaultClient = () => {
       {
         id: id(),
         month: "2026-01",
-        receiptPaid: true,
         receiptSigned: true,
         remunerationSent: true,
         guideIssued: true,
@@ -121,7 +120,6 @@ const defaultClient = () => {
       {
         id: id(),
         month: "2026-02",
-        receiptPaid: false,
         receiptSigned: false,
         remunerationSent: false,
         guideIssued: false,
@@ -1298,7 +1296,7 @@ function renderMonthlyTable() {
       (row) => `
         <tr data-month-row="${row.id}">
           <td><input type="month" value="${row.month || ""}" data-month-field="month" /></td>
-          ${["receiptPaid", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"]
+          ${["receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"]
             .map((field) => `<td><input type="checkbox" ${row[field] ? "checked" : ""} data-month-field="${field}" /></td>`)
             .join("")}
           <td><input type="text" value="${escapeAttr(row.notes || "")}" data-month-field="notes" /></td>
@@ -1986,7 +1984,6 @@ function emptyMonth(month = "") {
   return {
     id: id(),
     month,
-    receiptPaid: false,
     receiptSigned: false,
     remunerationSent: false,
     guideIssued: false,
