@@ -73,7 +73,7 @@ const defaultUsers = [
   },
   {
     id: fixedUserIds.contato,
-    name: "Contato",
+    name: "Camilli",
     email: "contato@reduzsiminss.com.br",
     role: "user",
   },
@@ -1793,7 +1793,7 @@ function openStatusDialog() {
 }
 
 function openUserDialog() {
-  alert("Os usuários agora são fixos: mayssa@reduzsiminss.com.br e contato@reduzsiminss.com.br.");
+  alert("Os usuários agora são fixos: Mayssa e Camilli.");
 }
 
 function openInternalTaskDialog(taskId = null) {
