@@ -1230,7 +1230,6 @@ function renderClientCard(client) {
       </div>
       <div class="card-meta">
         <span><i data-lucide="user"></i>${escapeHtml(ownerName(client.internalOwner))}</span>
-        <span><i data-lucide="folder"></i>${client.folderPath ? "Pasta registrada" : "Pasta não informada"}</span>
       </div>
       <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
     </button>
