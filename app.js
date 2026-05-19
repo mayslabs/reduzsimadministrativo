@@ -1463,49 +1463,39 @@ function renderHistory() {
   const history = Array.isArray(activeClient.history) ? activeClient.history : [];
 
   el.historyList.innerHTML = history.length
-    ? [...history]
+    ? `<div class="history-timeline">${[...history]
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map((entry) => {
-          const details = Array.isArray(entry.details) ? entry.details : [];
+          const details = Array.isArray(entry.details) && entry.details.length ? entry.details : [entry.title || "Registro do histórico"];
           return `
-            <article class="timeline-item history-item" data-history="${entry.id}">
-              <header>
-                <div>
-                  ${
-                    isAdmin
-                      ? `<input class="history-title-input" value="${escapeAttr(entry.title || "")}" data-history-title="${entry.id}" />`
-                      : `<strong>${escapeHtml(entry.title || "Registro do histórico")}</strong>`
-                  }
-                  <span>${escapeHtml(ownerName(entry.userId))} | ${entry.type === "system" ? "Automático" : "Manual"}</span>
+            <article class="history-timeline-item" data-history="${entry.id}">
+              <span class="history-dot"></span>
+              <div class="history-content">
+                <div class="history-meta">
+                  <span>${escapeHtml(ownerName(entry.userId))}</span>
+                  <span>${formatDateTime(entry.createdAt)}${entry.updatedAt ? " | editado" : ""}</span>
+                  <span>${entry.type === "system" ? "Automático" : "Manual"}</span>
                 </div>
-                <span>${formatDateTime(entry.createdAt)}${entry.updatedAt ? " | editado" : ""}</span>
-              </header>
-              ${
-                isAdmin
-                  ? `<textarea data-history-details="${entry.id}" rows="4">${escapeHtml(details.join("\n"))}</textarea>
-                    <div class="inline-actions history-actions">
-                      <button class="small-button" type="button" data-save-history="${entry.id}"><i data-lucide="save"></i> Salvar edição</button>
-                      <button class="danger-button" type="button" data-remove-history="${entry.id}"><i data-lucide="trash-2"></i> Remover</button>
-                    </div>`
-                  : `<ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>`
-              }
+                <ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>
+                ${
+                  isAdmin
+                    ? `<div class="inline-actions history-actions">
+                        <button class="small-button" type="button" data-edit-history="${entry.id}"><i data-lucide="pencil"></i> Editar</button>
+                        <button class="danger-button" type="button" data-remove-history="${entry.id}"><i data-lucide="trash-2"></i> Remover</button>
+                      </div>`
+                    : ""
+                }
+              </div>
             </article>
           `;
         })
-        .join("")
+        .join("")}</div>`
     : `<p class="empty-state">Nenhum histórico registrado.</p>`;
 
-  document.querySelectorAll("[data-save-history]").forEach((button) => {
+  document.querySelectorAll("[data-edit-history]").forEach((button) => {
     button.addEventListener("click", () => {
       if (currentUser.role !== "admin") return;
-      const entry = activeClient.history.find((item) => item.id === button.dataset.saveHistory);
-      if (!entry) return;
-      const titleInput = document.querySelector(`[data-history-title="${entry.id}"]`);
-      const detailsInput = document.querySelector(`[data-history-details="${entry.id}"]`);
-      entry.title = titleInput.value.trim() || "Registro do histórico";
-      entry.details = detailsInput.value.split("\n").map((line) => line.trim()).filter(Boolean);
-      entry.updatedAt = new Date().toISOString();
-      renderHistory();
+      openHistoryEditDialog(button.dataset.editHistory);
     });
   });
 
@@ -1582,6 +1572,27 @@ function addManualHistory() {
   addHistoryEntry(activeClient, "Registro manual", text.split("\n").map((line) => line.trim()).filter(Boolean), "manual");
   el.newHistoryText.value = "";
   renderHistory();
+}
+
+function openHistoryEditDialog(historyId) {
+  if (currentUser.role !== "admin") return;
+  const entry = activeClient.history.find((item) => item.id === historyId);
+  if (!entry) return;
+  const details = Array.isArray(entry.details) ? entry.details : [];
+  openSimpleDialog("Editar histórico", [
+    { label: "Informação do histórico", name: "details", type: "textarea", value: details.join("\n"), rows: 7 },
+  ], (values) => {
+    const detailsValue = values.details.split("\n").map((line) => line.trim()).filter(Boolean);
+    if (!detailsValue.length) {
+      alert("Informe pelo menos uma linha do histórico.");
+      return false;
+    }
+
+    entry.details = detailsValue;
+    entry.updatedAt = new Date().toISOString();
+    renderHistory();
+    return true;
+  });
 }
 
 function saveActiveClient() {
@@ -2020,6 +2031,10 @@ function openSimpleDialog(title, fields, onSave) {
 }
 
 function simpleFieldControl(field) {
+  if (field.type === "textarea") {
+    return `<textarea rows="${field.rows || 5}" data-simple-field="${field.name}">${escapeHtml(field.value)}</textarea>`;
+  }
+
   if (field.type === "select") {
     return `<select data-simple-field="${field.name}">${(field.options || [])
       .map((option) => `<option value="${escapeAttr(option.value)}" ${option.value === field.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`)

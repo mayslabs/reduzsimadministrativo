@@ -1232,19 +1232,66 @@ h3 {
   min-height: 72px;
 }
 
-.history-item ul {
+.history-timeline {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding-left: 22px;
+}
+
+.history-timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--line);
+}
+
+.history-timeline-item {
+  position: relative;
+}
+
+.history-dot {
+  position: absolute;
+  left: -21px;
+  top: 9px;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--green);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.history-content {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 12px 14px;
+}
+
+.history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.history-meta span:first-child {
+  color: var(--charcoal);
+  font-weight: 700;
+}
+
+.history-content ul {
   margin: 0;
   padding-left: 18px;
   color: var(--charcoal);
   font-size: 13px;
   line-height: 1.55;
-}
-
-.history-title-input {
-  min-height: 34px;
-  padding: 7px 9px;
-  font-size: 13px;
-  font-weight: 850;
 }
 
 .history-actions {
