@@ -235,10 +235,64 @@
             </label>
             <label>Responsável por informações/documentos<input data-field="infoOwner" type="text" /></label>
             <label>Responsável da obra<input data-field="workResponsible" type="text" /></label>
-            <label>Destinação<input data-field="destination" type="text" /></label>
-            <label>Tipo de obra<input data-field="workType" type="text" /></label>
-            <label>Concreto usinado<input data-field="concrete" type="text" /></label>
-            <label>Estado<input data-field="state" type="text" maxlength="2" /></label>
+            <label>Destinação
+              <select data-field="destination">
+                <option value="">-- Selecione --</option>
+                <option value="Residencial unifamiliar">Residencial unifamiliar</option>
+                <option value="Residencial multifamiliar">Residencial multifamiliar</option>
+                <option value="Comercial salas e lojas">Comercial salas e lojas</option>
+                <option value="Galpão industrial">Galpão industrial</option>
+                <option value="Casa popular">Casa popular</option>
+                <option value="Conjunto habitacional popular">Conjunto habitacional popular</option>
+                <option value="Edifício de garagens">Edifício de garagens</option>
+              </select>
+            </label>
+            <label>Tipo de obra
+              <select data-field="workType">
+                <option value="">-- Selecione --</option>
+                <option value="Alvenaria">Alvenaria</option>
+                <option value="Madeira ou mista">Madeira ou mista</option>
+              </select>
+            </label>
+            <label>Concreto usinado
+              <select data-field="concrete">
+                <option value="">-- Selecione --</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </label>
+            <label>Estado
+              <select data-field="state">
+                <option value="">-- Selecione --</option>
+                <option value="AC">AC</option>
+                <option value="AL">AL</option>
+                <option value="AP">AP</option>
+                <option value="AM">AM</option>
+                <option value="BA">BA</option>
+                <option value="CE">CE</option>
+                <option value="DF">DF</option>
+                <option value="ES">ES</option>
+                <option value="GO">GO</option>
+                <option value="MA">MA</option>
+                <option value="MT">MT</option>
+                <option value="MS">MS</option>
+                <option value="MG">MG</option>
+                <option value="PA">PA</option>
+                <option value="PB">PB</option>
+                <option value="PR">PR</option>
+                <option value="PE">PE</option>
+                <option value="PI">PI</option>
+                <option value="RJ">RJ</option>
+                <option value="RN">RN</option>
+                <option value="RS">RS</option>
+                <option value="RO">RO</option>
+                <option value="RR">RR</option>
+                <option value="SC">SC</option>
+                <option value="SP">SP</option>
+                <option value="SE">SE</option>
+                <option value="TO">TO</option>
+              </select>
+            </label>
             <label>Início da obra<input data-field="startDate" type="date" /></label>
             <label>Fim da obra<input data-field="endDate" type="date" /></label>
             <label>Área<input data-field="area" type="text" inputmode="decimal" placeholder="Ex.: 180,00 m²" /></label>
@@ -362,6 +416,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=19"></script>
+    <script src="./app.js?v=20"></script>
   </body>
 </html>

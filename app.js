@@ -1224,6 +1224,7 @@ function openClient(client) {
   activeClient.cpf = formatFieldValue("cpf", activeClient.cpf || "");
   activeClient.phone = formatFieldValue("phone", activeClient.phone || "");
   activeClient.area = formatFieldValue("area", activeClient.area || "");
+  normalizeClientSelectValues(activeClient);
   el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = activeClient[input.dataset.field] || "";
@@ -2104,6 +2105,38 @@ function formatAreaValue(value) {
 
 function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function normalizeClientSelectValues(client) {
+  const destinationAliases = {
+    residencial: "Residencial unifamiliar",
+  };
+  const workTypeAliases = {
+    construcao: "Alvenaria",
+    construção: "Alvenaria",
+  };
+  client.destination = normalizeSelectValue(destinationAliases[normalize(client.destination)] || client.destination, [
+    "Residencial unifamiliar",
+    "Residencial multifamiliar",
+    "Comercial salas e lojas",
+    "Galpão industrial",
+    "Casa popular",
+    "Conjunto habitacional popular",
+    "Edifício de garagens",
+  ]);
+  client.workType = normalizeSelectValue(workTypeAliases[normalize(client.workType)] || client.workType, ["Alvenaria", "Madeira ou mista"]);
+  client.concrete = normalizeSelectValue(client.concrete, ["Sim", "Não"]);
+  client.state = normalizeSelectValue(String(client.state || "").toUpperCase(), brazilianStates());
+}
+
+function normalizeSelectValue(value, options) {
+  if (!value) return "";
+  const match = options.find((option) => normalize(option) === normalize(value));
+  return match || "";
+}
+
+function brazilianStates() {
+  return ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
 }
 
 function taskUrgency(item) {
