@@ -132,6 +132,7 @@ const defaultClient = () => {
       {
         id: id(),
         month: "2026-01",
+        receiptSent: true,
         receiptSigned: true,
         remunerationSent: true,
         guideIssued: true,
@@ -142,6 +143,7 @@ const defaultClient = () => {
       {
         id: id(),
         month: "2026-02",
+        receiptSent: false,
         receiptSigned: false,
         remunerationSent: false,
         guideIssued: false,
@@ -456,7 +458,7 @@ function migrateState(savedState = {}, persist = true) {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...client,
-    monthly: Array.isArray(client.monthly) ? client.monthly : [],
+    monthly: Array.isArray(client.monthly) ? client.monthly.map(normalizeMonthRow) : [],
     tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => normalizeClientTask(task, client, migrated.users[0]?.id || "")) : [],
     deadlines: Array.isArray(client.deadlines) ? client.deadlines : [],
     notes: Array.isArray(client.notes) ? client.notes : [],
@@ -560,7 +562,7 @@ function normalizeClientWorks(client = {}, fallbackUserId = "") {
     startDate: work.startDate || "",
     endDate: work.endDate || "",
     area: formatFieldValue("area", work.area || ""),
-    monthly: Array.isArray(work.monthly) ? work.monthly : [],
+    monthly: Array.isArray(work.monthly) ? work.monthly.map(normalizeMonthRow) : [],
     tasks: Array.isArray(work.tasks) ? work.tasks.map((task) => normalizeClientTask(task, client, fallbackUserId)) : [],
     deadlines: Array.isArray(work.deadlines) ? work.deadlines : [],
     documents: Array.isArray(work.documents) ? work.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
@@ -1649,7 +1651,7 @@ function renderMonthlyTable() {
       (row) => `
         <tr data-month-row="${row.id}">
           <td><input type="month" value="${row.month || ""}" data-month-field="month" /></td>
-          ${["receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"]
+          ${["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"]
             .map((field) => `<td><input type="checkbox" ${row[field] ? "checked" : ""} data-month-field="${field}" /></td>`)
             .join("")}
           <td><input type="text" value="${escapeAttr(row.notes || "")}" data-month-field="notes" /></td>
@@ -2552,12 +2554,27 @@ function emptyMonth(month = "") {
   return {
     id: id(),
     month,
+    receiptSent: false,
     receiptSigned: false,
     remunerationSent: false,
     guideIssued: false,
     guideSent: false,
     guidePaid: false,
     notes: "",
+  };
+}
+
+function normalizeMonthRow(row = {}) {
+  return {
+    id: row.id || id(),
+    month: row.month || "",
+    receiptSent: Boolean(row.receiptSent),
+    receiptSigned: Boolean(row.receiptSigned),
+    remunerationSent: Boolean(row.remunerationSent),
+    guideIssued: Boolean(row.guideIssued),
+    guideSent: Boolean(row.guideSent),
+    guidePaid: Boolean(row.guidePaid),
+    notes: row.notes || "",
   };
 }
 
