@@ -207,12 +207,22 @@ const defaultClient = () => {
       },
     ],
     feeValue: "R$ 4.500,00",
-    paymentMethod: "Asaas - 3 parcelas",
-    installments: "3x",
-    financeStatus: "Parcial",
+    paymentMethod: "Pix",
+    installments: "3",
+    financeStatus: "Em andamento",
     referralCommission: "10%",
     referrer: "Indicador exemplo",
-    financeNotes: "Primeira parcela paga.",
+    commissionPaid: "Não",
+    financeNotes: "",
+    financeMessages: [
+      {
+        id: id(),
+        text: "Primeira parcela paga.",
+        userId: state.users[0]?.id || "",
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
+      },
+    ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -296,6 +306,9 @@ const el = {
   newWorkerMessageText: document.getElementById("newWorkerMessageText"),
   addWorkerMessageButton: document.getElementById("addWorkerMessageButton"),
   workerMessagesList: document.getElementById("workerMessagesList"),
+  newFinanceMessageText: document.getElementById("newFinanceMessageText"),
+  addFinanceMessageButton: document.getElementById("addFinanceMessageButton"),
+  financeMessagesList: document.getElementById("financeMessagesList"),
   addStatusButton: document.getElementById("addStatusButton"),
   statusManager: document.getElementById("statusManager"),
   addUserButton: document.getElementById("addUserButton"),
@@ -451,13 +464,20 @@ function migrateState(savedState = {}, persist = true) {
     feeValue: "",
     paymentMethod: "",
     installments: "",
-    financeStatus: "Pendente",
+    financeStatus: "Em andamento",
     referralCommission: "",
     referrer: "",
+    commissionPaid: "",
     financeNotes: "",
+    financeMessages: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...client,
+    feeValue: formatCurrencyValue(client.feeValue || ""),
+    paymentMethod: normalizeSelectValue(client.paymentMethod, financePaymentMethods()),
+    installments: normalizeInstallmentsValue(client.installments),
+    financeStatus: normalizeFinanceStatus(client.financeStatus),
+    commissionPaid: normalizeSelectValue(client.commissionPaid, ["Sim", "Não"]),
     monthly: Array.isArray(client.monthly) ? client.monthly.map(normalizeMonthRow) : [],
     tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => normalizeClientTask(task, client, migrated.users[0]?.id || "")) : [],
     deadlines: Array.isArray(client.deadlines) ? client.deadlines : [],
@@ -465,6 +485,7 @@ function migrateState(savedState = {}, persist = true) {
     history: Array.isArray(client.history) ? client.history.map(normalizeHistoryEntry) : [],
     documents: Array.isArray(client.documents) ? client.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
     workerMessages: normalizeWorkerMessages(client, migrated.users[0]?.id || ""),
+    financeMessages: normalizeFinanceMessages(client, migrated.users[0]?.id || ""),
     statusIds: Array.isArray(client.statusIds) ? client.statusIds : [],
   }));
 
@@ -509,6 +530,30 @@ function normalizeInternalTask(task) {
     createdAt: task.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
   };
+}
+
+function normalizeFinanceMessages(client = {}, fallbackUserId = "") {
+  const messages = Array.isArray(client.financeMessages) ? client.financeMessages : [];
+  const normalized = messages.map((message) => ({
+    id: message.id || id(),
+    text: message.text || "",
+    userId: message.userId || client.internalOwner || fallbackUserId,
+    createdAt: message.createdAt || client.createdAt || new Date().toISOString(),
+    updatedAt: message.updatedAt || null,
+  }));
+
+  const legacyText = String(client.financeNotes || "").trim();
+  if (legacyText && !normalized.some((message) => message.text === legacyText)) {
+    normalized.push({
+      id: id(),
+      text: legacyText,
+      userId: client.internalOwner || fallbackUserId,
+      createdAt: client.createdAt || new Date().toISOString(),
+      updatedAt: null,
+    });
+  }
+
+  return normalized;
 }
 
 function normalizeClientTask(task, client = {}, fallbackUserId = "") {
@@ -697,6 +742,9 @@ function remapUserReferences(migrated, idMap) {
     (client.workerMessages || []).forEach((message) => {
       message.userId = idMap[message.userId] || message.userId;
     });
+    (client.financeMessages || []).forEach((message) => {
+      message.userId = idMap[message.userId] || message.userId;
+    });
     (client.works || []).forEach((work) => {
       (work.tasks || []).forEach((task) => {
         task.ownerId = idMap[task.ownerId] || task.ownerId;
@@ -834,6 +882,7 @@ function bindEvents() {
   });
   el.addNoteButton.addEventListener("click", addNote);
   el.addWorkerMessageButton.addEventListener("click", addWorkerMessage);
+  el.addFinanceMessageButton.addEventListener("click", addFinanceMessage);
   el.addHistoryButton.addEventListener("click", addManualHistory);
   el.addDocButton.addEventListener("click", () => {
     activeClient.documents.push(emptyDocument());
@@ -1471,6 +1520,7 @@ function openClient(client) {
   renderHistory();
   renderDocuments();
   renderWorkerMessages();
+  renderFinanceMessages();
   switchTab("summaryTab");
   el.clientDialog.showModal();
   refreshIcons();
@@ -1863,6 +1913,57 @@ function renderWorkerMessages() {
   refreshIcons();
 }
 
+function renderFinanceMessages() {
+  const messages = Array.isArray(activeClient.financeMessages) ? activeClient.financeMessages : [];
+  el.financeMessagesList.innerHTML = messages.length
+    ? [...messages]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(
+          (message) => `
+            <article class="note-message" data-finance-message="${message.id}">
+              <p class="note-text">${escapeHtml(message.text || "")}</p>
+              <textarea class="note-edit-field" data-finance-message-field="text" hidden>${escapeHtml(message.text || "")}</textarea>
+              <div class="note-footer">
+                <span>${escapeHtml(ownerName(message.userId))} | ${formatDateTime(message.createdAt)}${message.updatedAt ? " | editada" : ""}</span>
+                <button type="button" data-edit-finance-message="${message.id}">Editar</button>
+                <button type="button" data-save-finance-message="${message.id}" hidden>Salvar</button>
+                <button type="button" data-remove-finance-message="${message.id}" aria-label="Remover observação financeira">×</button>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state">Nenhuma observação financeira registrada.</p>`;
+
+  document.querySelectorAll("[data-edit-finance-message]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const wrapper = button.closest("[data-finance-message]");
+      wrapper.querySelector(".note-text").hidden = true;
+      wrapper.querySelector("[data-finance-message-field]").hidden = false;
+      button.hidden = true;
+      wrapper.querySelector("[data-save-finance-message]").hidden = false;
+    });
+  });
+
+  document.querySelectorAll("[data-save-finance-message]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const message = activeClient.financeMessages.find((item) => item.id === button.dataset.saveFinanceMessage);
+      const box = document.querySelector(`[data-finance-message="${message.id}"] [data-finance-message-field="text"]`);
+      message.text = box.value.trim();
+      message.updatedAt = new Date().toISOString();
+      renderFinanceMessages();
+    });
+  });
+
+  document.querySelectorAll("[data-remove-finance-message]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeClient.financeMessages = activeClient.financeMessages.filter((message) => message.id !== button.dataset.removeFinanceMessage);
+      renderFinanceMessages();
+    });
+  });
+  refreshIcons();
+}
+
 function renderHistory() {
   const isAdmin = currentUser.role === "admin";
   el.historyAdminControls.hidden = !isAdmin;
@@ -1986,6 +2087,21 @@ function addWorkerMessage() {
   renderWorkerMessages();
 }
 
+function addFinanceMessage() {
+  const text = el.newFinanceMessageText.value.trim();
+  if (!text) return;
+  activeClient.financeMessages = Array.isArray(activeClient.financeMessages) ? activeClient.financeMessages : [];
+  activeClient.financeMessages.unshift({
+    id: id(),
+    text,
+    userId: currentUser.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+  });
+  el.newFinanceMessageText.value = "";
+  renderFinanceMessages();
+}
+
 function addManualHistory() {
   if (currentUser.role !== "admin") return;
   const text = el.newHistoryText.value.trim();
@@ -2083,6 +2199,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     financeStatus: "Status financeiro",
     referralCommission: "Comissão de indicação",
     referrer: "Quem indicou",
+    commissionPaid: "Comissão paga",
     financeNotes: "Observações financeiras",
   };
 
@@ -2102,6 +2219,7 @@ function summarizeClientChanges(previousClient, nextClient) {
   collectionChangeSummary(changes, "Prazos", previousClient.deadlines, nextClient.deadlines, (item) => item.title || "prazo sem título");
   collectionChangeSummary(changes, "Anotações", previousClient.notes, nextClient.notes, (item) => item.text || "anotação sem texto");
   collectionChangeSummary(changes, "Trabalhadores", previousClient.workerMessages, nextClient.workerMessages, (item) => item.text || "mensagem sem texto");
+  collectionChangeSummary(changes, "Observações financeiras", previousClient.financeMessages, nextClient.financeMessages, (item) => item.text || "observação financeira sem texto");
   collectionChangeSummary(changes, "Documentos", previousClient.documents, nextClient.documents, (item) => item.name || "documento sem nome");
 
   const maxVisibleChanges = 12;
@@ -2533,10 +2651,12 @@ function createEmptyClient() {
     feeValue: "",
     paymentMethod: "",
     installments: "",
-    financeStatus: "Pendente",
+    financeStatus: "Em andamento",
     referralCommission: "",
     referrer: "",
+    commissionPaid: "",
     financeNotes: "",
+    financeMessages: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -2675,6 +2795,7 @@ function formatFieldValue(field, value) {
   if (field === "cpf") return formatDocumentNumber(value, activeClient?.documentType || "cpf");
   if (field === "phone") return formatPhoneNumber(value);
   if (field === "area") return formatAreaValue(value);
+  if (field === "feeValue") return formatCurrencyValue(value);
   return value;
 }
 
@@ -2723,6 +2844,33 @@ function formatAreaValue(value) {
   return `${integer},${decimal} m²`;
 }
 
+function formatCurrencyValue(value) {
+  const digits = onlyDigits(value);
+  if (!digits) return "";
+  const cents = Number(digits) / 100;
+  return cents.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function financePaymentMethods() {
+  return ["Pix", "Boleto", "Dinheiro", "Cartão de crédito"];
+}
+
+function normalizeInstallmentsValue(value) {
+  const digits = onlyDigits(value);
+  if (!digits) return "";
+  const count = Number(digits);
+  if (count < 1 || count > 20) return "";
+  return String(count);
+}
+
+function normalizeFinanceStatus(value) {
+  const aliases = {
+    pendente: "Em andamento",
+    parcial: "Em andamento",
+  };
+  return normalizeSelectValue(aliases[normalize(value)] || value, ["Pago", "Em andamento", "Atrasado"]);
+}
+
 function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
 }
@@ -2747,6 +2895,12 @@ function normalizeClientSelectValues(client) {
   client.workType = normalizeSelectValue(workTypeAliases[normalize(client.workType)] || client.workType, ["Alvenaria", "Madeira ou mista"]);
   client.concrete = normalizeSelectValue(client.concrete, ["Sim", "Não"]);
   client.state = normalizeSelectValue(String(client.state || "").toUpperCase(), brazilianStates());
+  client.feeValue = formatCurrencyValue(client.feeValue || "");
+  client.paymentMethod = normalizeSelectValue(client.paymentMethod, financePaymentMethods());
+  client.installments = normalizeInstallmentsValue(client.installments);
+  client.financeStatus = normalizeFinanceStatus(client.financeStatus);
+  client.commissionPaid = normalizeSelectValue(client.commissionPaid, ["Sim", "Não"]);
+  client.financeMessages = normalizeFinanceMessages(client, client.internalOwner || currentUser?.id || "");
 }
 
 function normalizeSelectValue(value, options) {

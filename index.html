@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=35" />
+    <link rel="stylesheet" href="./styles.css?v=36" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -367,21 +367,64 @@
 
         <section id="financeTab" class="tab-panel">
           <div class="form-grid">
-            <label>Valor dos honorários<input data-field="feeValue" type="text" placeholder="R$" /></label>
-            <label>Forma de pagamento<input data-field="paymentMethod" type="text" placeholder="Ex.: Pix, boleto, parcelas Asaas" /></label>
-            <label>Parcelas<input data-field="installments" type="text" /></label>
+            <label>Valor dos honorários<input data-field="feeValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
+            <label>Forma de pagamento
+              <select data-field="paymentMethod">
+                <option value="">Selecione</option>
+                <option value="Pix">Pix</option>
+                <option value="Boleto">Boleto</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Cartão de crédito">Cartão de crédito</option>
+              </select>
+            </label>
+            <label>Parcelas
+              <select data-field="installments">
+                <option value="">Selecione</option>
+                <option value="1">1 parcela</option>
+                <option value="2">2 parcelas</option>
+                <option value="3">3 parcelas</option>
+                <option value="4">4 parcelas</option>
+                <option value="5">5 parcelas</option>
+                <option value="6">6 parcelas</option>
+                <option value="7">7 parcelas</option>
+                <option value="8">8 parcelas</option>
+                <option value="9">9 parcelas</option>
+                <option value="10">10 parcelas</option>
+                <option value="11">11 parcelas</option>
+                <option value="12">12 parcelas</option>
+                <option value="13">13 parcelas</option>
+                <option value="14">14 parcelas</option>
+                <option value="15">15 parcelas</option>
+                <option value="16">16 parcelas</option>
+                <option value="17">17 parcelas</option>
+                <option value="18">18 parcelas</option>
+                <option value="19">19 parcelas</option>
+                <option value="20">20 parcelas</option>
+              </select>
+            </label>
             <label>Status financeiro
               <select data-field="financeStatus">
-                <option value="Pendente">Pendente</option>
-                <option value="Parcial">Parcial</option>
+                <option value="">Selecione</option>
                 <option value="Pago">Pago</option>
+                <option value="Em andamento">Em andamento</option>
                 <option value="Atrasado">Atrasado</option>
               </select>
             </label>
             <label>Comissão de indicação<input data-field="referralCommission" type="text" placeholder="Valor ou percentual" /></label>
             <label>Quem indicou<input data-field="referrer" type="text" /></label>
-            <label class="wide-field">Observações financeiras<textarea data-field="financeNotes" rows="4"></textarea></label>
+            <label>Comissão paga?
+              <select data-field="commissionPaid">
+                <option value="">Selecione</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </label>
           </div>
+          <div class="note-composer finance-composer">
+            <textarea id="newFinanceMessageText" rows="3" placeholder="Registrar observação financeira, pagamento, comissão ou combinação"></textarea>
+            <button id="addFinanceMessageButton" class="secondary-button" type="button"><i data-lucide="send"></i> Salvar observação</button>
+          </div>
+          <div id="financeMessagesList" class="timeline-list"></div>
         </section>
 
         <section id="docsTab" class="tab-panel">
@@ -424,6 +467,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=35"></script>
+    <script src="./app.js?v=36"></script>
   </body>
 </html>
