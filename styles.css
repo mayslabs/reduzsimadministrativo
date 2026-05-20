@@ -824,6 +824,14 @@ h3 {
   line-height: 1.35;
 }
 
+.task-main .task-description {
+  color: var(--charcoal);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.42;
+  white-space: pre-wrap;
+}
+
 .task-badges {
   display: flex;
   align-items: center;

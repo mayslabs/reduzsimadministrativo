@@ -500,6 +500,7 @@ function normalizeInternalTask(task) {
   return {
     id: task.id || id(),
     title: task.title || "",
+    description: task.description || task.text || task.notes || "",
     ownerId: task.ownerId || "",
     dueDate: task.dueDate || "",
     status: localizeLabel(task.status || "Pendente"),
@@ -1200,7 +1201,9 @@ function taskCenterItems() {
         source: "Administrativo",
         kind: "Tarefa",
         title: task.title || "Tarefa sem título",
+        description: task.description || "",
         ownerId: task.ownerId,
+        createdBy: task.createdBy || "",
         date: task.dueDate || "",
         status: localizeLabel(task.status || "Pendente"),
         clientId: client.id,
@@ -1258,7 +1261,17 @@ function filterTaskCenterItems(items) {
 
   return items
     .filter((item) => {
-      const haystack = normalize([item.title, item.clientName, item.kind, item.status, ownerName(item.ownerId), item.source, item.visibility].join(" "));
+      const haystack = normalize([
+        item.title,
+        item.description,
+        item.clientName,
+        item.kind,
+        item.status,
+        ownerName(item.ownerId),
+        ownerName(item.createdBy),
+        item.source,
+        item.visibility,
+      ].join(" "));
       const matchesQuery = !query || haystack.includes(query);
       const matchesOwner = !ownerId || item.ownerId === ownerId;
       const matchesStatus =
@@ -1301,9 +1314,11 @@ function renderTaskCalendarCard(item, compact = false) {
           <span class="urgency-pill">${urgencyLabel(item.urgency)}</span>
         </div>
         <h3>${escapeHtml(item.title)}</h3>
+        ${item.description && !compact ? `<p class="task-description">${escapeHtml(item.description)}</p>` : ""}
         <p>${escapeHtml(item.clientName)}</p>
       </div>
-      <div class="task-detail"><i data-lucide="user"></i>${escapeHtml(ownerName(item.ownerId))}</div>
+      ${item.createdBy ? `<div class="task-detail"><i data-lucide="user-plus"></i>Criada por ${escapeHtml(ownerName(item.createdBy))}</div>` : ""}
+      <div class="task-detail"><i data-lucide="user-check"></i>Responsável: ${escapeHtml(ownerName(item.ownerId))}</div>
       ${compact ? "" : `<div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>`}
       ${compact ? "" : `<div class="task-detail">${statusControl}</div>`}
       ${actionControl}
@@ -2312,6 +2327,7 @@ function openClientTaskDialog(taskId = null) {
 
     const payload = {
       title: values.title,
+      description: values.description || "",
       ownerId: values.ownerId || currentUser.id,
       dueDate: values.dueDate,
       status: values.status || "Pendente",
@@ -2380,6 +2396,8 @@ function openInternalTaskDialog(taskId = null) {
 
   openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa interna", [
     { label: "Tarefa", name: "title", type: "text", value: task?.title || "" },
+    { label: "Texto", name: "description", type: "textarea", rows: 5, value: task?.description || "" },
+    { label: "Criada por", name: "createdByLabel", type: "readonly", value: ownerName(task?.createdBy || currentUser.id) },
     { label: "Responsável", name: "ownerId", type: "select", value: task?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
     { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
     { label: "Status", name: "status", type: "select", value: task?.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
@@ -2443,6 +2461,10 @@ function openSimpleDialog(title, fields, onSave) {
 function simpleFieldControl(field) {
   if (field.type === "textarea") {
     return `<textarea rows="${field.rows || 5}" data-simple-field="${field.name}">${escapeHtml(field.value)}</textarea>`;
+  }
+
+  if (field.type === "readonly") {
+    return `<input type="text" value="${escapeAttr(field.value)}" data-simple-field="${field.name}" disabled />`;
   }
 
   if (field.type === "select") {
