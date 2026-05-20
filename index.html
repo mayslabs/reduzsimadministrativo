@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=36" />
+    <link rel="stylesheet" href="./styles.css?v=37" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -191,7 +191,6 @@
           <button class="tab-button" type="button" data-tab="notesTab">Anotações</button>
           <button class="tab-button" type="button" data-tab="historyTab">Histórico</button>
           <button class="tab-button" type="button" data-tab="financeTab">Financeiro</button>
-          <button class="tab-button" type="button" data-tab="docsTab">Documentos</button>
           <button class="tab-button" type="button" data-tab="workersTab">Trabalhadores</button>
         </div>
 
@@ -427,14 +426,6 @@
           <div id="financeMessagesList" class="timeline-list"></div>
         </section>
 
-        <section id="docsTab" class="tab-panel">
-          <div class="mini-heading">
-            <h3>Documentos</h3>
-            <button id="addDocButton" class="small-button" type="button"><i data-lucide="plus"></i> Novo documento</button>
-          </div>
-          <div id="documentsList" class="item-list"></div>
-        </section>
-
         <section id="workersTab" class="tab-panel">
           <div class="note-composer">
             <textarea id="newWorkerMessageText" rows="3" placeholder="Registrar trabalhador, remuneração, período trabalhado ou observação"></textarea>
@@ -467,6 +458,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=36"></script>
+    <script src="./app.js?v=37"></script>
   </body>
 </html>

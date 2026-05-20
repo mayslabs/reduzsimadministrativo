@@ -301,8 +301,6 @@ const el = {
   newHistoryText: document.getElementById("newHistoryText"),
   addHistoryButton: document.getElementById("addHistoryButton"),
   historyList: document.getElementById("historyList"),
-  addDocButton: document.getElementById("addDocButton"),
-  documentsList: document.getElementById("documentsList"),
   newWorkerMessageText: document.getElementById("newWorkerMessageText"),
   addWorkerMessageButton: document.getElementById("addWorkerMessageButton"),
   workerMessagesList: document.getElementById("workerMessagesList"),
@@ -884,10 +882,6 @@ function bindEvents() {
   el.addWorkerMessageButton.addEventListener("click", addWorkerMessage);
   el.addFinanceMessageButton.addEventListener("click", addFinanceMessage);
   el.addHistoryButton.addEventListener("click", addManualHistory);
-  el.addDocButton.addEventListener("click", () => {
-    activeClient.documents.push(emptyDocument());
-    renderDocuments();
-  });
   el.addStatusButton.addEventListener("click", openStatusDialog);
   el.addUserButton.addEventListener("click", openUserDialog);
   el.saveAccountPasswordButton.addEventListener("click", changeOwnPassword);
@@ -1518,7 +1512,6 @@ function openClient(client) {
   renderDeadlines();
   renderNotes();
   renderHistory();
-  renderDocuments();
   renderWorkerMessages();
   renderFinanceMessages();
   switchTab("summaryTab");
@@ -1556,7 +1549,6 @@ function switchActiveWork(workId) {
   renderMonthlyTable();
   renderTasks();
   renderDeadlines();
-  renderDocuments();
   renderWorkerMessages();
 }
 
@@ -1572,7 +1564,6 @@ function addClientWork() {
   renderMonthlyTable();
   renderTasks();
   renderDeadlines();
-  renderDocuments();
   renderWorkerMessages();
 }
 
@@ -1589,7 +1580,6 @@ function removeActiveWork() {
   renderMonthlyTable();
   renderTasks();
   renderDeadlines();
-  renderDocuments();
   renderWorkerMessages();
 }
 
