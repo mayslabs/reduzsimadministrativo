@@ -1419,12 +1419,13 @@ function renderClientCard(client) {
   const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   const workSubtitle = `${workTitle}${client.destination || "Obra sem destinação informada"}`;
+  const workDetails = [client.state, client.area].filter(Boolean).join(" | ");
   return `
     <button class="client-card" type="button" data-open-client="${client.id}">
       <header>
         <div>
           <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
-          <p>${escapeHtml(workSubtitle)} ${client.state ? `| ${escapeHtml(client.state)}` : ""}</p>
+          <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
         </div>
       </header>
       <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
