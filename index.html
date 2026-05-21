@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=38" />
+    <link rel="stylesheet" href="./styles.css?v=41" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -45,6 +45,7 @@
         <nav class="side-nav" aria-label="Navegação principal">
           <button class="nav-item active" data-section="clientsSection"><i data-lucide="layout-dashboard"></i> Painel</button>
           <button class="nav-item" data-section="tasksSection"><i data-lucide="list-checks"></i> Tarefas</button>
+          <button class="nav-item updates-nav-item" data-section="updatesSection"><i data-lucide="bell"></i> Atualizações <span id="updatesUnreadBadge" class="nav-badge" hidden></span></button>
           <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuários</button>
           <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
         </nav>
@@ -124,6 +125,40 @@
           </div>
 
           <div id="taskCenterList" class="task-center-list"></div>
+        </section>
+
+        <section id="updatesSection" class="app-section" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Acompanhamento da equipe</p>
+              <h2>Atualizações</h2>
+            </div>
+            <button id="markAllUpdatesReadButton" class="secondary-button" type="button"><i data-lucide="check-check"></i> Marcar todas como lidas</button>
+          </div>
+
+          <div class="toolbar updates-toolbar">
+            <label class="search-field">
+              <i data-lucide="search"></i>
+              <input id="updatesSearchInput" type="search" placeholder="Buscar atualização ou cliente" />
+            </label>
+            <select id="updatesReadFilter" aria-label="Filtrar atualizações lidas">
+              <option value="">Todas</option>
+              <option value="unread">Não lidas</option>
+            </select>
+            <select id="updatesUserFilter" aria-label="Filtrar atualizações por usuário"></select>
+            <select id="updatesTypeFilter" aria-label="Filtrar atualizações por tipo">
+              <option value="">Todos os tipos</option>
+              <option value="client">Cliente</option>
+              <option value="note">Anotação</option>
+              <option value="status">Status</option>
+              <option value="task">Tarefa</option>
+              <option value="deadline">Prazo</option>
+              <option value="finance">Financeiro</option>
+              <option value="history">Histórico</option>
+            </select>
+          </div>
+
+          <div id="updatesList" class="updates-list"></div>
         </section>
 
         <section id="statusSection" class="app-section" hidden>
@@ -457,6 +492,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=40"></script>
+    <script src="./app.js?v=41"></script>
   </body>
 </html>

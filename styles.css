@@ -199,6 +199,19 @@ textarea:focus {
   font-weight: 800;
 }
 
+.nav-badge {
+  min-width: 21px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  padding: 2px 6px;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .nav-item.active,
 .nav-item:hover {
   background: var(--green-soft);
@@ -415,6 +428,87 @@ h3 {
 
 .task-toolbar {
   grid-template-columns: minmax(240px, 1fr) 230px 180px;
+}
+
+.updates-toolbar {
+  grid-template-columns: minmax(240px, 1fr) 150px 190px 190px;
+}
+
+.updates-list {
+  display: grid;
+  gap: 10px;
+}
+
+.update-item {
+  display: grid;
+  grid-template-columns: 42px minmax(240px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 14px;
+}
+
+.update-item.unread {
+  border-left-color: var(--green);
+  background: #f6fcfa;
+}
+
+.update-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 7px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.update-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.update-content {
+  min-width: 0;
+}
+
+.update-content h3,
+.update-content p {
+  margin: 0;
+}
+
+.update-content h3 {
+  margin-top: 5px;
+  font-size: 14px;
+}
+
+.update-content p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.update-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.update-meta span {
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.update-actions {
+  justify-content: flex-end;
 }
 
 .calendar-controls {
@@ -1431,6 +1525,7 @@ h3 {
 
   .toolbar,
   .task-toolbar,
+  .updates-toolbar,
   .calendar-controls,
   .summary-layout,
   .work-switcher,
@@ -1462,6 +1557,14 @@ h3 {
   .task-overview,
   .no-date-grid {
     grid-template-columns: 1fr;
+  }
+
+  .update-item {
+    grid-template-columns: 1fr;
+  }
+
+  .update-actions {
+    justify-content: flex-start;
   }
 
   .list-item,

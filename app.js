@@ -271,6 +271,13 @@ const el = {
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
   taskStatusFilter: document.getElementById("taskStatusFilter"),
   taskCenterList: document.getElementById("taskCenterList"),
+  updatesUnreadBadge: document.getElementById("updatesUnreadBadge"),
+  markAllUpdatesReadButton: document.getElementById("markAllUpdatesReadButton"),
+  updatesSearchInput: document.getElementById("updatesSearchInput"),
+  updatesReadFilter: document.getElementById("updatesReadFilter"),
+  updatesUserFilter: document.getElementById("updatesUserFilter"),
+  updatesTypeFilter: document.getElementById("updatesTypeFilter"),
+  updatesList: document.getElementById("updatesList"),
   searchInput: document.getElementById("searchInput"),
   statusFilter: document.getElementById("statusFilter"),
   listModeButton: document.getElementById("listModeButton"),
@@ -393,6 +400,7 @@ function loadState() {
     users: defaultUsers,
     clients: [],
     internalTasks: [],
+    activities: [],
   };
   state = initial;
   initial.clients = [defaultClient()];
@@ -418,6 +426,7 @@ function migrateState(savedState = {}, persist = true) {
     users: Array.isArray(savedState.users) ? savedState.users : [],
     clients: Array.isArray(savedState.clients) ? savedState.clients : [],
     internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
+    activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
   };
   migrated.statuses = migrated.statuses.map((status) => ({
     ...status,
@@ -512,6 +521,22 @@ function normalizeHistoryEntry(entry) {
     type: entry.type || "manual",
     createdAt: entry.createdAt || new Date().toISOString(),
     updatedAt: entry.updatedAt || null,
+  };
+}
+
+function normalizeActivity(activity = {}) {
+  return {
+    id: activity.id || id(),
+    type: activity.type || "client",
+    title: activity.title || "Atualização registrada",
+    detail: activity.detail || "",
+    actorId: activity.actorId || "",
+    clientId: activity.clientId || "",
+    clientName: activity.clientName || "",
+    internalTaskId: activity.internalTaskId || "",
+    visibility: activity.visibility === "admin" ? "admin" : "team",
+    readBy: Array.isArray(activity.readBy) ? activity.readBy : [],
+    createdAt: activity.createdAt || new Date().toISOString(),
   };
 }
 
@@ -764,11 +789,34 @@ function remapUserReferences(migrated, idMap) {
     task.ownerId = idMap[task.ownerId] || task.ownerId;
     task.createdBy = idMap[task.createdBy] || task.createdBy;
   });
+  (migrated.activities || []).forEach((activity) => {
+    activity.actorId = idMap[activity.actorId] || activity.actorId;
+    activity.readBy = (activity.readBy || []).map((userId) => idMap[userId] || userId);
+  });
 }
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   scheduleCloudSave();
+}
+
+function recordActivity(type, title, detail = "", options = {}) {
+  if (!currentUser) return;
+  state.activities = Array.isArray(state.activities) ? state.activities : [];
+  state.activities.unshift({
+    id: id(),
+    type,
+    title,
+    detail,
+    actorId: currentUser.id,
+    clientId: options.clientId || "",
+    clientName: options.clientName || "",
+    internalTaskId: options.internalTaskId || "",
+    visibility: options.visibility === "admin" ? "admin" : "team",
+    readBy: [currentUser.id],
+    createdAt: new Date().toISOString(),
+  });
+  state.activities = state.activities.slice(0, 500);
 }
 
 function scheduleCloudSave() {
@@ -857,6 +905,11 @@ function bindEvents() {
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
+  el.updatesSearchInput.addEventListener("input", renderUpdates);
+  el.updatesReadFilter.addEventListener("change", renderUpdates);
+  el.updatesUserFilter.addEventListener("change", renderUpdates);
+  el.updatesTypeFilter.addEventListener("change", renderUpdates);
+  el.markAllUpdatesReadButton.addEventListener("click", markAllActivitiesRead);
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.boardModeButton.addEventListener("click", () => setViewMode("board"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
@@ -1019,6 +1072,7 @@ function renderAll() {
   renderMetrics();
   renderClients();
   renderTaskCenter();
+  renderUpdates();
   renderStatusManager();
   renderUserManager();
   renderAccount();
@@ -1057,6 +1111,124 @@ function renderTaskCenter() {
   renderTaskCalendar(filtered);
   bindTaskCenterActions();
   refreshIcons();
+}
+
+function renderUpdates() {
+  if (!currentUser || !el.updatesList) return;
+  renderUpdatesUserFilter();
+  const visibleActivities = visibleActivitiesForCurrentUser();
+  const unreadCount = visibleActivities.filter((activity) => !activityIsRead(activity)).length;
+  el.updatesUnreadBadge.hidden = !unreadCount;
+  el.updatesUnreadBadge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+
+  const query = normalize(el.updatesSearchInput.value);
+  const readFilter = el.updatesReadFilter.value;
+  const actorId = el.updatesUserFilter.value;
+  const type = el.updatesTypeFilter.value;
+  const activities = visibleActivities
+    .filter((activity) => {
+      const haystack = normalize([activity.title, activity.detail, activity.clientName, ownerName(activity.actorId), activityTypeLabel(activity.type)].join(" "));
+      return (
+        (!query || haystack.includes(query)) &&
+        (!readFilter || !activityIsRead(activity)) &&
+        (!actorId || activity.actorId === actorId) &&
+        (!type || activity.type === type)
+      );
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  el.updatesList.innerHTML = activities.length
+    ? activities
+        .map(
+          (activity) => `
+            <article class="update-item ${activityIsRead(activity) ? "" : "unread"}" data-activity="${activity.id}">
+              <div class="update-icon"><i data-lucide="${activityIcon(activity.type)}"></i></div>
+              <div class="update-content">
+                <div class="update-meta">
+                  <span>${escapeHtml(activityTypeLabel(activity.type))}</span>
+                  <span>${escapeHtml(ownerName(activity.actorId))}</span>
+                  <span>${formatDateTime(activity.createdAt)}</span>
+                </div>
+                <h3>${escapeHtml(activity.title)}</h3>
+                ${activity.detail ? `<p>${escapeHtml(activity.detail)}</p>` : ""}
+              </div>
+              <div class="inline-actions update-actions">
+                ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
+                ${
+                  activityIsRead(activity)
+                    ? ""
+                    : `<button class="small-button" type="button" data-mark-activity-read="${activity.id}"><i data-lucide="check"></i> Marcar lida</button>`
+                }
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state">Nenhuma atualização encontrada.</p>`;
+
+  document.querySelectorAll("[data-open-update-client]").forEach((button) => {
+    button.addEventListener("click", () => openClientById(button.dataset.openUpdateClient));
+  });
+  document.querySelectorAll("[data-mark-activity-read]").forEach((button) => {
+    button.addEventListener("click", () => markActivityRead(button.dataset.markActivityRead));
+  });
+  refreshIcons();
+}
+
+function renderUpdatesUserFilter() {
+  const selected = el.updatesUserFilter.value;
+  el.updatesUserFilter.innerHTML = `<option value="">Todos os usuários</option>${state.users
+    .map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`)
+    .join("")}`;
+  el.updatesUserFilter.value = selected;
+}
+
+function visibleActivitiesForCurrentUser() {
+  return (state.activities || []).filter((activity) => activity.visibility !== "admin" || currentUser.role === "admin");
+}
+
+function activityIsRead(activity) {
+  return (activity.readBy || []).includes(currentUser.id);
+}
+
+function markActivityRead(activityId) {
+  const activity = state.activities.find((item) => item.id === activityId);
+  if (!activity || activityIsRead(activity)) return;
+  activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
+  saveState();
+  renderUpdates();
+}
+
+function markAllActivitiesRead() {
+  visibleActivitiesForCurrentUser().forEach((activity) => {
+    activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
+  });
+  saveState();
+  renderUpdates();
+}
+
+function activityTypeLabel(type) {
+  return {
+    client: "Cliente",
+    note: "Anotação",
+    status: "Status",
+    task: "Tarefa",
+    deadline: "Prazo",
+    finance: "Financeiro",
+    history: "Histórico",
+  }[type] || "Atualização";
+}
+
+function activityIcon(type) {
+  return {
+    client: "contact",
+    note: "message-square",
+    status: "tag",
+    task: "list-checks",
+    deadline: "calendar-clock",
+    finance: "banknote",
+    history: "file-clock",
+  }[type] || "bell";
 }
 
 function renderTaskPeriodControls() {
@@ -1171,9 +1343,14 @@ function bindTaskCenterActions() {
         if (!task) return;
         task.status = select.value;
         task.updatedAt = new Date().toISOString();
+        recordActivity("task", `Alterou tarefa interna: ${task.title || "Tarefa sem título"}.`, `Status: ${select.value}.`, {
+          internalTaskId: task.id,
+          visibility: task.visibility,
+        });
         saveState();
         renderMetrics();
         renderTaskCenter();
+        renderUpdates();
         return;
       }
 
@@ -1187,9 +1364,14 @@ function bindTaskCenterActions() {
       addHistoryEntry(client, "Status de tarefa alterado", [
         `${task.title || "Tarefa sem título"}: ${oldStatus} -> ${select.value}.`,
       ]);
+      recordActivity("task", `Alterou tarefa em ${client.clientName || "cliente"}.`, `${task.title || "Tarefa sem título"}: ${oldStatus} -> ${select.value}.`, {
+        clientId: client.id,
+        clientName: client.clientName,
+      });
       saveState();
       renderMetrics();
       renderTaskCenter();
+      renderUpdates();
     });
   });
 
@@ -1199,10 +1381,18 @@ function bindTaskCenterActions() {
 
   document.querySelectorAll("[data-remove-internal-task]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.internalTasks = state.internalTasks.filter((task) => task.id !== button.dataset.removeInternalTask);
+      const task = state.internalTasks.find((item) => item.id === button.dataset.removeInternalTask);
+      state.internalTasks = state.internalTasks.filter((item) => item.id !== button.dataset.removeInternalTask);
+      if (task) {
+        recordActivity("task", `Removeu tarefa interna: ${task.title || "Tarefa sem título"}.`, "", {
+          internalTaskId: task.id,
+          visibility: task.visibility,
+        });
+      }
       saveState();
       renderMetrics();
       renderTaskCenter();
+      renderUpdates();
     });
   });
 }
@@ -2137,12 +2327,17 @@ function saveActiveClient() {
 
   if (previousClient && changes.length) {
     addHistoryEntry(activeClient, "Card atualizado", changes, "system");
+    recordClientChangeActivities(previousClient, activeClient, changes);
   }
 
   if (index >= 0) {
     state.clients[index] = cloneData(activeClient);
   } else {
     addHistoryEntry(activeClient, "Card criado", ["Novo card incluído no administrativo."], "system");
+    recordActivity("client", `Criou o cliente ${activeClient.clientName}.`, "Novo card incluído no fluxo de clientes ativos.", {
+      clientId: activeClient.id,
+      clientName: activeClient.clientName,
+    });
     state.clients.unshift(cloneData(activeClient));
   }
   saveState();
@@ -2161,6 +2356,79 @@ function addHistoryEntry(client, title, details, type = "system") {
     createdAt: new Date().toISOString(),
     updatedAt: null,
   });
+}
+
+function recordClientChangeActivities(previousClient, nextClient, changes) {
+  const context = { clientId: nextClient.id, clientName: nextClient.clientName || "Cliente sem nome" };
+  const addedNotes = addedCollectionItems(previousClient.notes, nextClient.notes);
+  const addedTasks = addedCollectionItems(previousClient.tasks, nextClient.tasks);
+  const changedTasks = changedCollectionItems(previousClient.tasks, nextClient.tasks);
+  const addedDeadlines = addedCollectionItems(previousClient.deadlines, nextClient.deadlines);
+  const changedDeadlines = changedCollectionItems(previousClient.deadlines, nextClient.deadlines);
+  const addedHistory = addedCollectionItems(previousClient.history, nextClient.history).filter((entry) => entry.type === "manual");
+  const addedFinanceMessages = addedCollectionItems(previousClient.financeMessages, nextClient.financeMessages);
+  const previousStatuses = new Set(previousClient.statusIds || []);
+  const nextStatuses = new Set(nextClient.statusIds || []);
+
+  addedNotes.forEach((note) => {
+    recordActivity("note", `Adicionou anotação em ${context.clientName}.`, truncateHistoryValue(note.text || "Anotação sem texto", 120), context);
+  });
+  addedTasks.forEach((task) => {
+    recordActivity("task", `Criou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", context);
+  });
+  changedTasks.forEach((task) => {
+    recordActivity("task", `Atualizou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", context);
+  });
+  addedDeadlines.forEach((deadline) => {
+    recordActivity("deadline", `Criou prazo em ${context.clientName}.`, `${deadline.title || "Prazo sem título"}${deadline.date ? ` | ${formatDate(deadline.date)}` : ""}`, context);
+  });
+  changedDeadlines.forEach((deadline) => {
+    recordActivity("deadline", `Atualizou prazo em ${context.clientName}.`, `${deadline.title || "Prazo sem título"}${deadline.date ? ` | ${formatDate(deadline.date)}` : ""}`, context);
+  });
+  addedHistory.forEach((entry) => {
+    recordActivity("history", `Registrou histórico em ${context.clientName}.`, truncateHistoryValue((entry.details || []).join(" "), 120), context);
+  });
+  addedFinanceMessages.forEach((message) => {
+    recordActivity("finance", `Adicionou observação financeira em ${context.clientName}.`, truncateHistoryValue(message.text || "Observação sem texto", 120), context);
+  });
+  [...nextStatuses].filter((statusId) => !previousStatuses.has(statusId)).forEach((statusId) => {
+    recordActivity("status", `Adicionou status em ${context.clientName}.`, statusName(statusId), context);
+  });
+  [...previousStatuses].filter((statusId) => !nextStatuses.has(statusId)).forEach((statusId) => {
+    recordActivity("status", `Removeu status em ${context.clientName}.`, statusName(statusId), context);
+  });
+
+  const hasSpecificActivity =
+    addedNotes.length ||
+    addedTasks.length ||
+    changedTasks.length ||
+    addedDeadlines.length ||
+    changedDeadlines.length ||
+    addedHistory.length ||
+    addedFinanceMessages.length ||
+    !sameIds(previousClient.statusIds, nextClient.statusIds);
+  if (!hasSpecificActivity && changes.length) {
+    const type = changes.some((change) => /Honor|pagamento|financeiro|Comiss/i.test(change)) ? "finance" : "client";
+    recordActivity(type, `Atualizou ${context.clientName}.`, changes.slice(0, 3).join(" "), context);
+  }
+}
+
+function addedCollectionItems(previousItems = [], nextItems = []) {
+  const previousIds = new Set((previousItems || []).map((item) => item.id));
+  return (nextItems || []).filter((item) => !previousIds.has(item.id));
+}
+
+function changedCollectionItems(previousItems = [], nextItems = []) {
+  const previousById = new Map((previousItems || []).map((item) => [item.id, item]));
+  return (nextItems || []).filter((item) => previousById.has(item.id) && JSON.stringify(previousById.get(item.id)) !== JSON.stringify(item));
+}
+
+function sameIds(first = [], second = []) {
+  return [...(first || [])].sort().join("|") === [...(second || [])].sort().join("|");
+}
+
+function statusName(statusId) {
+  return state.statuses.find((status) => status.id === statusId)?.name || "Status";
 }
 
 function summarizeClientChanges(previousClient, nextClient) {
@@ -2265,6 +2533,9 @@ function deleteActiveClient() {
   if (!activeClient) return;
   const confirmed = confirm(`Excluir o card de ${activeClient.clientName || "cliente"}?`);
   if (!confirmed) return;
+  recordActivity("client", `Removeu o cliente ${activeClient.clientName || "Cliente sem nome"}.`, "", {
+    clientName: activeClient.clientName || "Cliente sem nome",
+  });
   state.clients = state.clients.filter((client) => client.id !== activeClient.id);
   saveState();
   el.clientDialog.close();
@@ -2520,6 +2791,7 @@ function openInternalTaskDialog(taskId = null) {
 
     const payload = {
       title: values.title,
+      description: values.description || "",
       ownerId: values.ownerId || currentUser.id,
       dueDate: values.dueDate,
       status: values.status || "Pendente",
@@ -2529,18 +2801,28 @@ function openInternalTaskDialog(taskId = null) {
 
     if (task) {
       Object.assign(task, payload);
+      recordActivity("task", `Atualizou tarefa interna: ${task.title || "Tarefa sem título"}.`, task.description || "", {
+        internalTaskId: task.id,
+        visibility: task.visibility,
+      });
     } else {
-      state.internalTasks.unshift({
+      const newTask = {
         id: id(),
         ...payload,
         createdBy: currentUser.id,
         createdAt: new Date().toISOString(),
+      };
+      state.internalTasks.unshift(newTask);
+      recordActivity("task", `Criou tarefa interna: ${newTask.title}.`, newTask.description || "", {
+        internalTaskId: newTask.id,
+        visibility: newTask.visibility,
       });
     }
 
     saveState();
     renderMetrics();
     renderTaskCenter();
+    renderUpdates();
     return true;
   });
 }
