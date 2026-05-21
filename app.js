@@ -1418,12 +1418,13 @@ function renderClientCard(client) {
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
   const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
+  const workSubtitle = `${workTitle}${client.destination || "Obra sem destinação informada"}`;
   return `
     <button class="client-card" type="button" data-open-client="${client.id}">
       <header>
         <div>
           <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
-          <p>${escapeHtml(`${workTitle}${client.workType || "Obra sem tipo informado"}`)} ${client.state ? `| ${escapeHtml(client.state)}` : ""}</p>
+          <p>${escapeHtml(workSubtitle)} ${client.state ? `| ${escapeHtml(client.state)}` : ""}</p>
         </div>
       </header>
       <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
