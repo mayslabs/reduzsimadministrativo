@@ -206,7 +206,8 @@ const defaultClient = () => {
     paymentMethod: "Pix",
     installments: "3",
     financeStatus: "Em andamento",
-    referralCommission: "10%",
+    hasReferralCommission: "Sim",
+    referralCommission: "R$ 450,00",
     referrer: "Indicador exemplo",
     commissionPaid: "Não",
     financeNotes: "",
@@ -309,6 +310,8 @@ const el = {
   newFinanceMessageText: document.getElementById("newFinanceMessageText"),
   addFinanceMessageButton: document.getElementById("addFinanceMessageButton"),
   financeMessagesList: document.getElementById("financeMessagesList"),
+  referralCommissionValueField: document.getElementById("referralCommissionValueField"),
+  commissionPaidField: document.getElementById("commissionPaidField"),
   addStatusButton: document.getElementById("addStatusButton"),
   statusManager: document.getElementById("statusManager"),
   addUserButton: document.getElementById("addUserButton"),
@@ -467,6 +470,7 @@ function migrateState(savedState = {}, persist = true) {
     paymentMethod: "",
     installments: "",
     financeStatus: "Em andamento",
+    hasReferralCommission: "",
     referralCommission: "",
     referrer: "",
     commissionPaid: "",
@@ -479,6 +483,8 @@ function migrateState(savedState = {}, persist = true) {
     paymentMethod: normalizeSelectValue(client.paymentMethod, financePaymentMethods()),
     installments: normalizeInstallmentsValue(client.installments),
     financeStatus: normalizeFinanceStatus(client.financeStatus),
+    hasReferralCommission: normalizeReferralCommissionChoice(client),
+    referralCommission: formatCurrencyValue(client.referralCommission || ""),
     commissionPaid: normalizeSelectValue(client.commissionPaid, ["Sim", "Não"]),
     monthly: Array.isArray(client.monthly) ? client.monthly.map(normalizeMonthRow) : [],
     tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => normalizeClientTask(task, client, migrated.users[0]?.id || "")) : [],
@@ -913,6 +919,7 @@ function bindEvents() {
           activeClient.cpf = documentInput.value;
         }
       }
+      if (input.dataset.field === "hasReferralCommission") syncReferralCommissionFields();
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -924,6 +931,20 @@ function syncDocumentTypeFromNumber(value) {
   activeClient.documentType = "cnpj";
   const documentTypeInput = document.querySelector('[data-field="documentType"]');
   if (documentTypeInput) documentTypeInput.value = "cnpj";
+}
+
+function syncReferralCommissionFields() {
+  if (!activeClient || !el.referralCommissionValueField || !el.commissionPaidField) return;
+  const hasCommission = activeClient.hasReferralCommission === "Sim";
+  el.referralCommissionValueField.hidden = !hasCommission;
+  el.commissionPaidField.hidden = !hasCommission;
+  if (hasCommission) return;
+  activeClient.referralCommission = "";
+  activeClient.commissionPaid = "";
+  const commissionValueInput = document.querySelector('[data-field="referralCommission"]');
+  const commissionPaidInput = document.querySelector('[data-field="commissionPaid"]');
+  if (commissionValueInput) commissionValueInput.value = "";
+  if (commissionPaidInput) commissionPaidInput.value = "";
 }
 
 function handleStorageSync(event) {
@@ -1779,6 +1800,7 @@ function openClient(client) {
   renderHistory();
   renderWorkerMessages();
   renderFinanceMessages();
+  syncReferralCommissionFields();
   switchTab("summaryTab");
   el.clientDialog.showModal();
   refreshIcons();
@@ -2471,6 +2493,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     paymentMethod: "Forma de pagamento",
     installments: "Parcelas",
     financeStatus: "Status financeiro",
+    hasReferralCommission: "Comissão de indicação",
     referralCommission: "Comissão de indicação",
     referrer: "Quem indicou",
     commissionPaid: "Comissão paga",
@@ -2998,6 +3021,7 @@ function createEmptyClient() {
     paymentMethod: "",
     installments: "",
     financeStatus: "Em andamento",
+    hasReferralCommission: "",
     referralCommission: "",
     referrer: "",
     commissionPaid: "",
@@ -3145,6 +3169,7 @@ function formatFieldValue(field, value) {
   if (field === "phone") return formatPhoneNumber(value);
   if (field === "area") return formatAreaValue(value);
   if (field === "feeValue") return formatCurrencyValue(value);
+  if (field === "referralCommission") return formatCurrencyValue(value);
   return value;
 }
 
@@ -3205,11 +3230,18 @@ function financePaymentMethods() {
 }
 
 function normalizeInstallmentsValue(value) {
+  if (normalize(value) === "sem parcelas") return "Sem parcelas";
   const digits = onlyDigits(value);
   if (!digits) return "";
   const count = Number(digits);
   if (count < 1 || count > 20) return "";
   return String(count);
+}
+
+function normalizeReferralCommissionChoice(client = {}) {
+  const selected = normalizeSelectValue(client.hasReferralCommission, ["Sim", "Não"]);
+  if (selected) return selected;
+  return client.referralCommission || client.commissionPaid ? "Sim" : "";
 }
 
 function normalizeFinanceStatus(value) {
@@ -3248,6 +3280,8 @@ function normalizeClientSelectValues(client) {
   client.paymentMethod = normalizeSelectValue(client.paymentMethod, financePaymentMethods());
   client.installments = normalizeInstallmentsValue(client.installments);
   client.financeStatus = normalizeFinanceStatus(client.financeStatus);
+  client.hasReferralCommission = normalizeReferralCommissionChoice(client);
+  client.referralCommission = formatCurrencyValue(client.referralCommission || "");
   client.commissionPaid = normalizeSelectValue(client.commissionPaid, ["Sim", "Não"]);
   client.financeMessages = normalizeFinanceMessages(client, client.internalOwner || currentUser?.id || "");
 }

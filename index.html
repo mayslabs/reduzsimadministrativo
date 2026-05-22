@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=53" />
+    <link rel="stylesheet" href="./styles.css?v=54" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -422,6 +422,7 @@
             <label>Parcelas
               <select data-field="installments">
                 <option value="">Selecione</option>
+                <option value="Sem parcelas">Sem parcelas</option>
                 <option value="1">1 parcela</option>
                 <option value="2">2 parcelas</option>
                 <option value="3">3 parcelas</option>
@@ -452,9 +453,16 @@
                 <option value="Atrasado">Atrasado</option>
               </select>
             </label>
-            <label>Comissão de indicação<input data-field="referralCommission" type="text" placeholder="Valor ou percentual" /></label>
             <label>Quem indicou<input data-field="referrer" type="text" /></label>
-            <label>Comissão paga?
+            <label>Comissão de indicação
+              <select data-field="hasReferralCommission">
+                <option value="">Selecione</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </label>
+            <label id="referralCommissionValueField">Valor da comissão<input data-field="referralCommission" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
+            <label id="commissionPaidField">Comissão paga?
               <select data-field="commissionPaid">
                 <option value="">Selecione</option>
                 <option value="Sim">Sim</option>
@@ -501,6 +509,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=53"></script>
+    <script src="./app.js?v=54"></script>
   </body>
 </html>
