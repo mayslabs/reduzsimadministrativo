@@ -266,6 +266,8 @@ const el = {
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
   taskStatusFilter: document.getElementById("taskStatusFilter"),
   taskCenterList: document.getElementById("taskCenterList"),
+  tasksTodayBadge: document.getElementById("tasksTodayBadge"),
+  tasksNewBadge: document.getElementById("tasksNewBadge"),
   updatesUnreadBadge: document.getElementById("updatesUnreadBadge"),
   markAllUpdatesReadButton: document.getElementById("markAllUpdatesReadButton"),
   updatesSearchInput: document.getElementById("updatesSearchInput"),
@@ -1024,6 +1026,7 @@ function renderAll() {
   renderMetrics();
   renderClients();
   renderTaskCenter();
+  renderTaskNavSignals();
   renderUpdates();
   renderStatusManager();
   renderUserManager();
@@ -1062,7 +1065,37 @@ function renderTaskCenter() {
 
   renderTaskCalendar(filtered);
   bindTaskCenterActions();
+  renderTaskNavSignals();
   refreshIcons();
+}
+
+function renderTaskNavSignals() {
+  if (!currentUser || !el.tasksTodayBadge || !el.tasksNewBadge) return;
+  const todayItems = taskCenterItems().filter(
+    (item) => item.urgency === "today" && taskSignalOwner(item.ownerId) && (item.kind.includes("Tarefa") || item.kind === "Prazo")
+  );
+  const newTaskActivities = unreadNewTaskActivities();
+
+  setTaskNavBadge(el.tasksTodayBadge, todayItems.length, `${todayItems.length} tarefa(s) ou prazo(s) para hoje`);
+  setTaskNavBadge(el.tasksNewBadge, newTaskActivities.length, `${newTaskActivities.length} nova(s) tarefa(s)`);
+}
+
+function setTaskNavBadge(badge, count, title) {
+  badge.hidden = !count;
+  badge.textContent = count > 99 ? "99+" : String(count);
+  badge.title = title;
+}
+
+function taskSignalOwner(ownerId) {
+  return ownerId === fixedUserIds.mayssa || ownerId === fixedUserIds.contato;
+}
+
+function unreadNewTaskActivities() {
+  return visibleActivitiesForCurrentUser().filter((activity) => !activityIsRead(activity) && isNewTaskActivity(activity));
+}
+
+function isNewTaskActivity(activity) {
+  return activity.type === "task" && normalize(activity.title).startsWith("criou tarefa");
 }
 
 function renderUpdates() {
@@ -1148,6 +1181,7 @@ function markActivityRead(activityId) {
   if (!activity || activityIsRead(activity)) return;
   activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
   saveState();
+  renderTaskNavSignals();
   renderUpdates();
 }
 
@@ -1156,6 +1190,7 @@ function markAllActivitiesRead() {
     activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
   });
   saveState();
+  renderTaskNavSignals();
   renderUpdates();
 }
 
@@ -2897,6 +2932,18 @@ function switchSection(sectionId) {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sectionId);
   });
+  if (sectionId === "tasksSection") markNewTaskActivitiesRead();
+}
+
+function markNewTaskActivitiesRead() {
+  const activities = unreadNewTaskActivities();
+  if (!activities.length) return;
+  activities.forEach((activity) => {
+    activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
+  });
+  saveState();
+  renderTaskNavSignals();
+  renderUpdates();
 }
 
 function switchTab(tabId) {
@@ -3208,7 +3255,7 @@ function brazilianStates() {
 }
 
 function taskUrgency(item) {
-  if (item.kind === "Tarefa" && localizeLabel(item.status) === "Concluída") return "done";
+  if (item.kind.includes("Tarefa") && localizeLabel(item.status) === "Concluída") return "done";
   if (!item.date) return "no-date";
   const today = localDateKey();
   if (item.date < today) return "overdue";

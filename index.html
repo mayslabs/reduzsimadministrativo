@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=49" />
+    <link rel="stylesheet" href="./styles.css?v=50" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -43,7 +43,14 @@
         </div>
         <nav class="side-nav" aria-label="Navegação principal">
           <button class="nav-item active" data-section="clientsSection"><i data-lucide="layout-dashboard"></i> Painel</button>
-          <button class="nav-item" data-section="tasksSection"><i data-lucide="list-checks"></i> Tarefas</button>
+          <button class="nav-item tasks-nav-item" data-section="tasksSection">
+            <i data-lucide="list-checks"></i>
+            <span>Tarefas</span>
+            <span class="task-nav-signals" aria-live="polite">
+              <span id="tasksTodayBadge" class="nav-badge task-today-badge" hidden></span>
+              <span id="tasksNewBadge" class="nav-badge task-new-badge" hidden></span>
+            </span>
+          </button>
           <button class="nav-item updates-nav-item" data-section="updatesSection"><i data-lucide="bell"></i> Atualizações <span id="updatesUnreadBadge" class="nav-badge" hidden></span></button>
           <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuários</button>
           <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
@@ -493,6 +500,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=49"></script>
+    <script src="./app.js?v=50"></script>
   </body>
 </html>

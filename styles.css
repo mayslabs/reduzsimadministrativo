@@ -212,6 +212,20 @@ textarea:focus {
   text-align: center;
 }
 
+.task-nav-signals {
+  display: inline-flex;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.task-today-badge {
+  background: var(--red);
+}
+
+.task-new-badge {
+  background: var(--blue);
+}
+
 .nav-item.active,
 .nav-item:hover {
   background: var(--green-soft);
