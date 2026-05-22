@@ -796,6 +796,9 @@ h3 {
 }
 
 .task-calendar-card {
+  --task-owner-accent: #64748b;
+  --task-owner-soft: #f1f5f9;
+  --task-owner-text: #334155;
   display: grid;
   gap: 6px;
   border: 1px solid var(--line);
@@ -803,6 +806,20 @@ h3 {
   border-radius: var(--radius);
   background: #fff;
   padding: 8px 9px;
+}
+
+.task-calendar-card.owner-mayssa {
+  --task-owner-accent: #0f766e;
+  --task-owner-soft: #d8f4ed;
+  --task-owner-text: #005c49;
+  background: linear-gradient(180deg, rgba(216, 244, 237, 0.52), #fff 44px);
+}
+
+.task-calendar-card.owner-camilli {
+  --task-owner-accent: #7c3aed;
+  --task-owner-soft: #eee6ff;
+  --task-owner-text: #5b21b6;
+  background: linear-gradient(180deg, rgba(238, 230, 255, 0.58), #fff 44px);
 }
 
 .task-calendar-card.overdue {
@@ -988,6 +1005,25 @@ h3 {
   height: 14px;
   flex: 0 0 auto;
   color: var(--muted);
+}
+
+.task-owner-detail {
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.task-owner-detail strong {
+  border: 1px solid color-mix(in srgb, var(--task-owner-accent) 24%, transparent);
+  border-radius: 999px;
+  background: var(--task-owner-soft);
+  color: var(--task-owner-text);
+  padding: 2px 7px;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.task-owner-detail svg {
+  color: var(--task-owner-accent);
 }
 
 .task-status-select {

@@ -1526,6 +1526,7 @@ function filterTaskCenterItems(items) {
 }
 
 function renderTaskCalendarCard(item, compact = false) {
+  const ownerClass = taskOwnerClass(item.ownerId);
   const statusControl =
     item.kind !== "Prazo"
       ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-task-id="${item.id}">${taskStatusOptions(item.status)}</select>`
@@ -1539,7 +1540,7 @@ function renderTaskCalendarCard(item, compact = false) {
     : `<button class="small-button" type="button" data-open-task-client="${item.clientId}"><i data-lucide="external-link"></i> Abrir card</button>`;
 
   return `
-    <article class="task-calendar-card ${item.urgency} ${compact ? "compact" : ""}">
+    <article class="task-calendar-card ${item.urgency} ${ownerClass} ${compact ? "compact" : ""}">
       <div class="task-main">
         <div class="task-badges">
           <span class="task-kind">${item.kind}</span>
@@ -1551,12 +1552,18 @@ function renderTaskCalendarCard(item, compact = false) {
         <p>${escapeHtml(item.clientName)}</p>
       </div>
       ${item.createdBy ? `<div class="task-detail"><i data-lucide="user-plus"></i>Criada por ${escapeHtml(ownerName(item.createdBy))}</div>` : ""}
-      <div class="task-detail"><i data-lucide="user-check"></i>Responsável: ${escapeHtml(ownerName(item.ownerId))}</div>
+      <div class="task-detail task-owner-detail"><i data-lucide="user-check"></i><span>Responsável:</span><strong>${escapeHtml(ownerName(item.ownerId))}</strong></div>
       ${compact ? "" : `<div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>`}
       ${compact ? "" : `<div class="task-detail">${statusControl}</div>`}
       ${actionControl}
     </article>
   `;
+}
+
+function taskOwnerClass(userId) {
+  if (userId === fixedUserIds.mayssa) return "owner-mayssa";
+  if (userId === fixedUserIds.contato) return "owner-camilli";
+  return "owner-other";
 }
 
 function renderClients() {
