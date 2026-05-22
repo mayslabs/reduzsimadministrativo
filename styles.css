@@ -592,9 +592,23 @@ h3 {
   min-height: 220px;
 }
 
+.client-card.active-work {
+  border-color: rgba(0, 159, 127, 0.22);
+  background: #eefaf5;
+}
+
+.client-card.finished {
+  border-color: #d8dde2;
+  background: #f2f4f5;
+}
+
 .client-card:hover {
   border-color: rgba(0, 159, 127, 0.55);
   box-shadow: 0 12px 28px rgba(31, 41, 51, 0.08);
+}
+
+.client-card.finished:hover {
+  border-color: #b8c0c8;
 }
 
 .client-card header {

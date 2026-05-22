@@ -1532,10 +1532,12 @@ function filteredClients() {
 }
 
 function renderClientCard(client) {
-  const statuses = getClientStatuses(client)
+  const clientStatuses = getClientStatuses(client);
+  const statuses = clientStatuses
     .slice(0, 5)
     .map((status) => chip(status))
     .join("");
+  const completionClass = clientStatuses.some((status) => normalize(status.name).includes("finaliz")) ? "finished" : "active-work";
   const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
   const deadlines = client.deadlines || [];
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
@@ -1544,7 +1546,7 @@ function renderClientCard(client) {
   const workSubtitle = `${workTitle}${client.destination || "Obra sem destinação informada"}`;
   const workDetails = [client.state, client.area].filter(Boolean).join(" | ");
   return `
-    <button class="client-card" type="button" data-open-client="${client.id}">
+    <button class="client-card ${completionClass}" type="button" data-open-client="${client.id}">
       <header>
         <div>
           <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
