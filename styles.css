@@ -809,10 +809,10 @@ h3 {
 }
 
 .task-calendar-card.owner-mayssa {
-  --task-owner-accent: #0f766e;
-  --task-owner-soft: #d8f4ed;
-  --task-owner-text: #005c49;
-  background: linear-gradient(180deg, rgba(216, 244, 237, 0.52), #fff 44px);
+  --task-owner-accent: #db2777;
+  --task-owner-soft: #fce7f3;
+  --task-owner-text: #9d174d;
+  background: linear-gradient(180deg, rgba(252, 231, 243, 0.68), #fff 44px);
 }
 
 .task-calendar-card.owner-camilli {
