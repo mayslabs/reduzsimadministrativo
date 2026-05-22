@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=48" />
+    <link rel="stylesheet" href="./styles.css?v=49" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -95,7 +95,10 @@
               <p class="eyebrow">Rotina operacional</p>
               <h2>Central de tarefas</h2>
             </div>
-            <button id="addInternalTaskButton" class="secondary-button" type="button"><i data-lucide="plus"></i> Nova tarefa interna</button>
+            <div class="inline-actions">
+              <button id="addMeetingButton" class="secondary-button" type="button"><i data-lucide="users-round"></i> Nova reunião</button>
+              <button id="addInternalTaskButton" class="secondary-button" type="button"><i data-lucide="plus"></i> Nova tarefa interna</button>
+            </div>
           </div>
 
           <div id="taskOverview" class="task-overview"></div>
@@ -116,7 +119,7 @@
           <div class="toolbar task-toolbar">
             <label class="search-field">
               <i data-lucide="search"></i>
-              <input id="taskSearchInput" type="search" placeholder="Buscar tarefa, prazo ou cliente" />
+              <input id="taskSearchInput" type="search" placeholder="Buscar tarefa, reunião, prazo ou cliente" />
             </label>
             <select id="taskOwnerFilter" aria-label="Filtrar por responsável"></select>
             <select id="taskStatusFilter" aria-label="Filtrar por status">
@@ -491,6 +494,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=48"></script>
+    <script src="./app.js?v=49"></script>
   </body>
 </html>

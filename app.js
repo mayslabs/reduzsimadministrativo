@@ -254,6 +254,7 @@ const el = {
   newClientButton: document.getElementById("newClientButton"),
   metricsGrid: document.getElementById("metricsGrid"),
   addInternalTaskButton: document.getElementById("addInternalTaskButton"),
+  addMeetingButton: document.getElementById("addMeetingButton"),
   taskOverview: document.getElementById("taskOverview"),
   previousTaskPeriodButton: document.getElementById("previousTaskPeriodButton"),
   nextTaskPeriodButton: document.getElementById("nextTaskPeriodButton"),
@@ -392,6 +393,7 @@ function loadState() {
     users: defaultUsers,
     clients: [],
     internalTasks: [],
+    meetings: [],
     activities: [],
   };
   state = initial;
@@ -418,6 +420,7 @@ function migrateState(savedState = {}, persist = true) {
     users: Array.isArray(savedState.users) ? savedState.users : [],
     clients: Array.isArray(savedState.clients) ? savedState.clients : [],
     internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
+    meetings: Array.isArray(savedState.meetings) ? savedState.meetings.map(normalizeMeeting) : [],
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
   };
   migrated.statuses = migrated.statuses.map((status) => ({
@@ -538,6 +541,20 @@ function normalizeInternalTask(task) {
     createdBy: task.createdBy || "",
     createdAt: task.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
+  };
+}
+
+function normalizeMeeting(meeting) {
+  return {
+    id: meeting.id || id(),
+    title: meeting.title || meeting.name || "",
+    description: meeting.description || meeting.notes || "",
+    ownerId: meeting.ownerId || "",
+    date: meeting.date || meeting.meetingDate || "",
+    time: meeting.time || "",
+    createdBy: meeting.createdBy || "",
+    createdAt: meeting.createdAt || new Date().toISOString(),
+    updatedAt: meeting.updatedAt || null,
   };
 }
 
@@ -722,6 +739,10 @@ function remapUserReferences(migrated, idMap) {
     task.ownerId = idMap[task.ownerId] || task.ownerId;
     task.createdBy = idMap[task.createdBy] || task.createdBy;
   });
+  (migrated.meetings || []).forEach((meeting) => {
+    meeting.ownerId = idMap[meeting.ownerId] || meeting.ownerId;
+    meeting.createdBy = idMap[meeting.createdBy] || meeting.createdBy;
+  });
   (migrated.activities || []).forEach((activity) => {
     activity.actorId = idMap[activity.actorId] || activity.actorId;
     activity.readBy = (activity.readBy || []).map((userId) => idMap[userId] || userId);
@@ -825,6 +846,7 @@ function bindEvents() {
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
+  el.addMeetingButton.addEventListener("click", () => openMeetingDialog());
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
   el.nextTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(1));
   el.todayTaskButton.addEventListener("click", () => {
@@ -1018,7 +1040,7 @@ function renderStatusFilter() {
 }
 
 function renderMetrics() {
-  const openTasks = taskCenterItems().filter((item) => item.kind !== "Prazo" && item.urgency !== "done").length;
+  const openTasks = taskCenterItems().filter((item) => item.kind.includes("Tarefa") && item.urgency !== "done").length;
   const deadlines = state.clients.flatMap((client) => client.deadlines || []).length;
   const finishedClients = state.clients.filter(isClientFinished).length;
   el.metricsGrid.innerHTML = [
@@ -1143,6 +1165,7 @@ function activityTypeLabel(type) {
     note: "Anotação",
     status: "Status",
     task: "Tarefa",
+    meeting: "Reunião",
     deadline: "Prazo",
     finance: "Financeiro",
     history: "Histórico",
@@ -1155,6 +1178,7 @@ function activityIcon(type) {
     note: "message-square",
     status: "tag",
     task: "list-checks",
+    meeting: "users-round",
     deadline: "calendar-clock",
     finance: "banknote",
     history: "file-clock",
@@ -1325,6 +1349,21 @@ function bindTaskCenterActions() {
       renderUpdates();
     });
   });
+
+  document.querySelectorAll("[data-edit-meeting]").forEach((button) => {
+    button.addEventListener("click", () => openMeetingDialog(button.dataset.editMeeting));
+  });
+
+  document.querySelectorAll("[data-remove-meeting]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const meeting = state.meetings.find((item) => item.id === button.dataset.removeMeeting);
+      state.meetings = state.meetings.filter((item) => item.id !== button.dataset.removeMeeting);
+      if (meeting) recordActivity("meeting", `Removeu reunião: ${meeting.title || "Reunião sem título"}.`, "");
+      saveState();
+      renderTaskCenter();
+      renderUpdates();
+    });
+  });
 }
 
 function renderTaskOwnerFilter() {
@@ -1414,7 +1453,25 @@ function taskCenterItems() {
       return item;
     });
 
-  return [...clientItems, ...internalItems];
+  const meetingItems = (state.meetings || []).map((meeting) => {
+    const item = {
+      id: meeting.id,
+      source: "Agenda",
+      kind: "Reunião",
+      title: meeting.title || "Reunião sem título",
+      description: [meeting.time ? `Horário: ${meeting.time}` : "", meeting.description || ""].filter(Boolean).join("\n"),
+      ownerId: meeting.ownerId,
+      createdBy: meeting.createdBy || "",
+      date: meeting.date || "",
+      status: "Reunião",
+      internalMeetingId: meeting.id,
+      clientName: "Reunião",
+    };
+    item.urgency = taskUrgency(item);
+    return item;
+  });
+
+  return [...clientItems, ...internalItems, ...meetingItems];
 }
 
 function filterTaskCenterItems(items) {
@@ -1458,7 +1515,7 @@ function filterTaskCenterItems(items) {
 function renderTaskCalendarCard(item, compact = false) {
   const ownerClass = taskOwnerClass(item.ownerId);
   const statusControl =
-    item.kind !== "Prazo"
+    item.kind.includes("Tarefa")
       ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-task-id="${item.id}">${taskStatusOptions(item.status)}</select>`
       : `<span class="task-type-pill">${escapeHtml(item.status)}</span>`;
   const sourceClass = item.visibility === "admin" ? " admin-only" : "";
@@ -1467,6 +1524,11 @@ function renderTaskCalendarCard(item, compact = false) {
         <button class="small-button" type="button" data-edit-internal-task="${item.internalTaskId}"><i data-lucide="pencil"></i> Editar</button>
         <button class="icon-button" type="button" data-remove-internal-task="${item.internalTaskId}" aria-label="Remover tarefa interna"><i data-lucide="trash-2"></i></button>
       </div>`
+    : item.internalMeetingId
+      ? `<div class="inline-actions task-row-actions">
+          <button class="small-button" type="button" data-edit-meeting="${item.internalMeetingId}"><i data-lucide="pencil"></i> Editar</button>
+          <button class="icon-button" type="button" data-remove-meeting="${item.internalMeetingId}" aria-label="Remover reunião"><i data-lucide="trash-2"></i></button>
+        </div>`
     : `<button class="small-button" type="button" data-open-task-client="${item.clientId}"><i data-lucide="external-link"></i> Abrir card</button>`;
 
   return `
@@ -2730,6 +2792,54 @@ function openInternalTaskDialog(taskId = null) {
 
     saveState();
     renderMetrics();
+    renderTaskCenter();
+    renderUpdates();
+    return true;
+  });
+}
+
+function openMeetingDialog(meetingId = null) {
+  const meeting = state.meetings.find((item) => item.id === meetingId) || null;
+  openSimpleDialog(meeting ? "Editar reunião" : "Nova reunião", [
+    { label: "Reunião", name: "title", type: "text", value: meeting?.title || "" },
+    { label: "Pauta/descrição", name: "description", type: "textarea", rows: 4, value: meeting?.description || "" },
+    { label: "Responsável", name: "ownerId", type: "select", value: meeting?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "Data", name: "date", type: "date", value: meeting?.date || "" },
+    { label: "Horário", name: "time", type: "time", value: meeting?.time || "" },
+  ], (values) => {
+    if (!values.title) {
+      alert("Informe o título da reunião.");
+      return false;
+    }
+    if (!values.date) {
+      alert("Informe a data da reunião.");
+      return false;
+    }
+
+    const payload = {
+      title: values.title,
+      description: values.description || "",
+      ownerId: values.ownerId || currentUser.id,
+      date: values.date,
+      time: values.time || "",
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (meeting) {
+      Object.assign(meeting, payload);
+      recordActivity("meeting", `Atualizou reunião: ${meeting.title}.`, meeting.description || "");
+    } else {
+      const newMeeting = {
+        id: id(),
+        ...payload,
+        createdBy: currentUser.id,
+        createdAt: new Date().toISOString(),
+      };
+      state.meetings.unshift(newMeeting);
+      recordActivity("meeting", `Criou reunião: ${newMeeting.title}.`, newMeeting.description || "");
+    }
+
+    saveState();
     renderTaskCenter();
     renderUpdates();
     return true;
