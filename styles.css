@@ -846,7 +846,7 @@ h3 {
 
 .task-week-board {
   display: grid;
-  grid-template-columns: repeat(7, minmax(170px, 1fr));
+  grid-template-columns: repeat(7, minmax(158px, 1fr));
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -861,9 +861,9 @@ h3 {
 }
 
 .task-day-column {
-  min-width: 170px;
+  min-width: 158px;
   background: var(--soft);
-  padding: 10px;
+  padding: 8px;
 }
 
 .task-day-column.today,
@@ -908,7 +908,7 @@ h3 {
 .task-day-items,
 .no-date-grid {
   display: grid;
-  gap: 7px;
+  gap: 5px;
 }
 
 .task-calendar-card {
@@ -916,12 +916,12 @@ h3 {
   --task-owner-soft: #f1f5f9;
   --task-owner-text: #334155;
   display: grid;
-  gap: 6px;
+  gap: 4px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
-  padding: 8px 9px;
+  padding: 6px 7px;
 }
 
 .task-calendar-card.owner-mayssa {
@@ -955,13 +955,33 @@ h3 {
 }
 
 .task-calendar-card.done {
+  border-color: #c9dbd2;
   border-left-color: #15803d;
-  opacity: 0.78;
+  background: #edf5f0;
+  color: #51605a;
+  opacity: 1;
+}
+
+.task-calendar-card.done .task-main h3 {
+  color: #61716b;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.task-calendar-card.done .urgency-pill {
+  background: #d6ecdf;
+  color: #166534;
+}
+
+.task-calendar-card.done .task-status-select {
+  border-color: #b8d5c4;
+  background: #f6fbf8;
+  color: #166534;
 }
 
 .task-calendar-card.compact {
-  padding: 9px;
-  gap: 8px;
+  padding: 6px;
+  gap: 4px;
 }
 
 .task-calendar-card.compact .task-badges .urgency-pill,
@@ -1033,22 +1053,26 @@ h3 {
 
 .task-main {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 
 .task-main h3 {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.32;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 12px;
+  line-height: 1.24;
   overflow-wrap: anywhere;
 }
 
 .task-main p {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 10px;
+  line-height: 1.26;
 }
 
 .task-main .task-description {
@@ -1062,7 +1086,7 @@ h3 {
 .task-badges {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-wrap: wrap;
 }
 
@@ -1072,8 +1096,8 @@ h3 {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 3px 7px;
-  font-size: 10px;
+  padding: 2px 6px;
+  font-size: 9px;
   font-weight: 900;
   line-height: 1.2;
 }
@@ -1087,8 +1111,8 @@ h3 {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 3px 7px;
-  font-size: 10px;
+  padding: 2px 6px;
+  font-size: 9px;
   font-weight: 900;
   line-height: 1.2;
   background: #eef4ff;
@@ -1112,13 +1136,14 @@ h3 {
   gap: 5px;
   min-width: 0;
   color: var(--charcoal);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .task-detail svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   flex: 0 0 auto;
   color: var(--muted);
 }
@@ -1133,8 +1158,8 @@ h3 {
   border-radius: 999px;
   background: var(--task-owner-soft);
   color: var(--task-owner-text);
-  padding: 2px 7px;
-  font-size: 10px;
+  padding: 1px 6px;
+  font-size: 9px;
   line-height: 1.25;
 }
 
@@ -1143,16 +1168,17 @@ h3 {
 }
 
 .task-status-select {
-  min-height: 30px;
-  padding: 5px 8px;
-  font-size: 11px;
+  min-height: 26px;
+  padding: 3px 7px;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .task-calendar-card .small-button {
-  min-height: 30px;
-  padding: 5px 8px;
-  font-size: 11px;
+  justify-self: start;
+  min-height: 25px;
+  padding: 3px 7px;
+  font-size: 10px;
 }
 
 .task-row-actions {
