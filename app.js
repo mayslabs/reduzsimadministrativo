@@ -1848,17 +1848,17 @@ function renderInssReduction() {
   if (!activeClient || !el.inssReductionSummary || !el.inssReductionResults) return;
   const values = inssReductionValues(activeClient);
   el.inssReductionSummary.innerHTML = [
-    reductionValue("INSS sem redução", values.original),
-    reductionValue("INSS com redução", values.reduced),
-    reductionValue("Economia bruta", values.grossEconomy, "highlight"),
-    reductionValue("Economia líquida estimada", values.netEconomy, "highlight"),
-    reductionValue("Redução", values.reductionPercent, "highlight"),
+    reductionValue("INSS sem redução", values.original, "original"),
+    reductionValue("INSS com redução", values.reduced, "reduced"),
+    reductionValue("Economia bruta", values.grossEconomy, "gross"),
+    reductionValue("Economia líquida estimada", values.netEconomy, "net"),
+    reductionValue("Redução", values.reductionPercent, "percent"),
   ].join("");
   el.inssReductionResults.innerHTML = [
-    reductionValue("Economia bruta", values.grossEconomy, "highlight"),
-    reductionValue("Total com honorários", values.totalWithFees),
-    reductionValue("Economia líquida estimada", values.netEconomy, "highlight"),
-    reductionValue("Percentual de redução", values.reductionPercent),
+    reductionValue("Economia bruta", values.grossEconomy, "gross"),
+    reductionValue("Total com honorários", values.totalWithFees, "total"),
+    reductionValue("Economia líquida estimada", values.netEconomy, "net"),
+    reductionValue("Percentual de redução", values.reductionPercent, "percent"),
   ].join("");
 }
 
