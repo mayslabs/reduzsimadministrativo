@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=56" />
+    <link rel="stylesheet" href="./styles.css?v=57" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -258,6 +258,12 @@
               </div>
               <div id="activeStatusList" class="chip-list"></div>
               <div id="statusPicker" class="status-picker" hidden></div>
+              <section class="reduction-summary">
+                <div class="mini-heading">
+                  <h3>Redução do INSS</h3>
+                </div>
+                <div id="inssReductionSummary" class="reduction-summary-grid"></div>
+              </section>
             </div>
           </div>
         </section>
@@ -406,6 +412,16 @@
         </section>
 
         <section id="financeTab" class="tab-panel">
+          <section class="finance-reduction">
+            <div class="mini-heading">
+              <h3>Redução do INSS</h3>
+            </div>
+            <div class="form-grid reduction-inputs">
+              <label>INSS sem redução<input data-field="inssOriginalValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
+              <label>INSS com redução<input data-field="inssReducedValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
+            </div>
+            <div id="inssReductionResults" class="reduction-results"></div>
+          </section>
           <div class="form-grid">
             <label>Valor dos honorários<input data-field="feeValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
             <label>Forma de pagamento
@@ -519,6 +535,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=56"></script>
+    <script src="./app.js?v=57"></script>
   </body>
 </html>

@@ -203,6 +203,8 @@ const defaultClient = () => {
       },
     ],
     feeValue: "R$ 4.500,00",
+    inssOriginalValue: "",
+    inssReducedValue: "",
     paymentMethod: "Pix",
     installments: "3",
     financeStatus: "Em andamento",
@@ -290,6 +292,8 @@ const el = {
   saveClientButton: document.getElementById("saveClientButton"),
   openStatusPicker: document.getElementById("openStatusPicker"),
   activeStatusList: document.getElementById("activeStatusList"),
+  inssReductionSummary: document.getElementById("inssReductionSummary"),
+  inssReductionResults: document.getElementById("inssReductionResults"),
   statusPicker: document.getElementById("statusPicker"),
   generateMonthsButton: document.getElementById("generateMonthsButton"),
   addMonthButton: document.getElementById("addMonthButton"),
@@ -470,6 +474,8 @@ function migrateState(savedState = {}, persist = true) {
     workersNotes: "",
     workerMessages: [],
     feeValue: "",
+    inssOriginalValue: "",
+    inssReducedValue: "",
     paymentMethod: "",
     installments: "",
     financeStatus: "Em andamento",
@@ -484,6 +490,8 @@ function migrateState(savedState = {}, persist = true) {
     updatedAt: new Date().toISOString(),
     ...client,
     feeValue: formatCurrencyValue(client.feeValue || ""),
+    inssOriginalValue: formatCurrencyValue(client.inssOriginalValue || ""),
+    inssReducedValue: formatCurrencyValue(client.inssReducedValue || ""),
     paymentMethod: normalizeSelectValue(client.paymentMethod, financePaymentMethods()),
     installments: normalizeInstallmentsValue(client.installments),
     financeStatus: normalizeFinanceStatus(client.financeStatus),
@@ -925,6 +933,7 @@ function bindEvents() {
         }
       }
       if (input.dataset.field === "clientOrigin" || input.dataset.field === "hasReferralCommission") syncReferralCommissionFields();
+      if (["feeValue", "inssOriginalValue", "inssReducedValue"].includes(input.dataset.field)) renderInssReduction();
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -1823,6 +1832,7 @@ function openClient(client) {
   renderWorkerMessages();
   renderFinanceMessages();
   syncReferralCommissionFields();
+  renderInssReduction();
   switchTab("summaryTab");
   el.clientDialog.showModal();
   refreshIcons();
@@ -1832,6 +1842,53 @@ function fillClientFields() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = activeClient[input.dataset.field] || "";
   });
+}
+
+function renderInssReduction() {
+  if (!activeClient || !el.inssReductionSummary || !el.inssReductionResults) return;
+  const values = inssReductionValues(activeClient);
+  el.inssReductionSummary.innerHTML = [
+    reductionValue("INSS sem redução", values.original),
+    reductionValue("INSS com redução", values.reduced),
+    reductionValue("Economia bruta", values.grossEconomy, "highlight"),
+    reductionValue("Economia líquida estimada", values.netEconomy, "highlight"),
+    reductionValue("Redução", values.reductionPercent, "highlight"),
+  ].join("");
+  el.inssReductionResults.innerHTML = [
+    reductionValue("Economia bruta", values.grossEconomy, "highlight"),
+    reductionValue("Total com honorários", values.totalWithFees),
+    reductionValue("Economia líquida estimada", values.netEconomy, "highlight"),
+    reductionValue("Percentual de redução", values.reductionPercent),
+  ].join("");
+}
+
+function reductionValue(label, value, modifier = "") {
+  return `
+    <article class="reduction-value ${modifier}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </article>
+  `;
+}
+
+function inssReductionValues(client) {
+  const original = currencyAmount(client.inssOriginalValue);
+  const reduced = currencyAmount(client.inssReducedValue);
+  const fee = currencyAmount(client.feeValue);
+  const hasValues = original !== null && reduced !== null;
+  const grossEconomy = hasValues ? original - reduced : null;
+  const totalWithFees = reduced !== null && fee !== null ? reduced + fee : null;
+  const netEconomy = original !== null && totalWithFees !== null ? original - totalWithFees : null;
+  const reductionPercent = hasValues && original ? (grossEconomy / original) * 100 : null;
+
+  return {
+    original: calculatedCurrency(original),
+    reduced: calculatedCurrency(reduced),
+    grossEconomy: calculatedCurrency(grossEconomy),
+    totalWithFees: calculatedCurrency(totalWithFees),
+    netEconomy: calculatedCurrency(netEconomy),
+    reductionPercent: calculatedPercent(reductionPercent),
+  };
 }
 
 function renderUserSelects() {
@@ -2466,7 +2523,7 @@ function recordClientChangeActivities(previousClient, nextClient, changes) {
     addedFinanceMessages.length ||
     !sameIds(previousClient.statusIds, nextClient.statusIds);
   if (!hasSpecificActivity && changes.length) {
-    const type = changes.some((change) => /Honor|pagamento|financeiro|Comiss/i.test(change)) ? "finance" : "client";
+    const type = changes.some((change) => /Honor|INSS|redução|pagamento|financeiro|Comiss/i.test(change)) ? "finance" : "client";
     recordActivity(type, `Atualizou ${context.clientName}.`, changes.slice(0, 3).join(" "), context);
   }
 }
@@ -2512,6 +2569,8 @@ function summarizeClientChanges(previousClient, nextClient) {
     endDate: "Fim da obra",
     area: "Área",
     feeValue: "Honorários",
+    inssOriginalValue: "INSS sem redução",
+    inssReducedValue: "INSS com redução",
     paymentMethod: "Forma de pagamento",
     installments: "Parcelas",
     financeStatus: "Status financeiro",
@@ -3041,6 +3100,8 @@ function createEmptyClient() {
     workersNotes: "",
     workerMessages: [],
     feeValue: "",
+    inssOriginalValue: "",
+    inssReducedValue: "",
     paymentMethod: "",
     installments: "",
     financeStatus: "Em andamento",
@@ -3193,6 +3254,7 @@ function formatFieldValue(field, value) {
   if (field === "phone") return formatPhoneNumber(value);
   if (field === "area") return formatAreaValue(value);
   if (field === "feeValue") return formatCurrencyValue(value);
+  if (field === "inssOriginalValue" || field === "inssReducedValue") return formatCurrencyValue(value);
   if (field === "referralCommission") return formatCurrencyValue(value);
   return value;
 }
@@ -3247,6 +3309,21 @@ function formatCurrencyValue(value) {
   if (!digits) return "";
   const cents = Number(digits) / 100;
   return cents.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function currencyAmount(value) {
+  const digits = onlyDigits(value);
+  return digits ? Number(digits) / 100 : null;
+}
+
+function calculatedCurrency(value) {
+  if (value === null || Number.isNaN(value)) return "Não informado";
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function calculatedPercent(value) {
+  if (value === null || Number.isNaN(value)) return "Não informado";
+  return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 }
 
 function financePaymentMethods() {
@@ -3311,6 +3388,8 @@ function normalizeClientSelectValues(client) {
   client.concrete = normalizeSelectValue(client.concrete, ["Sim", "Não"]);
   client.state = normalizeSelectValue(String(client.state || "").toUpperCase(), brazilianStates());
   client.feeValue = formatCurrencyValue(client.feeValue || "");
+  client.inssOriginalValue = formatCurrencyValue(client.inssOriginalValue || "");
+  client.inssReducedValue = formatCurrencyValue(client.inssReducedValue || "");
   client.paymentMethod = normalizeSelectValue(client.paymentMethod, financePaymentMethods());
   client.installments = normalizeInstallmentsValue(client.installments);
   client.financeStatus = normalizeFinanceStatus(client.financeStatus);
