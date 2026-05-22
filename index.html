@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=55" />
+    <link rel="stylesheet" href="./styles.css?v=56" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -451,8 +451,20 @@
                 <option value="Atrasado">Atrasado</option>
               </select>
             </label>
-            <label>Quem indicou<input data-field="referrer" type="text" /></label>
-            <label>Comissão de indicação
+            <label>Origem
+              <select data-field="clientOrigin">
+                <option value="">Selecione</option>
+                <option value="BNI">BNI</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Facebook">Facebook</option>
+                <option value="Outdoor">Outdoor</option>
+                <option value="Prospecção ativa">Prospecção ativa</option>
+                <option value="Site">Site</option>
+                <option value="Indicação">Indicação</option>
+              </select>
+            </label>
+            <label id="referrerField">Quem indicou<input data-field="referrer" type="text" /></label>
+            <label id="hasReferralCommissionField">Comissão de indicação
               <select data-field="hasReferralCommission">
                 <option value="">Selecione</option>
                 <option value="Sim">Sim</option>
@@ -507,6 +519,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=55"></script>
+    <script src="./app.js?v=56"></script>
   </body>
 </html>
