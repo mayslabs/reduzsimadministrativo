@@ -569,6 +569,7 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
   return {
     id: task.id || id(),
     title: task.title || "",
+    description: task.description || task.text || task.notes || "",
     ownerId: task.ownerId || client.internalOwner || fallbackUserId,
     dueDate: task.dueDate || "",
     status: localizeLabel(task.status || "Pendente"),
@@ -1839,6 +1840,7 @@ function renderTasks() {
             <div class="task-message ${isDone ? "done" : ""}" data-task="${task.id}">
               <div class="task-message-body">
                 <p class="task-message-title">${escapeHtml(task.title || "Tarefa sem descrição")}</p>
+                ${task.description ? `<p class="task-message-description">${escapeHtml(task.description)}</p>` : ""}
                 <div class="task-message-meta">
                   <span>Cadastrada por ${escapeHtml(ownerName(task.createdBy))}</span>
                   <span>Responsável: ${escapeHtml(ownerName(task.ownerId))}</span>
@@ -2603,6 +2605,7 @@ function openClientTaskDialog(taskId = null) {
   const draft = task || emptyTask();
   openSimpleDialog(task ? "Editar tarefa" : "Nova tarefa", [
     { label: "Tarefa", name: "title", type: "text", value: draft.title || "" },
+    { label: "Descrição", name: "description", type: "textarea", rows: 4, value: draft.description || "" },
     { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
     { label: "Prazo", name: "dueDate", type: "date", value: draft.dueDate || "" },
     { label: "Status", name: "status", type: "select", value: draft.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
@@ -2900,6 +2903,7 @@ function emptyTask() {
   return {
     id: id(),
     title: "",
+    description: "",
     ownerId: currentUser.id,
     dueDate: "",
     status: "Pendente",

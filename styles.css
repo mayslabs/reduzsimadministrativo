@@ -1387,6 +1387,14 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+.task-message-description {
+  margin: -2px 0 9px;
+  color: var(--charcoal);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .task-message.done .task-message-title {
   color: var(--muted);
   text-decoration: line-through;
