@@ -1334,10 +1334,10 @@ h3 {
 }
 
 .reduction-value.original {
-  --reduction-accent: #a694d8;
-  --reduction-bg: #f5f1fd;
-  --reduction-border: #ddd2f3;
-  --reduction-number: #65518d;
+  --reduction-accent: #e18a8a;
+  --reduction-bg: #fff1f1;
+  --reduction-border: #f1caca;
+  --reduction-number: #b24c4c;
 }
 
 .reduction-value.reduced {
@@ -1347,32 +1347,14 @@ h3 {
   --reduction-number: #2f8062;
 }
 
-.reduction-value.gross {
-  --reduction-accent: #83b8e8;
-  --reduction-bg: #eef7ff;
-  --reduction-border: #cfe3f8;
-  --reduction-number: #426f9d;
-}
-
-.reduction-value.net {
-  --reduction-accent: #f0ae98;
-  --reduction-bg: #fff2ed;
-  --reduction-border: #f4d4c8;
-  --reduction-number: #98604e;
-}
-
-.reduction-value.percent {
-  --reduction-accent: #e2c465;
-  --reduction-bg: #fff9e8;
-  --reduction-border: #f0e0ae;
-  --reduction-number: #8b7430;
-}
-
+.reduction-value.gross,
+.reduction-value.net,
+.reduction-value.percent,
 .reduction-value.total {
-  --reduction-accent: #d39ac8;
-  --reduction-bg: #fdf1fa;
-  --reduction-border: #efd2e7;
-  --reduction-number: #875077;
+  --reduction-accent: #d6dee3;
+  --reduction-bg: #fff;
+  --reduction-border: var(--line);
+  --reduction-number: var(--charcoal);
 }
 
 .wide-field {
