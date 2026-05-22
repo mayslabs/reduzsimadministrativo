@@ -1334,45 +1334,45 @@ h3 {
 }
 
 .reduction-value.original {
-  --reduction-accent: #4d4d4d;
-  --reduction-bg: #f5f6f7;
-  --reduction-border: #d4d9dd;
-  --reduction-number: #3f4448;
+  --reduction-accent: #a694d8;
+  --reduction-bg: #f5f1fd;
+  --reduction-border: #ddd2f3;
+  --reduction-number: #65518d;
 }
 
 .reduction-value.reduced {
-  --reduction-accent: #1f9d82;
-  --reduction-bg: #edf9f4;
-  --reduction-border: #bde6d9;
-  --reduction-number: #007f68;
+  --reduction-accent: #77c6a5;
+  --reduction-bg: #eefaf4;
+  --reduction-border: #c9eadb;
+  --reduction-number: #2f8062;
 }
 
 .reduction-value.gross {
-  --reduction-accent: #2f80ed;
-  --reduction-bg: #eef5ff;
-  --reduction-border: #c5dafc;
-  --reduction-number: #1d5fb8;
+  --reduction-accent: #83b8e8;
+  --reduction-bg: #eef7ff;
+  --reduction-border: #cfe3f8;
+  --reduction-number: #426f9d;
 }
 
 .reduction-value.net {
-  --reduction-accent: #007f68;
-  --reduction-bg: #e7f7f2;
-  --reduction-border: #a9dfd1;
-  --reduction-number: #006652;
+  --reduction-accent: #f0ae98;
+  --reduction-bg: #fff2ed;
+  --reduction-border: #f4d4c8;
+  --reduction-number: #98604e;
 }
 
 .reduction-value.percent {
-  --reduction-accent: #c78000;
-  --reduction-bg: #fff7e8;
-  --reduction-border: #f0d59a;
-  --reduction-number: #9a6100;
+  --reduction-accent: #e2c465;
+  --reduction-bg: #fff9e8;
+  --reduction-border: #f0e0ae;
+  --reduction-number: #8b7430;
 }
 
 .reduction-value.total {
-  --reduction-accent: #7c3aed;
-  --reduction-bg: #f5f0ff;
-  --reduction-border: #dbcafc;
-  --reduction-number: #5b21b6;
+  --reduction-accent: #d39ac8;
+  --reduction-bg: #fdf1fa;
+  --reduction-border: #efd2e7;
+  --reduction-number: #875077;
 }
 
 .wide-field {
