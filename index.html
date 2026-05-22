@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=45" />
+    <link rel="stylesheet" href="./styles.css?v=46" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -73,14 +73,18 @@
               <input id="searchInput" type="search" placeholder="Buscar cliente, CPF, obra ou responsável" />
             </label>
             <select id="statusFilter" aria-label="Filtrar por status"></select>
+            <select id="clientSort" aria-label="Ordenar clientes">
+              <option value="">Ordem atual</option>
+              <option value="recent">Mais recentes</option>
+            </select>
             <div class="segmented-control" role="group" aria-label="Modo de visualização">
               <button id="listModeButton" class="active" type="button"><i data-lucide="list"></i> Lista</button>
-              <button id="boardModeButton" type="button"><i data-lucide="columns-3"></i> Por status</button>
+              <button id="compactModeButton" type="button"><i data-lucide="rows-3"></i> Compacta</button>
             </div>
           </div>
 
           <div id="listView" class="client-grid"></div>
-          <div id="boardView" class="status-board" hidden></div>
+          <div id="compactView" class="compact-client-list" hidden></div>
         </section>
 
         <section id="tasksSection" class="app-section" hidden>
@@ -485,6 +489,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=45"></script>
+    <script src="./app.js?v=46"></script>
   </body>
 </html>

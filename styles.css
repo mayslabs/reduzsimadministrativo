@@ -420,7 +420,7 @@ h3 {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 230px auto;
+  grid-template-columns: minmax(220px, 1fr) 210px 180px auto;
   gap: 12px;
   align-items: center;
   margin-bottom: 18px;
@@ -696,6 +696,94 @@ h3 {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.chip.neutral {
+  background: #6b7280;
+}
+
+.compact-client-list {
+  display: grid;
+  gap: 7px;
+}
+
+.compact-client-head,
+.compact-client-row {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.5fr) minmax(180px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.7fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.compact-client-head {
+  padding: 0 14px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.compact-client-row {
+  width: 100%;
+  min-height: 68px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  color: var(--charcoal);
+  background: #fff;
+  text-align: left;
+  font-size: 12px;
+}
+
+.compact-client-row.active-work {
+  border-color: rgba(0, 159, 127, 0.22);
+  background: #eefaf5;
+}
+
+.compact-client-row.finished {
+  border-color: #d8dde2;
+  background: #f2f4f5;
+}
+
+.compact-client-row:hover {
+  border-color: rgba(0, 159, 127, 0.55);
+  box-shadow: 0 8px 20px rgba(31, 41, 51, 0.07);
+}
+
+.compact-client-row.finished:hover {
+  border-color: #b8c0c8;
+}
+
+.compact-client-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.compact-client-main strong,
+.compact-client-main small {
+  overflow-wrap: anywhere;
+}
+
+.compact-client-main strong {
+  font-size: 13px;
+}
+
+.compact-client-main small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.compact-client-status {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.compact-client-status .chip {
+  padding: 4px 7px;
+  font-size: 10px;
 }
 
 .chip button {
@@ -1564,6 +1652,7 @@ h3 {
   .toolbar,
   .task-toolbar,
   .updates-toolbar,
+  .compact-client-row,
   .calendar-controls,
   .summary-layout,
   .form-grid {
@@ -1572,6 +1661,10 @@ h3 {
 
   .calendar-mode {
     min-width: 0;
+  }
+
+  .compact-client-head {
+    display: none;
   }
 }
 

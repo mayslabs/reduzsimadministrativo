@@ -274,10 +274,11 @@ const el = {
   updatesList: document.getElementById("updatesList"),
   searchInput: document.getElementById("searchInput"),
   statusFilter: document.getElementById("statusFilter"),
+  clientSort: document.getElementById("clientSort"),
   listModeButton: document.getElementById("listModeButton"),
-  boardModeButton: document.getElementById("boardModeButton"),
+  compactModeButton: document.getElementById("compactModeButton"),
   listView: document.getElementById("listView"),
-  boardView: document.getElementById("boardView"),
+  compactView: document.getElementById("compactView"),
   clientDialog: document.getElementById("clientDialog"),
   clientDialogTitle: document.getElementById("clientDialogTitle"),
   deleteClientButton: document.getElementById("deleteClientButton"),
@@ -833,6 +834,7 @@ function bindEvents() {
   el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
   el.searchInput.addEventListener("input", renderClients);
   el.statusFilter.addEventListener("change", renderClients);
+  el.clientSort.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
@@ -842,7 +844,7 @@ function bindEvents() {
   el.updatesTypeFilter.addEventListener("change", renderUpdates);
   el.markAllUpdatesReadButton.addEventListener("click", markAllActivitiesRead);
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
-  el.boardModeButton.addEventListener("click", () => setViewMode("board"));
+  el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
   el.deleteClientButton.addEventListener("click", deleteActiveClient);
   el.openStatusPicker.addEventListener("click", () => {
@@ -1017,12 +1019,12 @@ function renderStatusFilter() {
 function renderMetrics() {
   const openTasks = taskCenterItems().filter((item) => item.kind !== "Prazo" && item.urgency !== "done").length;
   const deadlines = state.clients.flatMap((client) => client.deadlines || []).length;
-  const pendingFinance = state.clients.filter((client) => client.financeStatus && client.financeStatus !== "Pago").length;
+  const finishedClients = state.clients.filter(isClientFinished).length;
   el.metricsGrid.innerHTML = [
-    ["Clientes ativos", state.clients.length],
+    ["Clientes ativos", state.clients.length - finishedClients],
     ["Tarefas abertas", openTasks],
     ["Prazos registrados", deadlines],
-    ["Financeiro pendente", pendingFinance],
+    ["Clientes finalizados", finishedClients],
   ]
     .map(([label, value]) => `<article class="metric"><span>${label}</span><strong>${value}</strong></article>`)
     .join("");
@@ -1496,14 +1498,14 @@ function taskOwnerClass(userId) {
 function renderClients() {
   const clients = filteredClients();
   el.listView.hidden = activeViewMode !== "list";
-  el.boardView.hidden = activeViewMode !== "board";
+  el.compactView.hidden = activeViewMode !== "compact";
 
   if (activeViewMode === "list") {
     el.listView.innerHTML = clients.length
       ? clients.map((client) => renderClientCard(client)).join("")
       : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
   } else {
-    renderBoard(clients);
+    renderCompactClients(clients);
   }
 
   document.querySelectorAll("[data-open-client]").forEach((card) => {
@@ -1515,7 +1517,7 @@ function renderClients() {
 function filteredClients() {
   const query = normalize(el.searchInput.value);
   const statusId = el.statusFilter.value;
-  return state.clients.filter((client) => {
+  const clients = state.clients.filter((client) => {
     const haystack = normalize([
       client.clientName,
       client.fullName,
@@ -1529,6 +1531,10 @@ function filteredClients() {
     const matchesStatus = !statusId || (client.statusIds || []).includes(statusId);
     return matchesQuery && matchesStatus;
   });
+  if (el.clientSort.value === "recent") {
+    return clients.sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0));
+  }
+  return clients;
 }
 
 function renderClientCard(client) {
@@ -1537,7 +1543,7 @@ function renderClientCard(client) {
     .slice(0, 5)
     .map((status) => chip(status))
     .join("");
-  const completionClass = clientStatuses.some((status) => normalize(status.name).includes("finaliz")) ? "finished" : "active-work";
+  const completionClass = isClientFinished(client) ? "finished" : "active-work";
   const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
   const deadlines = client.deadlines || [];
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
@@ -1572,27 +1578,43 @@ function renderClientCard(client) {
   `;
 }
 
-function renderBoard(clients) {
-  el.boardView.innerHTML = state.statuses
-    .map((status) => {
-      const matches = clients.filter((client) => (client.statusIds || []).includes(status.id));
-      return `
-        <section class="status-column">
-          <header>
-            <span>${escapeHtml(status.name)}</span>
-            <span class="chip" style="background:${status.color}">${matches.length}</span>
-          </header>
-          ${matches.map((client) => renderClientCard(client)).join("") || `<p class="empty-state">Sem clientes aqui.</p>`}
-        </section>
-      `;
-    })
-    .join("");
+function renderCompactClients(clients) {
+  el.compactView.innerHTML = clients.length
+    ? `
+      <div class="compact-client-head">
+        <span>Cliente e obra</span>
+        <span>Status</span>
+        <span>Responsável</span>
+        <span>Pendências</span>
+      </div>
+      ${clients.map((client) => renderCompactClientRow(client)).join("")}
+    `
+    : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
+}
+
+function renderCompactClientRow(client) {
+  const statuses = getClientStatuses(client).slice(0, 3).map((status) => chip(status)).join("");
+  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
+  const deadlines = client.deadlines || [];
+  const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
+  const workLine = [client.destination || "Obra sem destinação informada", client.state, client.area].filter(Boolean).join(" | ");
+  return `
+    <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
+      <span class="compact-client-main">
+        <strong>${escapeHtml(client.clientName || "Cliente sem nome")}</strong>
+        <small>${escapeHtml(`${workTitle}${workLine}`)}</small>
+      </span>
+      <span class="compact-client-status">${statuses || `<span class="chip neutral">Sem status</span>`}</span>
+      <span>${escapeHtml(ownerName(client.internalOwner))}</span>
+      <span>${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)</span>
+    </button>
+  `;
 }
 
 function setViewMode(mode) {
   activeViewMode = mode;
   el.listModeButton.classList.toggle("active", mode === "list");
-  el.boardModeButton.classList.toggle("active", mode === "board");
+  el.compactModeButton.classList.toggle("active", mode === "compact");
   renderClients();
 }
 
@@ -2884,6 +2906,10 @@ function emptyDocument() {
 function getClientStatuses(client) {
   const active = new Set(client.statusIds || []);
   return state.statuses.filter((status) => active.has(status.id));
+}
+
+function isClientFinished(client) {
+  return getClientStatuses(client).some((status) => normalize(status.name).includes("finaliz"));
 }
 
 function chip(status) {
