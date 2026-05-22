@@ -903,6 +903,7 @@ function bindEvents() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     const syncField = () => {
       if (!activeClient) return;
+      if (input.dataset.field === "cpf") syncDocumentTypeFromNumber(input.value);
       input.value = formatFieldValue(input.dataset.field, input.value);
       activeClient[input.dataset.field] = input.value;
       if (input.dataset.field === "documentType") {
@@ -916,6 +917,13 @@ function bindEvents() {
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
   });
+}
+
+function syncDocumentTypeFromNumber(value) {
+  if (onlyDigits(value).length <= 11 || activeClient.documentType === "cnpj") return;
+  activeClient.documentType = "cnpj";
+  const documentTypeInput = document.querySelector('[data-field="documentType"]');
+  if (documentTypeInput) documentTypeInput.value = "cnpj";
 }
 
 function handleStorageSync(event) {
