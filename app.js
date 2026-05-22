@@ -1531,10 +1531,24 @@ function filteredClients() {
     const matchesStatus = !statusId || (client.statusIds || []).includes(statusId);
     return matchesQuery && matchesStatus;
   });
-  if (el.clientSort.value === "recent") {
-    return clients.sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0));
+  return sortClients(clients, el.clientSort.value);
+}
+
+function sortClients(clients, sortMode) {
+  if (sortMode === "recent") {
+    return clients.sort((a, b) => clientCreatedTime(b) - clientCreatedTime(a));
+  }
+  if (sortMode === "active") {
+    return clients.sort((a, b) => Number(isClientFinished(a)) - Number(isClientFinished(b)) || clientCreatedTime(b) - clientCreatedTime(a));
+  }
+  if (sortMode === "finished") {
+    return clients.sort((a, b) => Number(isClientFinished(b)) - Number(isClientFinished(a)) || clientCreatedTime(b) - clientCreatedTime(a));
   }
   return clients;
+}
+
+function clientCreatedTime(client) {
+  return new Date(client.createdAt || client.updatedAt || 0).getTime();
 }
 
 function renderClientCard(client) {
