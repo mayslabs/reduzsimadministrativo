@@ -533,6 +533,17 @@ h3 {
   background: #f5fcfa;
 }
 
+.guidance-card.status-rascunho {
+  border-color: #f3dfaa;
+  background: #fffaf0;
+}
+
+.guidance-card.status-arquivada {
+  border-color: #d7dde2;
+  background: #f6f7f8;
+  opacity: 0.9;
+}
+
 .guidance-card header,
 .guidance-panel-heading,
 .guidance-pending-item {
@@ -564,6 +575,16 @@ h3 {
   font-weight: 850;
 }
 
+.guidance-status-chip.status-rascunho {
+  background: #fff0c4;
+  color: #9a6500;
+}
+
+.guidance-status-chip.status-arquivada {
+  background: #edf0f2;
+  color: #5d6670;
+}
+
 .guidance-card-body {
   display: grid;
   gap: 10px;
@@ -587,6 +608,24 @@ h3 {
 .guidance-keywords {
   border-top: 1px solid var(--line);
   padding-top: 10px;
+  white-space: pre-wrap;
+}
+
+.guidance-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.guidance-card-footer span {
+  border-radius: 999px;
+  background: #f1f5f4;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
 }
 
 .guidance-match-note {
@@ -615,6 +654,33 @@ h3 {
   background: #fffdf5;
 }
 
+.guidance-insights {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.guidance-insight {
+  border: 1px solid #f3dfaa;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.guidance-insight span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.guidance-insight strong {
+  color: var(--charcoal);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .guidance-pending-item {
   border: 1px solid #f3dfaa;
   border-radius: var(--radius);
@@ -624,6 +690,10 @@ h3 {
 
 .guidance-toolbar {
   grid-template-columns: minmax(240px, 1fr) 220px;
+}
+
+.guidance-toolbar.has-status-filter {
+  grid-template-columns: minmax(240px, 1fr) 220px 180px;
 }
 
 .guidance-no-answer {
@@ -2349,6 +2419,10 @@ h3 {
     min-width: 0;
   }
 
+  .guidance-insights {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .compact-client-head {
     display: none;
   }
@@ -2376,6 +2450,10 @@ h3 {
   .task-overview,
   .no-date-grid,
   .reduction-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .guidance-insights {
     grid-template-columns: 1fr;
   }
 
