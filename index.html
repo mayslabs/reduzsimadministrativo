@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=69" />
+    <link rel="stylesheet" href="./styles.css?v=70" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -53,6 +53,7 @@
             </span>
           </button>
           <button class="nav-item updates-nav-item" data-section="updatesSection"><i data-lucide="bell"></i> Atualizações <span id="updatesUnreadBadge" class="nav-badge" hidden></span></button>
+          <button class="nav-item" data-section="guidanceSection"><i data-lucide="book-open-check"></i> Orientações</button>
           <button class="nav-item" data-section="dataSection"><i data-lucide="chart-column"></i> Dados</button>
           <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuários</button>
           <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
@@ -201,6 +202,38 @@
           </div>
 
           <div id="updatesList" class="updates-list"></div>
+        </section>
+
+        <section id="guidanceSection" class="app-section" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Base interna</p>
+              <h2>Orientações</h2>
+            </div>
+            <button id="addGuidanceButton" class="primary-button" type="button"><i data-lucide="plus"></i> Nova orientação</button>
+          </div>
+
+          <div class="guidance-question-panel">
+            <label>O que você precisa decidir?
+              <div class="guidance-question-row">
+                <input id="guidanceQuestionInput" type="text" placeholder="Digite a dúvida e pressione Enter" />
+                <button id="searchGuidanceButton" class="primary-button" type="button"><i data-lucide="search"></i> Buscar</button>
+              </div>
+            </label>
+            <div id="guidanceAnswer" class="guidance-answer"></div>
+          </div>
+
+          <div id="guidancePendingPanel" class="guidance-pending-panel"></div>
+
+          <div class="toolbar guidance-toolbar">
+            <label class="search-field">
+              <i data-lucide="search"></i>
+              <input id="guidanceSearchInput" type="search" placeholder="Buscar orientação, etapa ou palavra-chave" />
+            </label>
+            <select id="guidanceStageFilter" aria-label="Filtrar orientações por etapa"></select>
+          </div>
+
+          <div id="guidanceLibrary" class="guidance-library"></div>
         </section>
 
         <section id="dataSection" class="app-section" hidden>
@@ -571,6 +604,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=69"></script>
+    <script src="./app.js?v=70"></script>
   </body>
 </html>

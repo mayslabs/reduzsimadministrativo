@@ -281,6 +281,14 @@ const el = {
   updatesUserFilter: document.getElementById("updatesUserFilter"),
   updatesTypeFilter: document.getElementById("updatesTypeFilter"),
   updatesList: document.getElementById("updatesList"),
+  addGuidanceButton: document.getElementById("addGuidanceButton"),
+  guidanceQuestionInput: document.getElementById("guidanceQuestionInput"),
+  searchGuidanceButton: document.getElementById("searchGuidanceButton"),
+  guidanceAnswer: document.getElementById("guidanceAnswer"),
+  guidancePendingPanel: document.getElementById("guidancePendingPanel"),
+  guidanceSearchInput: document.getElementById("guidanceSearchInput"),
+  guidanceStageFilter: document.getElementById("guidanceStageFilter"),
+  guidanceLibrary: document.getElementById("guidanceLibrary"),
   dataSummary: document.getElementById("dataSummary"),
   dataPanels: document.getElementById("dataPanels"),
   searchInput: document.getElementById("searchInput"),
@@ -411,6 +419,8 @@ function loadState() {
     users: defaultUsers,
     clients: [],
     regularizationClients: [],
+    guidanceItems: [],
+    guidanceQuestions: [],
     internalTasks: [],
     meetings: [],
     activities: [],
@@ -441,6 +451,8 @@ function migrateState(savedState = {}, persist = true) {
     regularizationClients: Array.isArray(savedState.regularizationClients)
       ? savedState.regularizationClients.map(normalizeRegularizationClient)
       : [],
+    guidanceItems: Array.isArray(savedState.guidanceItems) ? savedState.guidanceItems.map(normalizeGuidanceItem) : [],
+    guidanceQuestions: Array.isArray(savedState.guidanceQuestions) ? savedState.guidanceQuestions.map(normalizeGuidanceQuestion) : [],
     internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
     meetings: Array.isArray(savedState.meetings) ? savedState.meetings.map(normalizeMeeting) : [],
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
@@ -602,6 +614,36 @@ function normalizeRegularizationClient(process = {}) {
     notes: process.notes || "",
     createdAt: process.createdAt || new Date().toISOString(),
     updatedAt: process.updatedAt || process.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeGuidanceItem(item = {}) {
+  return {
+    id: item.id || id(),
+    title: item.title || "",
+    stage: item.stage || "",
+    situation: item.situation || "",
+    conduct: item.conduct || "",
+    whenCallMayssa: item.whenCallMayssa || "",
+    keywords: item.keywords || "",
+    important: Boolean(item.important),
+    createdBy: item.createdBy || "",
+    createdAt: item.createdAt || new Date().toISOString(),
+    updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeGuidanceQuestion(question = {}) {
+  return {
+    id: question.id || id(),
+    question: question.question || "",
+    stage: question.stage || "",
+    clientName: question.clientName || "",
+    askedBy: question.askedBy || "",
+    status: question.status || "Pendente",
+    guidanceId: question.guidanceId || "",
+    createdAt: question.createdAt || new Date().toISOString(),
+    updatedAt: question.updatedAt || question.createdAt || new Date().toISOString(),
   };
 }
 
@@ -916,6 +958,15 @@ function bindEvents() {
   el.updatesUserFilter.addEventListener("change", renderUpdates);
   el.updatesTypeFilter.addEventListener("change", renderUpdates);
   el.markAllUpdatesReadButton.addEventListener("click", markAllActivitiesRead);
+  el.addGuidanceButton.addEventListener("click", () => openGuidanceDialog());
+  el.searchGuidanceButton.addEventListener("click", answerGuidanceQuestion);
+  el.guidanceQuestionInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    answerGuidanceQuestion();
+  });
+  el.guidanceSearchInput.addEventListener("input", renderGuidance);
+  el.guidanceStageFilter.addEventListener("change", renderGuidance);
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
@@ -1109,6 +1160,7 @@ function configureNavigationForRole() {
   document.querySelector('[data-section="usersSection"]').style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="accountSection"]').style.display = isAdmin ? "none" : "";
   el.addUserButton.style.display = "none";
+  el.addGuidanceButton.style.display = isAdmin ? "" : "none";
 
   const activeSection = document.querySelector(".nav-item.active")?.dataset.section;
   if ((!isAdmin && activeSection === "usersSection") || (isAdmin && activeSection === "accountSection")) {
@@ -1124,6 +1176,7 @@ function renderAll() {
   renderTaskCenter();
   renderTaskNavSignals();
   renderUpdates();
+  renderGuidance();
   renderDataDashboard();
   renderStatusManager();
   renderUserManager();
@@ -1386,6 +1439,320 @@ function markAllActivitiesRead() {
   renderUpdates();
 }
 
+function guidanceStages() {
+  return ["Cliente", "Documentos", "Mensal", "Guia", "CND", "Receita", "Financeiro", "Engenharia", "Regularização", "Outro"];
+}
+
+function renderGuidance() {
+  if (!currentUser || !el.guidanceLibrary) return;
+  renderGuidanceStageFilter();
+  renderGuidancePendingPanel();
+  renderGuidanceLibrary();
+}
+
+function renderGuidanceStageFilter() {
+  const selected = el.guidanceStageFilter.value;
+  el.guidanceStageFilter.innerHTML = `<option value="">Todas as etapas</option>${guidanceStages()
+    .map((stage) => `<option value="${escapeAttr(stage)}">${escapeHtml(stage)}</option>`)
+    .join("")}`;
+  el.guidanceStageFilter.value = selected;
+}
+
+function renderGuidancePendingPanel() {
+  const pending = guidancePendingQuestions();
+  if (!pending.length) {
+    el.guidancePendingPanel.innerHTML = currentUser.role === "admin" ? `<p class="empty-state compact">Nenhuma dúvida pendente de orientação.</p>` : "";
+    return;
+  }
+
+  el.guidancePendingPanel.innerHTML = `
+    <div class="guidance-panel-heading">
+      <div>
+        <p class="eyebrow">Pendentes de orientação</p>
+        <h3>${pending.length} dúvida${pending.length > 1 ? "s" : ""} para transformar em conduta</h3>
+      </div>
+    </div>
+    <div class="guidance-pending-list">
+      ${pending.map(renderPendingGuidanceQuestion).join("")}
+    </div>
+  `;
+
+  document.querySelectorAll("[data-create-guidance-from-question]").forEach((button) => {
+    button.addEventListener("click", () => openGuidanceDialog(null, button.dataset.createGuidanceFromQuestion));
+  });
+  document.querySelectorAll("[data-dismiss-guidance-question]").forEach((button) => {
+    button.addEventListener("click", () => dismissGuidanceQuestion(button.dataset.dismissGuidanceQuestion));
+  });
+  refreshIcons();
+}
+
+function renderPendingGuidanceQuestion(question) {
+  const canManage = currentUser.role === "admin";
+  return `
+    <article class="guidance-pending-item">
+      <div>
+        <div class="guidance-meta">
+          <span>${escapeHtml(question.stage || "Sem etapa")}</span>
+          <span>${escapeHtml(ownerName(question.askedBy))}</span>
+          <span>${formatDateTime(question.createdAt)}</span>
+        </div>
+        <h4>${escapeHtml(question.question)}</h4>
+        ${question.clientName ? `<p>Cliente: ${escapeHtml(question.clientName)}</p>` : ""}
+      </div>
+      ${
+        canManage
+          ? `<div class="inline-actions">
+              <button class="small-button" type="button" data-create-guidance-from-question="${question.id}"><i data-lucide="plus"></i> Criar orientação</button>
+              <button class="small-button" type="button" data-dismiss-guidance-question="${question.id}"><i data-lucide="check"></i> Resolver sem orientação</button>
+            </div>`
+          : `<span class="guidance-status">Pendente</span>`
+      }
+    </article>
+  `;
+}
+
+function renderGuidanceLibrary() {
+  const query = normalize(el.guidanceSearchInput.value);
+  const stage = el.guidanceStageFilter.value;
+  const items = state.guidanceItems
+    .filter((item) => {
+      const haystack = normalize([item.title, item.stage, item.situation, item.conduct, item.whenCallMayssa, item.keywords].join(" "));
+      return (!query || haystack.includes(query)) && (!stage || item.stage === stage);
+    })
+    .sort((a, b) => Number(Boolean(b.important)) - Number(Boolean(a.important)) || new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+  el.guidanceLibrary.innerHTML = items.length
+    ? items.map(renderGuidanceCard).join("")
+    : `<p class="empty-state">Nenhuma orientação cadastrada.</p>`;
+
+  document.querySelectorAll("[data-edit-guidance]").forEach((button) => {
+    button.addEventListener("click", () => openGuidanceDialog(button.dataset.editGuidance));
+  });
+  document.querySelectorAll("[data-delete-guidance]").forEach((button) => {
+    button.addEventListener("click", () => deleteGuidanceItem(button.dataset.deleteGuidance));
+  });
+  refreshIcons();
+}
+
+function renderGuidanceCard(item) {
+  const canManage = currentUser.role === "admin";
+  return `
+    <article class="guidance-card ${item.important ? "important" : ""}">
+      <header>
+        <div>
+          <div class="guidance-meta">
+            <span>${escapeHtml(item.stage || "Sem etapa")}</span>
+            ${item.important ? `<span>Importante</span>` : ""}
+          </div>
+          <h3>${escapeHtml(item.title || "Orientação sem título")}</h3>
+        </div>
+        ${
+          canManage
+            ? `<div class="inline-actions">
+                <button class="small-button" type="button" data-edit-guidance="${item.id}"><i data-lucide="pencil"></i> Editar</button>
+                <button class="icon-button danger-icon" type="button" data-delete-guidance="${item.id}" aria-label="Remover orientação"><i data-lucide="trash-2"></i></button>
+              </div>`
+            : ""
+        }
+      </header>
+      <div class="guidance-card-body">
+        <section>
+          <strong>Situação</strong>
+          <p>${escapeHtml(item.situation || "Não informado.")}</p>
+        </section>
+        <section>
+          <strong>Conduta</strong>
+          <p>${escapeHtml(item.conduct || "Não informado.")}</p>
+        </section>
+        <section>
+          <strong>Quando chamar Mayssa</strong>
+          <p>${escapeHtml(item.whenCallMayssa || "Não informado.")}</p>
+        </section>
+      </div>
+      ${item.keywords ? `<p class="guidance-keywords">${escapeHtml(item.keywords)}</p>` : ""}
+    </article>
+  `;
+}
+
+function answerGuidanceQuestion() {
+  const question = el.guidanceQuestionInput.value.trim();
+  if (!question) {
+    el.guidanceAnswer.innerHTML = `<p class="empty-state compact">Digite uma dúvida para buscar nas orientações.</p>`;
+    return;
+  }
+
+  const matches = guidanceMatches(question);
+  const reliable = matches.filter((match) => match.score >= 28).slice(0, 3);
+  if (!reliable.length) {
+    el.guidanceAnswer.innerHTML = `
+      <article class="guidance-no-answer">
+        <h3>Nenhuma orientação segura encontrada.</h3>
+        <p>Registre essa dúvida como pendente para a Mayssa transformar em orientação depois.</p>
+        <div class="guidance-mini-form">
+          <select id="pendingGuidanceStage">
+            <option value="">Etapa, se souber</option>
+            ${guidanceStages().map((stage) => `<option value="${escapeAttr(stage)}">${escapeHtml(stage)}</option>`).join("")}
+          </select>
+          <input id="pendingGuidanceClient" type="text" placeholder="Cliente relacionado, se houver" />
+          <button id="savePendingGuidanceButton" class="primary-button" type="button"><i data-lucide="send"></i> Registrar pendência</button>
+        </div>
+      </article>
+    `;
+    document.getElementById("savePendingGuidanceButton").addEventListener("click", () => savePendingGuidanceQuestion(question));
+    refreshIcons();
+    return;
+  }
+
+  el.guidanceAnswer.innerHTML = `
+    <div class="guidance-results">
+      ${reliable.map((match, index) => renderGuidanceMatch(match, index)).join("")}
+    </div>
+  `;
+  refreshIcons();
+}
+
+function renderGuidanceMatch(match, index) {
+  const item = match.item;
+  return `
+    <article class="guidance-answer-card ${index === 0 ? "best" : ""}">
+      <div class="guidance-answer-top">
+        <span>${index === 0 ? "Melhor orientação encontrada" : "Orientação parecida"}</span>
+        <strong>${guidanceConfidenceLabel(match.score)}</strong>
+      </div>
+      ${renderGuidanceCard(item)}
+    </article>
+  `;
+}
+
+function guidanceMatches(question) {
+  const queryTokens = guidanceTokens(question);
+  return state.guidanceItems
+    .map((item) => ({ item, score: guidanceMatchScore(queryTokens, item) }))
+    .filter((match) => match.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
+
+function guidanceMatchScore(queryTokens, item) {
+  const titleTokens = guidanceTokens(item.title);
+  const keywordTokens = guidanceTokens(item.keywords);
+  const bodyTokens = guidanceTokens([item.stage, item.situation, item.conduct, item.whenCallMayssa].join(" "));
+  const allTokens = new Set([...titleTokens, ...keywordTokens, ...bodyTokens]);
+  return queryTokens.reduce((score, token) => {
+    if (keywordTokens.includes(token)) return score + 14;
+    if (titleTokens.includes(token)) return score + 10;
+    if (allTokens.has(token)) return score + 5;
+    return score;
+  }, 0);
+}
+
+function guidanceTokens(value) {
+  const ignored = new Set(["para", "como", "quando", "cliente", "fazer", "qual", "que", "com", "uma", "por", "dos", "das", "tem", "devo", "deve"]);
+  return normalize(value)
+    .split(/[^a-z0-9]+/i)
+    .filter((token) => token.length > 2 && !ignored.has(token));
+}
+
+function guidanceConfidenceLabel(score) {
+  if (score >= 60) return "Correspondência alta";
+  if (score >= 35) return "Correspondência média";
+  return "Correspondência baixa";
+}
+
+function savePendingGuidanceQuestion(question) {
+  const now = new Date().toISOString();
+  const newQuestion = normalizeGuidanceQuestion({
+    id: id(),
+    question,
+    stage: document.getElementById("pendingGuidanceStage")?.value || "",
+    clientName: document.getElementById("pendingGuidanceClient")?.value.trim() || "",
+    askedBy: currentUser.id,
+    status: "Pendente",
+    createdAt: now,
+    updatedAt: now,
+  });
+  state.guidanceQuestions.unshift(newQuestion);
+  recordActivity("guidance", `Registrou dúvida pendente: ${truncateHistoryValue(question, 80)}.`, newQuestion.stage || "", { visibility: "admin" });
+  saveState();
+  el.guidanceAnswer.innerHTML = `<article class="guidance-saved"><i data-lucide="check-circle"></i><strong>Dúvida registrada para Mayssa.</strong></article>`;
+  renderGuidance();
+  renderUpdates();
+}
+
+function guidancePendingQuestions() {
+  const pending = (state.guidanceQuestions || []).filter((question) => question.status === "Pendente");
+  return currentUser.role === "admin" ? pending : pending.filter((question) => question.askedBy === currentUser.id);
+}
+
+function openGuidanceDialog(guidanceId = null, questionId = null) {
+  if (currentUser.role !== "admin") return;
+  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
+  const question = state.guidanceQuestions.find((item) => item.id === questionId);
+  const draft = normalizeGuidanceItem(guidance || {
+    title: question ? truncateHistoryValue(question.question, 70) : "",
+    stage: question?.stage || "",
+    situation: question?.question || "",
+  });
+  openSimpleDialog(guidance ? "Editar orientação" : "Nova orientação", [
+    { label: "Título", name: "title", type: "text", value: draft.title },
+    { label: "Etapa", name: "stage", type: "select", value: draft.stage, options: guidanceStages().map((stage) => ({ value: stage, label: stage })) },
+    { label: "Situação", name: "situation", type: "textarea", rows: 3, value: draft.situation },
+    { label: "Conduta", name: "conduct", type: "textarea", rows: 4, value: draft.conduct },
+    { label: "Quando chamar Mayssa", name: "whenCallMayssa", type: "textarea", rows: 3, value: draft.whenCallMayssa },
+    { label: "Palavras-chave", name: "keywords", type: "textarea", rows: 2, value: draft.keywords },
+    { label: "Importante", name: "important", type: "select", value: draft.important ? "Sim" : "Não", options: ["Não", "Sim"].map((value) => ({ value, label: value })) },
+  ], (values) => {
+    if (!values.title || !values.conduct) {
+      alert("Informe pelo menos o título e a conduta.");
+      return false;
+    }
+    const now = new Date().toISOString();
+    const payload = normalizeGuidanceItem({
+      ...draft,
+      ...values,
+      important: values.important === "Sim",
+      updatedAt: now,
+      createdAt: draft.createdAt || now,
+      createdBy: draft.createdBy || currentUser.id,
+    });
+    if (guidance) {
+      Object.assign(guidance, payload);
+      recordActivity("guidance", `Atualizou orientação: ${payload.title}.`, payload.stage);
+    } else {
+      state.guidanceItems.unshift({ ...payload, createdAt: now, updatedAt: now, createdBy: currentUser.id });
+      recordActivity("guidance", `Criou orientação: ${payload.title}.`, payload.stage);
+    }
+    if (question) {
+      question.status = "Virou orientação";
+      question.guidanceId = payload.id;
+      question.updatedAt = now;
+    }
+    saveState();
+    renderGuidance();
+    renderUpdates();
+  });
+}
+
+function deleteGuidanceItem(guidanceId) {
+  if (currentUser.role !== "admin") return;
+  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
+  if (!guidance || !confirm(`Remover a orientação "${guidance.title}"?`)) return;
+  state.guidanceItems = state.guidanceItems.filter((item) => item.id !== guidanceId);
+  recordActivity("guidance", `Removeu orientação: ${guidance.title}.`, "");
+  saveState();
+  renderGuidance();
+  renderUpdates();
+}
+
+function dismissGuidanceQuestion(questionId) {
+  if (currentUser.role !== "admin") return;
+  const question = state.guidanceQuestions.find((item) => item.id === questionId);
+  if (!question) return;
+  question.status = "Resolvida";
+  question.updatedAt = new Date().toISOString();
+  saveState();
+  renderGuidance();
+}
+
 function activityTypeLabel(type) {
   return {
     client: "Cliente",
@@ -1395,6 +1762,7 @@ function activityTypeLabel(type) {
     meeting: "Reunião",
     deadline: "Prazo",
     monthly: "Mensal",
+    guidance: "Orientação",
     finance: "Financeiro",
     history: "Histórico",
   }[type] || "Atualização";
@@ -1409,6 +1777,7 @@ function activityIcon(type) {
     meeting: "users-round",
     deadline: "calendar-clock",
     monthly: "calendar-check",
+    guidance: "book-open-check",
     finance: "banknote",
     history: "file-clock",
   }[type] || "bell";

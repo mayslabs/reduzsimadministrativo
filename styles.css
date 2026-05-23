@@ -455,6 +455,172 @@ h3 {
   font-weight: 700;
 }
 
+.guidance-question-panel,
+.guidance-pending-panel,
+.guidance-card,
+.guidance-answer-card,
+.guidance-no-answer,
+.guidance-saved {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.guidance-question-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.guidance-question-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 10px;
+}
+
+.guidance-answer {
+  display: grid;
+  gap: 10px;
+}
+
+.guidance-results,
+.guidance-library,
+.guidance-pending-list {
+  display: grid;
+  gap: 12px;
+}
+
+.guidance-answer-card {
+  padding: 12px;
+  border-left: 5px solid var(--line);
+  background: #f8fbfa;
+}
+
+.guidance-answer-card.best {
+  border-left-color: var(--green);
+}
+
+.guidance-answer-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.guidance-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.guidance-card.important {
+  border-color: rgba(0, 159, 127, 0.35);
+  background: #f5fcfa;
+}
+
+.guidance-card header,
+.guidance-panel-heading,
+.guidance-pending-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.guidance-card h3,
+.guidance-pending-item h4,
+.guidance-panel-heading h3 {
+  margin: 4px 0 0;
+}
+
+.guidance-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.guidance-meta span,
+.guidance-status {
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.guidance-card-body {
+  display: grid;
+  gap: 10px;
+}
+
+.guidance-card-body strong {
+  color: var(--charcoal);
+  font-size: 12px;
+}
+
+.guidance-card-body p,
+.guidance-pending-item p,
+.guidance-keywords,
+.guidance-no-answer p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.guidance-keywords {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.guidance-pending-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  background: #fffdf5;
+}
+
+.guidance-pending-item {
+  border: 1px solid #f3dfaa;
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 12px;
+}
+
+.guidance-toolbar {
+  grid-template-columns: minmax(240px, 1fr) 220px;
+}
+
+.guidance-no-answer {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-left: 5px solid var(--amber);
+}
+
+.guidance-mini-form {
+  display: grid;
+  grid-template-columns: 170px minmax(180px, 1fr) auto;
+  gap: 10px;
+}
+
+.guidance-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-color: rgba(0, 159, 127, 0.35);
+  background: var(--green-soft);
+  color: var(--green-dark);
+  padding: 12px;
+}
+
 .data-bar {
   height: 8px;
   overflow: hidden;
@@ -753,6 +919,11 @@ h3 {
 .update-type-meeting {
   --update-color: #db2777;
   --update-soft: #fce7f3;
+}
+
+.update-type-guidance {
+  --update-color: #0f766e;
+  --update-soft: #e0f7f2;
 }
 
 .calendar-controls {
@@ -2134,8 +2305,11 @@ h3 {
   .toolbar,
   .task-toolbar,
   .updates-toolbar,
+  .guidance-toolbar,
   .compact-client-row,
   .update-item,
+  .guidance-question-row,
+  .guidance-mini-form,
   .calendar-controls,
   .summary-layout,
   .form-grid,
@@ -2206,5 +2380,11 @@ h3 {
   .manager-item.user-row,
   .manager-item.status-row {
     grid-template-columns: 1fr;
+  }
+
+  .guidance-card header,
+  .guidance-panel-heading,
+  .guidance-pending-item {
+    flex-direction: column;
   }
 }
