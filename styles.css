@@ -497,8 +497,18 @@ h3 {
   background: #f8fbfa;
 }
 
-.guidance-answer-card.best {
+.guidance-answer-card.best,
+.guidance-answer-card.confidence-high {
   border-left-color: var(--green);
+}
+
+.guidance-answer-card.confidence-medium {
+  border-left-color: var(--blue);
+}
+
+.guidance-answer-card.confidence-low {
+  border-left-color: var(--amber);
+  background: #fffaf0;
 }
 
 .guidance-answer-top {
@@ -577,6 +587,24 @@ h3 {
 .guidance-keywords {
   border-top: 1px solid var(--line);
   padding-top: 10px;
+}
+
+.guidance-match-note {
+  border: 1px solid #f3dfaa;
+  border-radius: 7px;
+  background: #fff8e8;
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+  margin: 0 0 10px;
+  padding: 9px 10px;
+}
+
+.guidance-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .guidance-pending-panel {

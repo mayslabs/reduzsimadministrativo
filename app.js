@@ -626,7 +626,7 @@ function normalizeGuidanceItem(item = {}) {
     conduct: item.conduct || "",
     whenCallMayssa: item.whenCallMayssa || "",
     keywords: item.keywords || "",
-    important: Boolean(item.important),
+    important: item.important === true || item.important === "Sim",
     createdBy: item.createdBy || "",
     createdAt: item.createdAt || new Date().toISOString(),
     updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
@@ -642,6 +642,8 @@ function normalizeGuidanceQuestion(question = {}) {
     askedBy: question.askedBy || "",
     status: question.status || "Pendente",
     guidanceId: question.guidanceId || "",
+    rejectedGuidanceId: question.rejectedGuidanceId || "",
+    rejectionCount: Number(question.rejectionCount || 0),
     createdAt: question.createdAt || new Date().toISOString(),
     updatedAt: question.updatedAt || question.createdAt || new Date().toISOString(),
   };
@@ -1478,16 +1480,17 @@ function renderGuidancePendingPanel() {
   `;
 
   document.querySelectorAll("[data-create-guidance-from-question]").forEach((button) => {
-    button.addEventListener("click", () => openGuidanceDialog(null, button.dataset.createGuidanceFromQuestion));
+    bindGuidanceButton(button, () => openGuidanceDialog(null, button.dataset.createGuidanceFromQuestion));
   });
   document.querySelectorAll("[data-dismiss-guidance-question]").forEach((button) => {
-    button.addEventListener("click", () => dismissGuidanceQuestion(button.dataset.dismissGuidanceQuestion));
+    bindGuidanceButton(button, () => dismissGuidanceQuestion(button.dataset.dismissGuidanceQuestion));
   });
   refreshIcons();
 }
 
 function renderPendingGuidanceQuestion(question) {
   const canManage = currentUser.role === "admin";
+  const rejectedGuidance = question.rejectedGuidanceId ? state.guidanceItems.find((item) => item.id === question.rejectedGuidanceId) : null;
   return `
     <article class="guidance-pending-item">
       <div>
@@ -1498,6 +1501,7 @@ function renderPendingGuidanceQuestion(question) {
         </div>
         <h4>${escapeHtml(question.question)}</h4>
         ${question.clientName ? `<p>Cliente: ${escapeHtml(question.clientName)}</p>` : ""}
+        ${rejectedGuidance ? `<p>Não encontrou resposta em: ${escapeHtml(rejectedGuidance.title)}</p>` : ""}
       </div>
       ${
         canManage
@@ -1514,22 +1518,28 @@ function renderPendingGuidanceQuestion(question) {
 function renderGuidanceLibrary() {
   const query = normalize(el.guidanceSearchInput.value);
   const stage = el.guidanceStageFilter.value;
-  const items = state.guidanceItems
-    .filter((item) => {
-      const haystack = normalize([item.title, item.stage, item.situation, item.conduct, item.whenCallMayssa, item.keywords].join(" "));
-      return (!query || haystack.includes(query)) && (!stage || item.stage === stage);
-    })
-    .sort((a, b) => Number(Boolean(b.important)) - Number(Boolean(a.important)) || new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+  const rankedMatches = query ? guidanceMatches(query).filter((match) => match.score >= 8) : [];
+  const scoreByGuidanceId = new Map(rankedMatches.map((match) => [match.item.id, match.score]));
+  const baseItems = query
+    ? rankedMatches.map((match) => match.item)
+    : state.guidanceItems;
+  const items = baseItems
+    .filter((item) => !stage || item.stage === stage)
+    .sort((a, b) =>
+      query
+        ? (scoreByGuidanceId.get(b.id) || 0) - (scoreByGuidanceId.get(a.id) || 0)
+        : Number(Boolean(b.important)) - Number(Boolean(a.important)) || new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)
+    );
 
   el.guidanceLibrary.innerHTML = items.length
     ? items.map(renderGuidanceCard).join("")
     : `<p class="empty-state">Nenhuma orientação cadastrada.</p>`;
 
   document.querySelectorAll("[data-edit-guidance]").forEach((button) => {
-    button.addEventListener("click", () => openGuidanceDialog(button.dataset.editGuidance));
+    bindGuidanceButton(button, () => openGuidanceDialog(button.dataset.editGuidance));
   });
   document.querySelectorAll("[data-delete-guidance]").forEach((button) => {
-    button.addEventListener("click", () => deleteGuidanceItem(button.dataset.deleteGuidance));
+    bindGuidanceButton(button, () => deleteGuidanceItem(button.dataset.deleteGuidance));
   });
   refreshIcons();
 }
@@ -1582,46 +1592,87 @@ function answerGuidanceQuestion() {
   }
 
   const matches = guidanceMatches(question);
-  const reliable = matches.filter((match) => match.score >= 28).slice(0, 3);
-  if (!reliable.length) {
-    el.guidanceAnswer.innerHTML = `
-      <article class="guidance-no-answer">
-        <h3>Nenhuma orientação segura encontrada.</h3>
-        <p>Registre essa dúvida como pendente para a Mayssa transformar em orientação depois.</p>
-        <div class="guidance-mini-form">
-          <select id="pendingGuidanceStage">
-            <option value="">Etapa, se souber</option>
-            ${guidanceStages().map((stage) => `<option value="${escapeAttr(stage)}">${escapeHtml(stage)}</option>`).join("")}
-          </select>
-          <input id="pendingGuidanceClient" type="text" placeholder="Cliente relacionado, se houver" />
-          <button id="savePendingGuidanceButton" class="primary-button" type="button"><i data-lucide="send"></i> Registrar pendência</button>
-        </div>
-      </article>
-    `;
-    document.getElementById("savePendingGuidanceButton").addEventListener("click", () => savePendingGuidanceQuestion(question));
+  const candidates = matches.filter((match) => match.score >= 10).slice(0, 3);
+  el.guidanceAnswer.dataset.currentQuestion = question;
+  if (!candidates.length) {
+    el.guidanceAnswer.innerHTML = guidanceNoAnswerTemplate();
+    bindGuidanceNoAnswerButton(question);
     refreshIcons();
     return;
   }
 
   el.guidanceAnswer.innerHTML = `
     <div class="guidance-results">
-      ${reliable.map((match, index) => renderGuidanceMatch(match, index)).join("")}
+      ${candidates.map((match, index) => renderGuidanceMatch(match, index)).join("")}
     </div>
   `;
+  bindGuidanceActions(el.guidanceAnswer);
   refreshIcons();
 }
 
 function renderGuidanceMatch(match, index) {
   const item = match.item;
+  const confidenceClass = guidanceConfidenceClass(match.score);
   return `
-    <article class="guidance-answer-card ${index === 0 ? "best" : ""}">
+    <article class="guidance-answer-card ${index === 0 ? "best" : ""} ${confidenceClass}">
       <div class="guidance-answer-top">
         <span>${index === 0 ? "Melhor orientação encontrada" : "Orientação parecida"}</span>
         <strong>${guidanceConfidenceLabel(match.score)}</strong>
       </div>
+      ${confidenceClass === "confidence-low" ? `<p class="guidance-match-note">Correspondência baixa. Confira com cuidado; se não for isso, registre como pendência.</p>` : ""}
       ${renderGuidanceCard(item)}
+      <div class="guidance-result-actions">
+        <button class="small-button" type="button" data-register-guidance-mismatch="${item.id}"><i data-lucide="message-circle-question"></i> Não era isso</button>
+      </div>
     </article>
   `;
+}
+
+function guidanceNoAnswerTemplate() {
+  return `
+    <article class="guidance-no-answer">
+      <h3>Nenhuma orientação segura encontrada.</h3>
+      <p>Registre essa dúvida como pendente para a Mayssa transformar em orientação depois.</p>
+      <div class="guidance-mini-form">
+        <select id="pendingGuidanceStage">
+          <option value="">Etapa, se souber</option>
+          ${guidanceStages().map((stage) => `<option value="${escapeAttr(stage)}">${escapeHtml(stage)}</option>`).join("")}
+        </select>
+        <input id="pendingGuidanceClient" type="text" placeholder="Cliente relacionado, se houver" />
+        <button id="savePendingGuidanceButton" class="primary-button" type="button"><i data-lucide="send"></i> Registrar pendência</button>
+      </div>
+    </article>
+  `;
+}
+
+function bindGuidanceNoAnswerButton(question) {
+  const button = document.getElementById("savePendingGuidanceButton");
+  if (!button) return;
+  bindGuidanceButton(button, () => savePendingGuidanceQuestion(question));
+}
+
+function bindGuidanceActions(scope = document) {
+  scope.querySelectorAll("[data-edit-guidance]").forEach((button) => {
+    bindGuidanceButton(button, () => openGuidanceDialog(button.dataset.editGuidance));
+  });
+  scope.querySelectorAll("[data-delete-guidance]").forEach((button) => {
+    bindGuidanceButton(button, () => deleteGuidanceItem(button.dataset.deleteGuidance));
+  });
+  scope.querySelectorAll("[data-create-guidance-from-question]").forEach((button) => {
+    bindGuidanceButton(button, () => openGuidanceDialog(null, button.dataset.createGuidanceFromQuestion));
+  });
+  scope.querySelectorAll("[data-dismiss-guidance-question]").forEach((button) => {
+    bindGuidanceButton(button, () => dismissGuidanceQuestion(button.dataset.dismissGuidanceQuestion));
+  });
+  scope.querySelectorAll("[data-register-guidance-mismatch]").forEach((button) => {
+    bindGuidanceButton(button, () => registerGuidanceMismatch(button.dataset.registerGuidanceMismatch));
+  });
+}
+
+function bindGuidanceButton(button, handler) {
+  if (button.dataset.guidanceBound === "true") return;
+  button.dataset.guidanceBound = "true";
+  button.addEventListener("click", handler);
 }
 
 function guidanceMatches(question) {
@@ -1641,32 +1692,118 @@ function guidanceMatchScore(queryTokens, item) {
     if (keywordTokens.includes(token)) return score + 14;
     if (titleTokens.includes(token)) return score + 10;
     if (allTokens.has(token)) return score + 5;
+    if (guidanceTokenHasPartialMatch(token, keywordTokens)) return score + 8;
+    if (guidanceTokenHasPartialMatch(token, titleTokens)) return score + 6;
+    if (guidanceTokenHasPartialMatch(token, bodyTokens)) return score + 3;
     return score;
   }, 0);
 }
 
+function guidanceTokenHasPartialMatch(token, tokens) {
+  if (token.length < 4) return false;
+  return tokens.some((candidate) => candidate.length >= 4 && (candidate.startsWith(token) || token.startsWith(candidate)));
+}
+
 function guidanceTokens(value) {
-  const ignored = new Set(["para", "como", "quando", "cliente", "fazer", "qual", "que", "com", "uma", "por", "dos", "das", "tem", "devo", "deve"]);
+  const ignored = new Set(["para", "como", "quando", "cliente", "fazer", "qual", "que", "com", "uma", "por", "dos", "das", "tem", "devo", "deve", "nao", "sim", "isso", "essa", "esse", "estou", "esta"]);
   return normalize(value)
     .split(/[^a-z0-9]+/i)
+    .map(canonicalGuidanceToken)
     .filter((token) => token.length > 2 && !ignored.has(token));
 }
 
+function canonicalGuidanceToken(token) {
+  const aliases = {
+    atrasou: "atraso",
+    atrasada: "atraso",
+    atrasado: "atraso",
+    atrasados: "atraso",
+    cac: "ecac",
+    certidao: "cnd",
+    certidoes: "cnd",
+    cnds: "cnd",
+    documentacao: "documento",
+    documentos: "documento",
+    darf: "guia",
+    darfs: "guia",
+    emitiu: "emitir",
+    emitida: "emitir",
+    emitido: "emitir",
+    emitir: "emitir",
+    emissao: "emitir",
+    expirada: "vencimento",
+    expirado: "vencimento",
+    expirou: "vencimento",
+    guia: "guia",
+    guias: "guia",
+    pagamento: "pagamento",
+    pagamentos: "pagamento",
+    pagar: "pagamento",
+    pagou: "pagamento",
+    paga: "pagamento",
+    pago: "pagamento",
+    quitar: "pagamento",
+    quitou: "pagamento",
+    reemissao: "emitir",
+    reemitir: "emitir",
+    reemitiu: "emitir",
+    vencendo: "vencimento",
+    vencer: "vencimento",
+    venceu: "vencimento",
+    vencida: "vencimento",
+    vencidas: "vencimento",
+    vencido: "vencimento",
+    vencidos: "vencimento",
+    vencimento: "vencimento",
+    vencimentos: "vencimento",
+  };
+  const clean = aliases[token] || token;
+  if (clean.endsWith("s") && clean.length > 4) return clean.slice(0, -1);
+  return clean;
+}
+
 function guidanceConfidenceLabel(score) {
-  if (score >= 60) return "Correspondência alta";
-  if (score >= 35) return "Correspondência média";
+  if (score >= 55) return "Correspondência alta";
+  if (score >= 28) return "Correspondência média";
   return "Correspondência baixa";
 }
 
-function savePendingGuidanceQuestion(question) {
+function guidanceConfidenceClass(score) {
+  if (score >= 55) return "confidence-high";
+  if (score >= 28) return "confidence-medium";
+  return "confidence-low";
+}
+
+function savePendingGuidanceQuestion(question, options = {}) {
   const now = new Date().toISOString();
+  const stage = options.stage ?? document.getElementById("pendingGuidanceStage")?.value ?? "";
+  const clientName = options.clientName ?? document.getElementById("pendingGuidanceClient")?.value.trim() ?? "";
+  const rejectedGuidanceId = options.rejectedGuidanceId || "";
+  const existing = state.guidanceQuestions.find(
+    (item) => item.status === "Pendente" && item.askedBy === currentUser.id && normalize(item.question) === normalize(question)
+  );
+  if (existing) {
+    existing.stage = stage || existing.stage;
+    existing.clientName = clientName || existing.clientName;
+    existing.rejectedGuidanceId = rejectedGuidanceId || existing.rejectedGuidanceId;
+    existing.rejectionCount = (existing.rejectionCount || 0) + (rejectedGuidanceId ? 1 : 0);
+    existing.updatedAt = now;
+    saveState();
+    el.guidanceAnswer.innerHTML = `<article class="guidance-saved"><i data-lucide="check-circle"></i><strong>Dúvida pendente atualizada para Mayssa.</strong></article>`;
+    renderGuidance();
+    renderUpdates();
+    refreshIcons();
+    return;
+  }
   const newQuestion = normalizeGuidanceQuestion({
     id: id(),
     question,
-    stage: document.getElementById("pendingGuidanceStage")?.value || "",
-    clientName: document.getElementById("pendingGuidanceClient")?.value.trim() || "",
+    stage,
+    clientName,
     askedBy: currentUser.id,
     status: "Pendente",
+    rejectedGuidanceId,
+    rejectionCount: rejectedGuidanceId ? 1 : 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -1676,6 +1813,16 @@ function savePendingGuidanceQuestion(question) {
   el.guidanceAnswer.innerHTML = `<article class="guidance-saved"><i data-lucide="check-circle"></i><strong>Dúvida registrada para Mayssa.</strong></article>`;
   renderGuidance();
   renderUpdates();
+}
+
+function registerGuidanceMismatch(guidanceId) {
+  const question = el.guidanceAnswer.dataset.currentQuestion || el.guidanceQuestionInput.value.trim();
+  if (!question) return;
+  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
+  savePendingGuidanceQuestion(question, {
+    stage: guidance?.stage || "",
+    rejectedGuidanceId: guidanceId,
+  });
 }
 
 function guidancePendingQuestions() {
@@ -1698,7 +1845,7 @@ function openGuidanceDialog(guidanceId = null, questionId = null) {
     { label: "Situação", name: "situation", type: "textarea", rows: 3, value: draft.situation },
     { label: "Conduta", name: "conduct", type: "textarea", rows: 4, value: draft.conduct },
     { label: "Quando chamar Mayssa", name: "whenCallMayssa", type: "textarea", rows: 3, value: draft.whenCallMayssa },
-    { label: "Palavras-chave", name: "keywords", type: "textarea", rows: 2, value: draft.keywords },
+    { label: "Palavras-chave e termos relacionados", name: "keywords", type: "textarea", rows: 2, value: draft.keywords },
     { label: "Importante", name: "important", type: "select", value: draft.important ? "Sim" : "Não", options: ["Não", "Sim"].map((value) => ({ value, label: value })) },
   ], (values) => {
     if (!values.title || !values.conduct) {
