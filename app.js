@@ -236,6 +236,7 @@ let activeClient = null;
 let activeViewMode = "list";
 let activeTaskCalendarMode = "week";
 let activeTaskDate = new Date();
+let activeDataDrilldown = null;
 let firebaseApp = null;
 let firebaseAuth = null;
 let firebaseDb = null;
@@ -290,8 +291,17 @@ const el = {
   guidanceStageFilter: document.getElementById("guidanceStageFilter"),
   guidanceStatusFilter: document.getElementById("guidanceStatusFilter"),
   guidanceLibrary: document.getElementById("guidanceLibrary"),
+  dataPeriodFilter: document.getElementById("dataPeriodFilter"),
+  dataWorkStatusFilter: document.getElementById("dataWorkStatusFilter"),
+  dataStateFilter: document.getElementById("dataStateFilter"),
+  dataDestinationFilter: document.getElementById("dataDestinationFilter"),
+  dataDocumentFilter: document.getElementById("dataDocumentFilter"),
+  dataOriginFilter: document.getElementById("dataOriginFilter"),
+  exportDataButton: document.getElementById("exportDataButton"),
   dataSummary: document.getElementById("dataSummary"),
+  dataQualityPanel: document.getElementById("dataQualityPanel"),
   dataPanels: document.getElementById("dataPanels"),
+  dataDrilldown: document.getElementById("dataDrilldown"),
   searchInput: document.getElementById("searchInput"),
   regularizationSearchInput: document.getElementById("regularizationSearchInput"),
   regularizationList: document.getElementById("regularizationList"),
@@ -1001,6 +1011,13 @@ function bindEvents() {
   el.guidanceSearchInput.addEventListener("input", renderGuidance);
   el.guidanceStageFilter.addEventListener("change", renderGuidance);
   el.guidanceStatusFilter.addEventListener("change", renderGuidance);
+  [el.dataPeriodFilter, el.dataWorkStatusFilter, el.dataStateFilter, el.dataDestinationFilter, el.dataDocumentFilter, el.dataOriginFilter].forEach((input) => {
+    input.addEventListener("change", () => {
+      activeDataDrilldown = null;
+      renderDataDashboard();
+    });
+  });
+  el.exportDataButton.addEventListener("click", exportDataDashboardCsv);
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
@@ -1240,7 +1257,7 @@ function renderMetrics() {
     .join("");
 }
 
-function renderDataDashboard() {
+function legacyRenderDataDashboard() {
   const data = inssDataSummary();
   el.dataSummary.innerHTML = [
     ["Metragem total", formatAreaTotal(data.totalArea)],
@@ -1261,7 +1278,7 @@ function renderDataDashboard() {
   refreshIcons();
 }
 
-function inssDataSummary() {
+function legacyInssDataSummary() {
   const summary = {
     totalArea: 0,
     grossEconomyTotal: 0,
@@ -1300,7 +1317,7 @@ function inssDataSummary() {
   };
 }
 
-function dataPanel(title, rows, valueFormatter) {
+function legacyDataPanel(title, rows, valueFormatter) {
   return `
     <article class="data-panel">
       <h3>${escapeHtml(title)}</h3>
@@ -1315,7 +1332,7 @@ function dataPanel(title, rows, valueFormatter) {
   `;
 }
 
-function dataRow(label, value, percent) {
+function legacyDataRow(label, value, percent) {
   return `
     <div class="data-row">
       <div>
@@ -1327,12 +1344,12 @@ function dataRow(label, value, percent) {
   `;
 }
 
-function incrementDataMap(map, key) {
+function legacyIncrementDataMap(map, key) {
   const label = key || "Não informado";
   map.set(label, (map.get(label) || 0) + 1);
 }
 
-function mapToSortedRows(map, mode = "count") {
+function legacyMapToSortedRows(map, mode = "count") {
   const values = [...map.entries()].map(([label, count]) => ({ label, count }));
   const max = Math.max(...values.map((row) => row.count), 1);
   return values
@@ -1353,6 +1370,394 @@ function areaAmount(value) {
 
 function formatAreaTotal(value) {
   return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`;
+}
+
+function renderDataDashboard() {
+  renderDataFilterOptions();
+  const data = inssDataSummary();
+  const totals = [
+    { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area" },
+    { label: "Economia bruta total", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy" },
+    { label: "Obras cadastradas", value: data.totalWorks, hint: `${data.finishedWorks} finalizada(s)`, tone: "works" },
+    { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees" },
+  ];
+  el.dataSummary.innerHTML = totals.map(renderDataTotal).join("");
+  el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
+  el.dataPanels.innerHTML = [
+    dataPanel("Volume", "Obras cadastradas por mês", data.monthlyWorks, (row) => `${row.count} obra(s)`, "monthlyWorks"),
+    dataPanel("Localização", "Obras por estado", data.byState, (row) => `${row.count} obra(s)`, "byState"),
+    dataPanel("Perfil da obra", "Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`, "byDestination"),
+    dataPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`, "byDocumentType"),
+    dataPanel("Comercial", "Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`, "byOrigin"),
+  ].join("");
+  renderDataDrilldown();
+  bindDataDashboardActions();
+  refreshIcons();
+}
+
+function renderDataFilterOptions() {
+  setDataSelectOptions(el.dataStateFilter, "Todos os estados", sortedDataValues((client) => client.state || "Sem estado"));
+  setDataSelectOptions(el.dataDestinationFilter, "Todas as destinações", sortedDataValues((client) => {
+    const destinations = destinationList(client.destination);
+    return destinations.length ? destinations : ["Sem destinação"];
+  }));
+  setDataSelectOptions(el.dataOriginFilter, "Todas as origens", sortedDataValues((client) => client.clientOrigin || "Sem origem"));
+}
+
+function setDataSelectOptions(select, allLabel, values) {
+  const selected = select.value;
+  const options = [...new Set(values)].filter(Boolean);
+  select.innerHTML = `<option value="">${escapeHtml(allLabel)}</option>${options
+    .map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`)
+    .join("")}`;
+  select.value = options.includes(selected) ? selected : "";
+}
+
+function sortedDataValues(getValues) {
+  return state.clients
+    .flatMap((client) => {
+      const value = getValues(client);
+      return Array.isArray(value) ? value : [value];
+    })
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function renderDataTotal(item) {
+  return `
+    <article class="data-total tone-${item.tone}">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${escapeHtml(item.value)}</strong>
+      <small>${escapeHtml(item.hint)}</small>
+    </article>
+  `;
+}
+
+function renderDataQualityPanel(items) {
+  return `
+    <section class="data-quality-card">
+      <div>
+        <p class="eyebrow">Conferência dos dados</p>
+        <h3>Campos que ainda precisam de atenção</h3>
+      </div>
+      <div class="data-quality-list">
+        ${items.map(renderDataQualityItem).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderDataQualityItem(item) {
+  return `
+    <button class="data-quality-item ${item.count ? "needs-attention" : ""}" type="button" data-data-quality="${item.key}">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${item.count}</strong>
+      <small>${escapeHtml(item.hint)}</small>
+    </button>
+  `;
+}
+
+function bindDataDashboardActions() {
+  el.dataPanels.querySelectorAll("[data-data-group]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeDataDrilldown = { type: "group", group: button.dataset.dataGroup, label: button.dataset.dataLabel };
+      renderDataDashboard();
+    });
+  });
+  el.dataQualityPanel.querySelectorAll("[data-data-quality]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeDataDrilldown = { type: "quality", key: button.dataset.dataQuality };
+      renderDataDashboard();
+    });
+  });
+  el.dataDrilldown.querySelectorAll("[data-open-data-client]").forEach((button) => {
+    button.addEventListener("click", () => openClientById(button.dataset.openDataClient));
+  });
+}
+
+function inssDataSummary() {
+  const clients = filteredDataClients();
+  const summary = {
+    totalArea: 0,
+    grossEconomyTotal: 0,
+    totalWorks: clients.length,
+    finishedWorks: clients.filter(isClientFinished).length,
+    totalFees: 0,
+    monthlyWorks: new Map(),
+    byState: new Map(),
+    byDestination: new Map(),
+    byDocumentType: new Map(),
+    byOrigin: new Map(),
+  };
+
+  clients.forEach((client) => {
+    summary.totalArea += areaAmount(client.area);
+    summary.totalFees += currencyAmount(client.feeValue) || 0;
+
+    const grossEconomy = clientGrossEconomy(client);
+    if (grossEconomy !== null) summary.grossEconomyTotal += grossEconomy;
+
+    incrementDataMap(summary.monthlyWorks, monthLabel(client.createdAt || client.updatedAt), client.id);
+    incrementDataMap(summary.byState, client.state || "Sem estado", client.id);
+    const destinations = destinationList(client.destination);
+    (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, client.id));
+    incrementDataMap(summary.byDocumentType, documentTypeForClient(client) === "cnpj" ? "PJ" : "PF", client.id);
+    incrementDataMap(summary.byOrigin, client.clientOrigin || "Sem origem", client.id);
+  });
+
+  return {
+    ...summary,
+    quality: dataQualityItems(clients),
+    monthlyWorks: mapToSortedRows(summary.monthlyWorks, "date"),
+    byState: mapToSortedRows(summary.byState),
+    byDestination: mapToSortedRows(summary.byDestination),
+    byDocumentType: mapToSortedRows(summary.byDocumentType),
+    byOrigin: mapToSortedRows(summary.byOrigin),
+  };
+}
+
+function filteredDataClients() {
+  const period = el.dataPeriodFilter.value;
+  const workStatus = el.dataWorkStatusFilter.value;
+  const stateFilter = el.dataStateFilter.value;
+  const destinationFilter = el.dataDestinationFilter.value;
+  const documentFilter = el.dataDocumentFilter.value;
+  const originFilter = el.dataOriginFilter.value;
+
+  return state.clients.filter((client) => {
+    const destinations = destinationList(client.destination);
+    const destinationLabels = destinations.length ? destinations : ["Sem destinação"];
+    const documentLabel = documentTypeForClient(client) === "cnpj" ? "PJ" : "PF";
+    const originLabel = client.clientOrigin || "Sem origem";
+    const stateLabel = client.state || "Sem estado";
+    const finished = isClientFinished(client);
+
+    return (
+      matchesDataPeriod(client, period) &&
+      (!workStatus || (workStatus === "finished" ? finished : !finished)) &&
+      (!stateFilter || stateLabel === stateFilter) &&
+      (!destinationFilter || destinationLabels.includes(destinationFilter)) &&
+      (!documentFilter || documentLabel === documentFilter) &&
+      (!originFilter || originLabel === originFilter)
+    );
+  });
+}
+
+function matchesDataPeriod(client, period) {
+  if (!period) return true;
+  const date = new Date(client.createdAt || client.updatedAt || "");
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  if (period === "month") return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  if (period === "year") return date.getFullYear() === now.getFullYear();
+  if (period === "last12") {
+    const start = new Date(now);
+    start.setFullYear(start.getFullYear() - 1);
+    return date >= start;
+  }
+  return true;
+}
+
+function dataQualityItems(clients) {
+  return [
+    { key: "area", label: "Sem área", hint: "Afeta a metragem total", count: dataQualityClients("area", clients).length },
+    { key: "economy", label: "Sem economia", hint: "Afeta a economia bruta", count: dataQualityClients("economy", clients).length },
+    { key: "fees", label: "Sem honorários", hint: "Afeta os honorários totais", count: dataQualityClients("fees", clients).length },
+    { key: "state", label: "Sem estado", hint: "Afeta obras por estado", count: dataQualityClients("state", clients).length },
+    { key: "origin", label: "Sem origem", hint: "Afeta origem dos clientes", count: dataQualityClients("origin", clients).length },
+  ];
+}
+
+function dataQualityClients(key, clients = filteredDataClients()) {
+  return clients.filter((client) => {
+    if (key === "area") return !areaAmount(client.area);
+    if (key === "economy") return currencyAmount(client.inssOriginalValue) === null || currencyAmount(client.inssReducedValue) === null;
+    if (key === "fees") return currencyAmount(client.feeValue) === null;
+    if (key === "state") return !client.state;
+    if (key === "origin") return !client.clientOrigin;
+    return false;
+  });
+}
+
+function dataPanel(groupLabel, title, rows, valueFormatter, group) {
+  return `
+    <article class="data-panel">
+      <p class="eyebrow">${escapeHtml(groupLabel)}</p>
+      <h3>${escapeHtml(title)}</h3>
+      <div class="data-list">
+        ${
+          rows.length
+            ? rows.map((row) => dataRow(row, valueFormatter(row), group)).join("")
+            : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
+        }
+      </div>
+    </article>
+  `;
+}
+
+function dataRow(row, value, group) {
+  return `
+    <button class="data-row" type="button" data-data-group="${escapeAttr(group)}" data-data-label="${escapeAttr(row.label)}">
+      <div>
+        <strong>${escapeHtml(row.label)}</strong>
+        <span>${escapeHtml(value)}</span>
+      </div>
+      <div class="data-bar" aria-hidden="true"><span style="width:${row.percent}%"></span></div>
+    </button>
+  `;
+}
+
+function renderDataDrilldown() {
+  if (!activeDataDrilldown) {
+    el.dataDrilldown.innerHTML = "";
+    return;
+  }
+  const clients = dataClientsForDrilldown(activeDataDrilldown);
+  const title = dataDrilldownTitle(activeDataDrilldown);
+  el.dataDrilldown.innerHTML = `
+    <section class="data-drilldown-card">
+      <header>
+        <div>
+          <p class="eyebrow">Clientes do indicador</p>
+          <h3>${escapeHtml(title)}</h3>
+        </div>
+        <span>${clients.length} card(s)</span>
+      </header>
+      <div class="data-client-list">
+        ${
+          clients.length
+            ? clients.map(renderDataClientRow).join("")
+            : `<p class="empty-state compact">Nenhum card encontrado para esse recorte.</p>`
+        }
+      </div>
+    </section>
+  `;
+}
+
+function dataClientsForDrilldown(drilldown) {
+  const clients = filteredDataClients();
+  if (drilldown.type === "quality") return dataQualityClients(drilldown.key, clients);
+  return clients.filter((client) => dataClientMatchesGroup(client, drilldown.group, drilldown.label));
+}
+
+function dataClientMatchesGroup(client, group, label) {
+  if (group === "monthlyWorks") return monthLabel(client.createdAt || client.updatedAt) === label;
+  if (group === "byState") return (client.state || "Sem estado") === label;
+  if (group === "byDestination") {
+    const destinations = destinationList(client.destination);
+    return (destinations.length ? destinations : ["Sem destinação"]).includes(label);
+  }
+  if (group === "byDocumentType") return (documentTypeForClient(client) === "cnpj" ? "PJ" : "PF") === label;
+  if (group === "byOrigin") return (client.clientOrigin || "Sem origem") === label;
+  return false;
+}
+
+function dataDrilldownTitle(drilldown) {
+  if (drilldown.type === "quality") {
+    return dataQualityItems(filteredDataClients()).find((item) => item.key === drilldown.key)?.label || "Conferência dos dados";
+  }
+  return `${dataGroupTitle(drilldown.group)}: ${drilldown.label}`;
+}
+
+function dataGroupTitle(group) {
+  return {
+    monthlyWorks: "Obras cadastradas por mês",
+    byState: "Obras por estado",
+    byDestination: "Obras por destinação",
+    byDocumentType: "PF ou PJ",
+    byOrigin: "Origem dos clientes",
+  }[group] || "Dados";
+}
+
+function renderDataClientRow(client) {
+  const grossEconomy = clientGrossEconomy(client);
+  const workLine = [destinationLabel(client), client.state || "Sem estado", client.area || "Sem área"].filter(Boolean).join(" | ");
+  return `
+    <article class="data-client-row">
+      <div>
+        <strong>${escapeHtml(client.clientName || "Cliente sem nome")}</strong>
+        <small>${escapeHtml(workLine)}</small>
+      </div>
+      <span>${escapeHtml(grossEconomy === null ? "Economia não informada" : calculatedCurrency(grossEconomy))}</span>
+      <button class="small-button" type="button" data-open-data-client="${client.id}"><i data-lucide="external-link"></i> Abrir card</button>
+    </article>
+  `;
+}
+
+function clientGrossEconomy(client) {
+  const original = currencyAmount(client.inssOriginalValue);
+  const reduced = currencyAmount(client.inssReducedValue);
+  if (original === null || reduced === null) return null;
+  return original - reduced;
+}
+
+function incrementDataMap(map, key, clientId) {
+  const label = key || "Não informado";
+  const current = map.get(label) || { count: 0, clientIds: new Set() };
+  current.count += 1;
+  if (clientId) current.clientIds.add(clientId);
+  map.set(label, current);
+}
+
+function mapToSortedRows(map, mode = "count") {
+  const values = [...map.entries()].map(([label, data]) => ({
+    label,
+    count: data.count,
+    clientIds: [...data.clientIds],
+  }));
+  const max = Math.max(...values.map((row) => row.count), 1);
+  return values
+    .map((row) => ({ ...row, percent: Math.max(8, Math.round((row.count / max) * 100)) }))
+    .sort((a, b) => (mode === "date" ? a.label.localeCompare(b.label, "pt-BR") : b.count - a.count || a.label.localeCompare(b.label, "pt-BR")));
+}
+
+function exportDataDashboardCsv() {
+  const clients = filteredDataClients();
+  const rows = [
+    [
+      "Cliente",
+      "Título da obra",
+      "Estado",
+      "Destinação",
+      "PF/PJ",
+      "Área",
+      "INSS sem redução",
+      "INSS com redução",
+      "Economia bruta",
+      "Honorários",
+      "Origem",
+      "Status",
+      "Criado em",
+    ],
+    ...clients.map((client) => [
+      client.clientName || "",
+      client.workTitle || "",
+      client.state || "",
+      client.destination || "",
+      documentTypeForClient(client) === "cnpj" ? "PJ" : "PF",
+      client.area || "",
+      client.inssOriginalValue || "",
+      client.inssReducedValue || "",
+      clientGrossEconomy(client) === null ? "" : calculatedCurrency(clientGrossEconomy(client)),
+      client.feeValue || "",
+      client.clientOrigin || "",
+      getClientStatuses(client).map((status) => status.name).join(" | "),
+      formatDateTime(client.createdAt || client.updatedAt),
+    ]),
+  ];
+  const csv = rows.map((row) => row.map(csvCell).join(";")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  const date = localDateKey();
+  link.href = URL.createObjectURL(blob);
+  link.download = `dados-inss-obras-${date}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(link.href);
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
 function renderTaskCenter() {

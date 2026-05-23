@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=72" />
+    <link rel="stylesheet" href="./styles.css?v=73" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -246,8 +246,33 @@
             </div>
           </div>
 
+          <div class="toolbar data-toolbar">
+            <select id="dataPeriodFilter" aria-label="Filtrar dados por período">
+              <option value="">Todo período</option>
+              <option value="month">Este mês</option>
+              <option value="year">Este ano</option>
+              <option value="last12">Últimos 12 meses</option>
+            </select>
+            <select id="dataWorkStatusFilter" aria-label="Filtrar dados por situação da obra">
+              <option value="">Ativas e finalizadas</option>
+              <option value="active">Somente ativas</option>
+              <option value="finished">Somente finalizadas</option>
+            </select>
+            <select id="dataStateFilter" aria-label="Filtrar dados por estado"></select>
+            <select id="dataDestinationFilter" aria-label="Filtrar dados por destinação"></select>
+            <select id="dataDocumentFilter" aria-label="Filtrar dados por PF ou PJ">
+              <option value="">PF e PJ</option>
+              <option value="PF">PF</option>
+              <option value="PJ">PJ</option>
+            </select>
+            <select id="dataOriginFilter" aria-label="Filtrar dados por origem"></select>
+            <button id="exportDataButton" class="secondary-button" type="button"><i data-lucide="download"></i> Exportar CSV</button>
+          </div>
+
           <div id="dataSummary" class="data-summary-grid"></div>
+          <div id="dataQualityPanel" class="data-quality-panel"></div>
           <div id="dataPanels" class="data-panels"></div>
+          <div id="dataDrilldown" class="data-drilldown"></div>
         </section>
 
         <section id="statusSection" class="app-section" hidden>
@@ -606,6 +631,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=72"></script>
+    <script src="./app.js?v=73"></script>
   </body>
 </html>

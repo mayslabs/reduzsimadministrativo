@@ -386,6 +386,12 @@ h3 {
   margin-bottom: 18px;
 }
 
+.data-toolbar {
+  grid-template-columns: repeat(6, minmax(130px, 1fr)) auto;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .metric,
 .data-total {
   border: 1px solid var(--line);
@@ -409,6 +415,106 @@ h3 {
   margin-top: 4px;
 }
 
+.data-total {
+  position: relative;
+  overflow: hidden;
+}
+
+.data-total::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--green);
+}
+
+.data-total small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 8px;
+}
+
+.data-total.tone-area::before {
+  background: #2f80ed;
+}
+
+.data-total.tone-economy::before {
+  background: #009f7f;
+}
+
+.data-total.tone-works::before {
+  background: #7c3aed;
+}
+
+.data-total.tone-fees::before {
+  background: #c78000;
+}
+
+.data-quality-panel {
+  margin-bottom: 18px;
+}
+
+.data-quality-card,
+.data-drilldown-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 16px;
+}
+
+.data-quality-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.data-quality-card h3 {
+  margin: 4px 0 0;
+  font-size: 16px;
+}
+
+.data-quality-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.data-quality-item {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfa;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 10px;
+  text-align: left;
+}
+
+.data-quality-item.needs-attention {
+  border-color: #f3dfaa;
+  background: #fffaf0;
+}
+
+.data-quality-item span,
+.data-quality-item small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.data-quality-item strong {
+  color: var(--charcoal);
+  font-size: 22px;
+  line-height: 1;
+}
+
 .data-panels {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -423,7 +529,7 @@ h3 {
 }
 
 .data-panel h3 {
-  margin-bottom: 12px;
+  margin: 4px 0 12px;
   font-size: 16px;
 }
 
@@ -435,6 +541,14 @@ h3 {
 .data-row {
   display: grid;
   gap: 7px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
 }
 
 .data-row > div:first-child {
@@ -453,6 +567,65 @@ h3 {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.data-row:hover strong,
+.data-row:focus-visible strong {
+  color: var(--green-dark);
+}
+
+.data-drilldown {
+  margin-top: 16px;
+}
+
+.data-drilldown-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.data-drilldown-card h3 {
+  margin: 4px 0 0;
+}
+
+.data-drilldown-card header > span {
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 850;
+  padding: 5px 10px;
+}
+
+.data-client-list {
+  display: grid;
+  gap: 9px;
+}
+
+.data-client-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfa;
+  padding: 10px;
+}
+
+.data-client-row strong,
+.data-client-row small {
+  display: block;
+}
+
+.data-client-row small,
+.data-client-row > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .guidance-question-panel,
@@ -2395,12 +2568,15 @@ h3 {
   .regularization-grid,
   .metrics-grid,
   .data-summary-grid,
+  .data-quality-card,
+  .data-quality-list,
   .data-panels,
   .task-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .toolbar,
+  .data-toolbar,
   .task-toolbar,
   .updates-toolbar,
   .guidance-toolbar,
@@ -2446,10 +2622,16 @@ h3 {
   .regularization-grid,
   .metrics-grid,
   .data-summary-grid,
+  .data-quality-card,
+  .data-quality-list,
   .data-panels,
   .task-overview,
   .no-date-grid,
   .reduction-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .data-client-row {
     grid-template-columns: 1fr;
   }
 
