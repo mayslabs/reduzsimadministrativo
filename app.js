@@ -280,6 +280,8 @@ const el = {
   updatesUserFilter: document.getElementById("updatesUserFilter"),
   updatesTypeFilter: document.getElementById("updatesTypeFilter"),
   updatesList: document.getElementById("updatesList"),
+  dataSummary: document.getElementById("dataSummary"),
+  dataPanels: document.getElementById("dataPanels"),
   searchInput: document.getElementById("searchInput"),
   regularizationSearchInput: document.getElementById("regularizationSearchInput"),
   regularizationList: document.getElementById("regularizationList"),
@@ -1120,6 +1122,7 @@ function renderAll() {
   renderTaskCenter();
   renderTaskNavSignals();
   renderUpdates();
+  renderDataDashboard();
   renderStatusManager();
   renderUserManager();
   renderAccount();
@@ -1146,6 +1149,121 @@ function renderMetrics() {
   ]
     .map(([label, value]) => `<article class="metric"><span>${label}</span><strong>${value}</strong></article>`)
     .join("");
+}
+
+function renderDataDashboard() {
+  const data = inssDataSummary();
+  el.dataSummary.innerHTML = [
+    ["Metragem total", formatAreaTotal(data.totalArea)],
+    ["Economia bruta total", calculatedCurrency(data.grossEconomyTotal)],
+    ["Obras cadastradas", data.totalWorks],
+    ["Honorários totais", calculatedCurrency(data.totalFees)],
+  ]
+    .map(([label, value]) => `<article class="data-total"><span>${label}</span><strong>${value}</strong></article>`)
+    .join("");
+
+  el.dataPanels.innerHTML = [
+    dataPanel("Obras cadastradas por mês", data.monthlyWorks, (row) => `${row.count} obra(s)`),
+    dataPanel("Obras por estado", data.byState, (row) => `${row.count} obra(s)`),
+    dataPanel("Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`),
+    dataPanel("PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`),
+    dataPanel("Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`),
+  ].join("");
+  refreshIcons();
+}
+
+function inssDataSummary() {
+  const summary = {
+    totalArea: 0,
+    grossEconomyTotal: 0,
+    totalWorks: state.clients.length,
+    totalFees: 0,
+    monthlyWorks: new Map(),
+    byState: new Map(),
+    byDestination: new Map(),
+    byDocumentType: new Map(),
+    byOrigin: new Map(),
+  };
+
+  state.clients.forEach((client) => {
+    summary.totalArea += areaAmount(client.area);
+    summary.totalFees += currencyAmount(client.feeValue) || 0;
+
+    const original = currencyAmount(client.inssOriginalValue);
+    const reduced = currencyAmount(client.inssReducedValue);
+    if (original !== null && reduced !== null) summary.grossEconomyTotal += original - reduced;
+
+    incrementDataMap(summary.monthlyWorks, monthLabel(client.createdAt || client.updatedAt));
+    incrementDataMap(summary.byState, client.state || "Sem estado");
+    const destinations = destinationList(client.destination);
+    (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination));
+    incrementDataMap(summary.byDocumentType, documentTypeForClient(client) === "cnpj" ? "PJ" : "PF");
+    incrementDataMap(summary.byOrigin, client.clientOrigin || "Sem origem");
+  });
+
+  return {
+    ...summary,
+    monthlyWorks: mapToSortedRows(summary.monthlyWorks, "date"),
+    byState: mapToSortedRows(summary.byState),
+    byDestination: mapToSortedRows(summary.byDestination),
+    byDocumentType: mapToSortedRows(summary.byDocumentType),
+    byOrigin: mapToSortedRows(summary.byOrigin),
+  };
+}
+
+function dataPanel(title, rows, valueFormatter) {
+  return `
+    <article class="data-panel">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="data-list">
+        ${
+          rows.length
+            ? rows.map((row) => dataRow(row.label, valueFormatter(row), row.percent)).join("")
+            : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
+        }
+      </div>
+    </article>
+  `;
+}
+
+function dataRow(label, value, percent) {
+  return `
+    <div class="data-row">
+      <div>
+        <strong>${escapeHtml(label)}</strong>
+        <span>${escapeHtml(value)}</span>
+      </div>
+      <div class="data-bar" aria-hidden="true"><span style="width:${percent}%"></span></div>
+    </div>
+  `;
+}
+
+function incrementDataMap(map, key) {
+  const label = key || "Não informado";
+  map.set(label, (map.get(label) || 0) + 1);
+}
+
+function mapToSortedRows(map, mode = "count") {
+  const values = [...map.entries()].map(([label, count]) => ({ label, count }));
+  const max = Math.max(...values.map((row) => row.count), 1);
+  return values
+    .map((row) => ({ ...row, percent: Math.max(8, Math.round((row.count / max) * 100)) }))
+    .sort((a, b) => (mode === "date" ? a.label.localeCompare(b.label, "pt-BR") : b.count - a.count || a.label.localeCompare(b.label, "pt-BR")));
+}
+
+function monthLabel(dateValue) {
+  const date = dateValue ? new Date(dateValue) : new Date();
+  if (Number.isNaN(date.getTime())) return "Sem data";
+  return date.toLocaleDateString("pt-BR", { month: "2-digit", year: "numeric" });
+}
+
+function areaAmount(value) {
+  const digits = onlyDigits(value);
+  return digits ? Number(digits) / 100 : 0;
+}
+
+function formatAreaTotal(value) {
+  return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`;
 }
 
 function renderTaskCenter() {
