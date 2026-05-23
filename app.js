@@ -1325,13 +1325,14 @@ function renderUpdates() {
   const type = el.updatesTypeFilter.value;
   const activities = visibleActivities
     .filter((activity) => {
-      const haystack = normalize([activity.title, activity.detail, activity.clientName, ownerName(activity.actorId), activityTypeLabel(activity.type)].join(" "));
+      const displayType = activityDisplayType(activity);
+      const haystack = normalize([activity.title, activity.detail, activity.clientName, ownerName(activity.actorId), activityTypeLabel(displayType)].join(" "));
       return (
         (!query || haystack.includes(query)) &&
         (!readFilter || !activityIsRead(activity)) &&
         matchesActivityPeriod(activity, periodFilter) &&
         (!actorId || activity.actorId === actorId) &&
-        (!type || activity.type === type)
+        (!type || displayType === type)
       );
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -1393,6 +1394,7 @@ function activityTypeLabel(type) {
     task: "Tarefa",
     meeting: "Reunião",
     deadline: "Prazo",
+    monthly: "Mensal",
     finance: "Financeiro",
     history: "Histórico",
   }[type] || "Atualização";
@@ -1406,6 +1408,7 @@ function activityIcon(type) {
     task: "list-checks",
     meeting: "users-round",
     deadline: "calendar-clock",
+    monthly: "calendar-check",
     finance: "banknote",
     history: "file-clock",
   }[type] || "bell";
@@ -1833,16 +1836,18 @@ function updateDayGroup(day, activities) {
 
 function updateTimelineItem(activity) {
   const unread = !activityIsRead(activity);
+  const displayType = activityDisplayType(activity);
+  const priorityClass = priorityActivityTypes().includes(displayType) ? "update-priority" : "";
   return `
-    <article class="update-item ${unread ? "unread" : ""} update-type-${activity.type}" data-activity="${activity.id}">
+    <article class="update-item ${unread ? "unread" : ""} ${priorityClass} update-type-${displayType}" data-activity="${activity.id}">
       <div class="update-time">
         <strong>${activityTimeLabel(activity.createdAt)}</strong>
         ${unread ? `<span>Nova</span>` : ""}
       </div>
-      <div class="update-icon"><i data-lucide="${activityIcon(activity.type)}"></i></div>
+      <div class="update-icon"><i data-lucide="${activityIcon(displayType)}"></i></div>
       <div class="update-content">
         <div class="update-meta">
-          <span class="update-type-pill">${escapeHtml(activityTypeLabel(activity.type))}</span>
+          <span class="update-type-pill">${escapeHtml(activityTypeLabel(displayType))}</span>
           <span><i data-lucide="user-round"></i>${escapeHtml(ownerName(activity.actorId))}</span>
           ${activity.clientName ? `<span><i data-lucide="folder-open"></i>${escapeHtml(activity.clientName)}</span>` : ""}
         </div>
@@ -1859,6 +1864,16 @@ function updateTimelineItem(activity) {
       </div>
     </article>
   `;
+}
+
+function activityDisplayType(activity = {}) {
+  const text = normalize([activity.title, activity.detail].join(" "));
+  if (activity.type === "monthly" || text.includes("controle mensal") || text.includes("acompanhamento mensal")) return "monthly";
+  return activity.type || "client";
+}
+
+function priorityActivityTypes() {
+  return ["note", "task", "deadline", "monthly"];
 }
 
 function matchesActivityPeriod(activity, periodFilter) {
