@@ -724,7 +724,7 @@ h3 {
 .compact-client-head,
 .compact-client-row {
   display: grid;
-  grid-template-columns: minmax(230px, 1.5fr) minmax(180px, 1fr) minmax(120px, 0.7fr) minmax(150px, 0.7fr);
+  grid-template-columns: minmax(230px, 1.6fr) minmax(180px, 1fr) minmax(150px, 0.7fr);
   gap: 12px;
   align-items: center;
 }
@@ -1265,6 +1265,42 @@ h3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.checkbox-field {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px 12px;
+}
+
+.checkbox-field legend {
+  color: var(--charcoal);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+.checkbox-field label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
+.destination-field {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.destination-field legend {
+  grid-column: 1 / -1;
 }
 
 .reduction-summary,

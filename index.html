@@ -247,7 +247,6 @@
           <div class="summary-layout">
             <div class="field-stack">
               <label>Nome do cliente<input data-field="clientName" type="text" /></label>
-              <label>Responsável interno<select data-field="internalOwner"></select></label>
               <label>Próxima ação<textarea data-field="nextAction" rows="3"></textarea></label>
             </div>
             <div>
@@ -287,18 +286,16 @@
               </select>
             </label>
             <label>Responsável da obra<input data-field="workResponsible" type="text" /></label>
-            <label>Destinação
-              <select data-field="destination">
-                <option value="">-- Selecione --</option>
-                <option value="Residencial unifamiliar">Residencial unifamiliar</option>
-                <option value="Residencial multifamiliar">Residencial multifamiliar</option>
-                <option value="Comercial salas e lojas">Comercial salas e lojas</option>
-                <option value="Galpão industrial">Galpão industrial</option>
-                <option value="Casa popular">Casa popular</option>
-                <option value="Conjunto habitacional popular">Conjunto habitacional popular</option>
-                <option value="Edifício de garagens">Edifício de garagens</option>
-              </select>
-            </label>
+            <fieldset class="checkbox-field destination-field">
+              <legend>Destinação</legend>
+              <label><input type="checkbox" data-destination-option value="Residencial unifamiliar" /> Residencial unifamiliar</label>
+              <label><input type="checkbox" data-destination-option value="Residencial multifamiliar" /> Residencial multifamiliar</label>
+              <label><input type="checkbox" data-destination-option value="Comercial salas e lojas" /> Comercial salas e lojas</label>
+              <label><input type="checkbox" data-destination-option value="Galpão industrial" /> Galpão industrial</label>
+              <label><input type="checkbox" data-destination-option value="Casa popular" /> Casa popular</label>
+              <label><input type="checkbox" data-destination-option value="Conjunto habitacional popular" /> Conjunto habitacional popular</label>
+              <label><input type="checkbox" data-destination-option value="Edifício de garagens" /> Edifício de garagens</label>
+            </fieldset>
             <label>Tipo de obra
               <select data-field="workType">
                 <option value="">-- Selecione --</option>

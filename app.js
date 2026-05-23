@@ -912,6 +912,9 @@ function bindEvents() {
   el.addStatusButton.addEventListener("click", openStatusDialog);
   el.addUserButton.addEventListener("click", openUserDialog);
   el.saveAccountPasswordButton.addEventListener("click", changeOwnPassword);
+  document.querySelectorAll("[data-destination-option]").forEach((input) => {
+    input.addEventListener("change", syncDestinationOptions);
+  });
 
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => switchSection(button.dataset.section));
@@ -1656,6 +1659,10 @@ function taskOwnerClass(userId) {
   return "owner-other";
 }
 
+function destinationLabel(client = {}) {
+  return client.destination || "Obra sem destinação informada";
+}
+
 function renderClients() {
   const clients = filteredClients();
   el.listView.hidden = activeViewMode !== "list";
@@ -1684,6 +1691,8 @@ function filteredClients() {
       client.fullName,
       client.cpf,
       client.phone,
+      client.destination,
+      client.workType,
       client.infoOwner,
       client.workResponsible,
       client.folderPath,
@@ -1724,7 +1733,7 @@ function renderClientCard(client) {
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
   const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
-  const workSubtitle = `${workTitle}${client.destination || "Obra sem destinação informada"}`;
+  const workSubtitle = `${workTitle}${destinationLabel(client)}`;
   const workDetails = [client.state, client.area].filter(Boolean).join(" | ");
   return `
     <button class="client-card ${completionClass}" type="button" data-open-client="${client.id}">
@@ -1745,9 +1754,6 @@ function renderClientCard(client) {
           ${deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"}
         </span>
       </div>
-      <div class="card-meta">
-        <span><i data-lucide="user"></i>${escapeHtml(ownerName(client.internalOwner))}</span>
-      </div>
       <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
     </button>
   `;
@@ -1759,7 +1765,6 @@ function renderCompactClients(clients) {
       <div class="compact-client-head">
         <span>Cliente e obra</span>
         <span>Status</span>
-        <span>Responsável</span>
         <span>Pendências</span>
       </div>
       ${clients.map((client) => renderCompactClientRow(client)).join("")}
@@ -1772,7 +1777,7 @@ function renderCompactClientRow(client) {
   const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
   const deadlines = client.deadlines || [];
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
-  const workLine = [client.destination || "Obra sem destinação informada", client.state, client.area].filter(Boolean).join(" | ");
+  const workLine = [destinationLabel(client), client.state, client.area].filter(Boolean).join(" | ");
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
       <span class="compact-client-main">
@@ -1780,7 +1785,6 @@ function renderCompactClientRow(client) {
         <small>${escapeHtml(`${workTitle}${workLine}`)}</small>
       </span>
       <span class="compact-client-status">${statuses || `<span class="chip neutral">Sem status</span>`}</span>
-      <span>${escapeHtml(ownerName(client.internalOwner))}</span>
       <span>${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)</span>
     </button>
   `;
@@ -1825,6 +1829,7 @@ function openClient(client) {
   el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
   renderUserSelects();
   fillClientFields();
+  renderDestinationOptions();
   renderActiveStatuses();
   renderStatusPicker();
   renderMonthlyTable();
@@ -1845,6 +1850,20 @@ function fillClientFields() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = activeClient[input.dataset.field] || "";
   });
+}
+
+function renderDestinationOptions() {
+  const selected = new Set(destinationList(activeClient.destination));
+  document.querySelectorAll("[data-destination-option]").forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+}
+
+function syncDestinationOptions() {
+  if (!activeClient) return;
+  activeClient.destination = Array.from(document.querySelectorAll("[data-destination-option]:checked"))
+    .map((input) => input.value)
+    .join(" + ");
 }
 
 function renderInssReduction() {
@@ -3246,6 +3265,26 @@ function deadlineTypeValues() {
   return ["Guia", "Receita", "Cliente", "Interno", "NF", "Outro"];
 }
 
+function destinationValues() {
+  return [
+    "Residencial unifamiliar",
+    "Residencial multifamiliar",
+    "Comercial salas e lojas",
+    "Galpão industrial",
+    "Casa popular",
+    "Conjunto habitacional popular",
+    "Edifício de garagens",
+  ];
+}
+
+function destinationList(value) {
+  if (Array.isArray(value)) return value.map((item) => normalizeSelectValue(item, destinationValues())).filter(Boolean);
+  return String(value || "")
+    .split(/\s*\+\s*|\s*,\s*/)
+    .map((item) => normalizeSelectValue(item, destinationValues()))
+    .filter(Boolean);
+}
+
 function documentStatusOptions(selected = "Pendente") {
   return ["Pendente", "Recebido", "Aprovado", "Inválido", "Não possui"]
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
@@ -3379,15 +3418,8 @@ function normalizeClientSelectValues(client) {
     construcao: "Alvenaria",
     construção: "Alvenaria",
   };
-  client.destination = normalizeSelectValue(destinationAliases[normalize(client.destination)] || client.destination, [
-    "Residencial unifamiliar",
-    "Residencial multifamiliar",
-    "Comercial salas e lojas",
-    "Galpão industrial",
-    "Casa popular",
-    "Conjunto habitacional popular",
-    "Edifício de garagens",
-  ]);
+  const rawDestination = destinationAliases[normalize(client.destination)] || client.destination;
+  client.destination = destinationList(rawDestination).join(" + ");
   client.workType = normalizeSelectValue(workTypeAliases[normalize(client.workType)] || client.workType, ["Alvenaria", "Madeira ou mista"]);
   client.concrete = normalizeSelectValue(client.concrete, ["Sim", "Não"]);
   client.state = normalizeSelectValue(String(client.state || "").toUpperCase(), brazilianStates());
