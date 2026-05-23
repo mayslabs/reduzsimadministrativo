@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=67" />
+    <link rel="stylesheet" href="./styles.css?v=68" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -180,6 +180,11 @@
               <option value="">Todas</option>
               <option value="unread">Não lidas</option>
             </select>
+            <select id="updatesPeriodFilter" aria-label="Filtrar atualizações por período">
+              <option value="">Todo período</option>
+              <option value="today">Hoje</option>
+              <option value="week">Esta semana</option>
+            </select>
             <select id="updatesUserFilter" aria-label="Filtrar atualizações por usuário"></select>
             <select id="updatesTypeFilter" aria-label="Filtrar atualizações por tipo">
               <option value="">Todos os tipos</option>
@@ -187,6 +192,7 @@
               <option value="note">Anotação</option>
               <option value="status">Status</option>
               <option value="task">Tarefa</option>
+              <option value="meeting">Reunião</option>
               <option value="deadline">Prazo</option>
               <option value="finance">Financeiro</option>
               <option value="history">Histórico</option>
@@ -564,6 +570,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=67"></script>
+    <script src="./app.js?v=68"></script>
   </body>
 </html>

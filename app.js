@@ -277,6 +277,7 @@ const el = {
   markAllUpdatesReadButton: document.getElementById("markAllUpdatesReadButton"),
   updatesSearchInput: document.getElementById("updatesSearchInput"),
   updatesReadFilter: document.getElementById("updatesReadFilter"),
+  updatesPeriodFilter: document.getElementById("updatesPeriodFilter"),
   updatesUserFilter: document.getElementById("updatesUserFilter"),
   updatesTypeFilter: document.getElementById("updatesTypeFilter"),
   updatesList: document.getElementById("updatesList"),
@@ -911,6 +912,7 @@ function bindEvents() {
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
   el.updatesSearchInput.addEventListener("input", renderUpdates);
   el.updatesReadFilter.addEventListener("change", renderUpdates);
+  el.updatesPeriodFilter.addEventListener("change", renderUpdates);
   el.updatesUserFilter.addEventListener("change", renderUpdates);
   el.updatesTypeFilter.addEventListener("change", renderUpdates);
   el.markAllUpdatesReadButton.addEventListener("click", markAllActivitiesRead);
@@ -1318,6 +1320,7 @@ function renderUpdates() {
 
   const query = normalize(el.updatesSearchInput.value);
   const readFilter = el.updatesReadFilter.value;
+  const periodFilter = el.updatesPeriodFilter.value;
   const actorId = el.updatesUserFilter.value;
   const type = el.updatesTypeFilter.value;
   const activities = visibleActivities
@@ -1326,6 +1329,7 @@ function renderUpdates() {
       return (
         (!query || haystack.includes(query)) &&
         (!readFilter || !activityIsRead(activity)) &&
+        matchesActivityPeriod(activity, periodFilter) &&
         (!actorId || activity.actorId === actorId) &&
         (!type || activity.type === type)
       );
@@ -1333,31 +1337,8 @@ function renderUpdates() {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   el.updatesList.innerHTML = activities.length
-    ? activities
-        .map(
-          (activity) => `
-            <article class="update-item ${activityIsRead(activity) ? "" : "unread"}" data-activity="${activity.id}">
-              <div class="update-icon"><i data-lucide="${activityIcon(activity.type)}"></i></div>
-              <div class="update-content">
-                <div class="update-meta">
-                  <span>${escapeHtml(activityTypeLabel(activity.type))}</span>
-                  <span>${escapeHtml(ownerName(activity.actorId))}</span>
-                  <span>${formatDateTime(activity.createdAt)}</span>
-                </div>
-                <h3>${escapeHtml(activity.title)}</h3>
-                ${activity.detail ? `<p>${escapeHtml(activity.detail)}</p>` : ""}
-              </div>
-              <div class="inline-actions update-actions">
-                ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
-                ${
-                  activityIsRead(activity)
-                    ? ""
-                    : `<button class="small-button" type="button" data-mark-activity-read="${activity.id}"><i data-lucide="check"></i> Marcar lida</button>`
-                }
-              </div>
-            </article>
-          `
-        )
+    ? groupedActivitiesByDay(activities)
+        .map(([day, dayActivities]) => updateDayGroup(day, dayActivities))
         .join("")
     : `<p class="empty-state">Nenhuma atualização encontrada.</p>`;
 
@@ -1824,6 +1805,101 @@ function renderClients() {
     card.addEventListener("click", () => openClientById(card.dataset.openClient));
   });
   refreshIcons();
+}
+
+function groupedActivitiesByDay(activities) {
+  return activities.reduce((groups, activity) => {
+    const key = activityDayKey(activity.createdAt);
+    const existing = groups.find(([day]) => day === key);
+    if (existing) existing[1].push(activity);
+    else groups.push([key, [activity]]);
+    return groups;
+  }, []);
+}
+
+function updateDayGroup(day, activities) {
+  return `
+    <section class="update-day-group">
+      <div class="update-day-heading">
+        <h3>${escapeHtml(activityDayLabel(day))}</h3>
+        <span>${activities.length} atualização${activities.length > 1 ? "ões" : ""}</span>
+      </div>
+      <div class="update-day-timeline">
+        ${activities.map(updateTimelineItem).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function updateTimelineItem(activity) {
+  const unread = !activityIsRead(activity);
+  return `
+    <article class="update-item ${unread ? "unread" : ""} update-type-${activity.type}" data-activity="${activity.id}">
+      <div class="update-time">
+        <strong>${activityTimeLabel(activity.createdAt)}</strong>
+        ${unread ? `<span>Nova</span>` : ""}
+      </div>
+      <div class="update-icon"><i data-lucide="${activityIcon(activity.type)}"></i></div>
+      <div class="update-content">
+        <div class="update-meta">
+          <span class="update-type-pill">${escapeHtml(activityTypeLabel(activity.type))}</span>
+          <span><i data-lucide="user-round"></i>${escapeHtml(ownerName(activity.actorId))}</span>
+          ${activity.clientName ? `<span><i data-lucide="folder-open"></i>${escapeHtml(activity.clientName)}</span>` : ""}
+        </div>
+        <h3>${escapeHtml(activity.title)}</h3>
+        ${activity.detail ? `<p>${escapeHtml(activity.detail)}</p>` : ""}
+      </div>
+      <div class="inline-actions update-actions">
+        ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
+        ${
+          unread
+            ? `<button class="small-button" type="button" data-mark-activity-read="${activity.id}"><i data-lucide="check"></i> Marcar lida</button>`
+            : ""
+        }
+      </div>
+    </article>
+  `;
+}
+
+function matchesActivityPeriod(activity, periodFilter) {
+  if (!periodFilter) return true;
+  const date = new Date(activity.createdAt);
+  if (Number.isNaN(date.getTime())) return false;
+  const today = new Date();
+  if (periodFilter === "today") return activityDayKey(date) === activityDayKey(today);
+  if (periodFilter === "week") {
+    const start = new Date(today);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 6);
+    return date >= start;
+  }
+  return true;
+}
+
+function activityDayKey(dateValue) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "Sem data";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function activityDayLabel(dayKey) {
+  if (dayKey === "Sem data") return dayKey;
+  const today = activityDayKey(new Date());
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = activityDayKey(yesterday);
+  if (dayKey === today) return "Hoje";
+  if (dayKey === yesterdayKey) return "Ontem";
+  return formatDate(dayKey);
+}
+
+function activityTimeLabel(dateValue) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "--:--";
+  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function regularizationStatusOptions() {
