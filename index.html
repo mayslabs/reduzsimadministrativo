@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=62" />
+    <link rel="stylesheet" href="./styles.css?v=63" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -42,7 +42,8 @@
           </div>
         </div>
         <nav class="side-nav" aria-label="Navegação principal">
-          <button class="nav-item active" data-section="clientsSection"><i data-lucide="layout-dashboard"></i> Painel</button>
+          <button class="nav-item active" data-section="clientsSection"><i data-lucide="building-2"></i> INSS de obras</button>
+          <button class="nav-item" data-section="regularizationSection"><i data-lucide="home"></i> Regularização de imóvel</button>
           <button class="nav-item tasks-nav-item" data-section="tasksSection">
             <i data-lucide="list-checks"></i>
             <span>Tarefas</span>
@@ -64,7 +65,7 @@
       <section class="content-shell">
         <header class="topbar">
           <div>
-            <h1>Fluxo de trabalho</h1>
+            <h1>CRM</h1>
           </div>
           <button id="newClientButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo cliente</button>
         </header>
@@ -92,6 +93,25 @@
 
           <div id="listView" class="client-grid"></div>
           <div id="compactView" class="compact-client-list" hidden></div>
+        </section>
+
+        <section id="regularizationSection" class="app-section" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Processos independentes</p>
+              <h2>Regularização de imóvel</h2>
+            </div>
+            <button id="newRegularizationButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo processo</button>
+          </div>
+
+          <div class="toolbar regularization-toolbar">
+            <label class="search-field">
+              <i data-lucide="search"></i>
+              <input id="regularizationSearchInput" type="search" placeholder="Buscar cliente, imóvel, matrícula ou status" />
+            </label>
+          </div>
+
+          <div id="regularizationList" class="regularization-grid"></div>
         </section>
 
         <section id="tasksSection" class="app-section" hidden>
@@ -531,6 +551,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=62"></script>
+    <script src="./app.js?v=63"></script>
   </body>
 </html>

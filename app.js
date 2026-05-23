@@ -256,6 +256,7 @@ const el = {
   currentUserLabel: document.getElementById("currentUserLabel"),
   logoutButton: document.getElementById("logoutButton"),
   newClientButton: document.getElementById("newClientButton"),
+  newRegularizationButton: document.getElementById("newRegularizationButton"),
   metricsGrid: document.getElementById("metricsGrid"),
   addInternalTaskButton: document.getElementById("addInternalTaskButton"),
   addMeetingButton: document.getElementById("addMeetingButton"),
@@ -280,6 +281,8 @@ const el = {
   updatesTypeFilter: document.getElementById("updatesTypeFilter"),
   updatesList: document.getElementById("updatesList"),
   searchInput: document.getElementById("searchInput"),
+  regularizationSearchInput: document.getElementById("regularizationSearchInput"),
+  regularizationList: document.getElementById("regularizationList"),
   statusFilter: document.getElementById("statusFilter"),
   clientSort: document.getElementById("clientSort"),
   listModeButton: document.getElementById("listModeButton"),
@@ -404,6 +407,7 @@ function loadState() {
     statuses: defaultStatuses,
     users: defaultUsers,
     clients: [],
+    regularizationClients: [],
     internalTasks: [],
     meetings: [],
     activities: [],
@@ -431,6 +435,9 @@ function migrateState(savedState = {}, persist = true) {
     statuses: Array.isArray(savedState.statuses) && savedState.statuses.length ? savedState.statuses : defaultStatuses,
     users: Array.isArray(savedState.users) ? savedState.users : [],
     clients: Array.isArray(savedState.clients) ? savedState.clients : [],
+    regularizationClients: Array.isArray(savedState.regularizationClients)
+      ? savedState.regularizationClients.map(normalizeRegularizationClient)
+      : [],
     internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
     meetings: Array.isArray(savedState.meetings) ? savedState.meetings.map(normalizeMeeting) : [],
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
@@ -576,6 +583,22 @@ function normalizeMeeting(meeting) {
     createdBy: meeting.createdBy || "",
     createdAt: meeting.createdAt || new Date().toISOString(),
     updatedAt: meeting.updatedAt || null,
+  };
+}
+
+function normalizeRegularizationClient(process = {}) {
+  return {
+    id: process.id || id(),
+    clientName: process.clientName || process.name || "",
+    propertyType: process.propertyType || "",
+    cityState: process.cityState || "",
+    address: process.address || "",
+    registryNumber: process.registryNumber || process.registration || "",
+    status: process.status || "Em análise",
+    nextAction: process.nextAction || "",
+    notes: process.notes || "",
+    createdAt: process.createdAt || new Date().toISOString(),
+    updatedAt: process.updatedAt || process.createdAt || new Date().toISOString(),
   };
 }
 
@@ -866,6 +889,7 @@ function bindEvents() {
   el.repairAccessButton.addEventListener("click", repairAccess);
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
+  el.newRegularizationButton.addEventListener("click", () => openRegularizationDialog());
   el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
   el.addMeetingButton.addEventListener("click", () => openMeetingDialog());
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
@@ -877,6 +901,7 @@ function bindEvents() {
   el.taskWeekModeButton.addEventListener("click", () => setTaskCalendarMode("week"));
   el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
   el.searchInput.addEventListener("input", renderClients);
+  el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
   el.statusFilter.addEventListener("change", renderClients);
   el.clientSort.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
@@ -1091,6 +1116,7 @@ function renderAll() {
   renderStatusFilter();
   renderMetrics();
   renderClients();
+  renderRegularizationClients();
   renderTaskCenter();
   renderTaskNavSignals();
   renderUpdates();
@@ -1680,6 +1706,128 @@ function renderClients() {
     card.addEventListener("click", () => openClientById(card.dataset.openClient));
   });
   refreshIcons();
+}
+
+function regularizationStatusOptions() {
+  return ["Em análise", "Documentos pendentes", "Em andamento", "Aguardando cliente", "Finalizado"];
+}
+
+function renderRegularizationClients() {
+  const processes = filteredRegularizationClients();
+  el.regularizationList.innerHTML = processes.length
+    ? processes.map(renderRegularizationCard).join("")
+    : `<p class="empty-state">Nenhum processo de regularização cadastrado.</p>`;
+
+  document.querySelectorAll("[data-edit-regularization]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationDialog(button.dataset.editRegularization));
+  });
+  document.querySelectorAll("[data-delete-regularization]").forEach((button) => {
+    button.addEventListener("click", () => deleteRegularizationProcess(button.dataset.deleteRegularization));
+  });
+  refreshIcons();
+}
+
+function filteredRegularizationClients() {
+  const query = normalize(el.regularizationSearchInput.value);
+  return [...state.regularizationClients]
+    .filter((process) => {
+      const haystack = normalize([
+        process.clientName,
+        process.propertyType,
+        process.cityState,
+        process.address,
+        process.registryNumber,
+        process.status,
+        process.nextAction,
+        process.notes,
+      ].join(" "));
+      return !query || haystack.includes(query);
+    })
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+}
+
+function renderRegularizationCard(process) {
+  const isFinished = normalize(process.status) === "finalizado";
+  const details = [process.propertyType, process.cityState].filter(Boolean).join(" | ");
+  return `
+    <article class="regularization-card ${isFinished ? "finished" : ""}">
+      <header>
+        <div>
+          <h3>${escapeHtml(process.clientName || "Cliente sem nome")}</h3>
+          <p>${escapeHtml(details || "Imóvel sem detalhe informado")}</p>
+        </div>
+        <span class="regularization-status">${escapeHtml(process.status || "Em análise")}</span>
+      </header>
+      <div class="card-meta">
+        <span><i data-lucide="map-pin"></i>${escapeHtml(process.address || "Endereço não informado")}</span>
+        <span><i data-lucide="file-text"></i>${escapeHtml(process.registryNumber || "Matrícula não informada")}</span>
+      </div>
+      <p>${escapeHtml(process.nextAction || "Sem próxima ação registrada.")}</p>
+      ${process.notes ? `<p class="regularization-note">${escapeHtml(process.notes)}</p>` : ""}
+      <footer class="regularization-actions">
+        <small>Atualizado em ${formatDateTime(process.updatedAt || process.createdAt)}</small>
+        <span class="inline-actions">
+          <button class="small-button" type="button" data-edit-regularization="${process.id}"><i data-lucide="pencil"></i> Editar</button>
+          <button class="icon-button danger-icon" type="button" data-delete-regularization="${process.id}" aria-label="Remover processo"><i data-lucide="trash-2"></i></button>
+        </span>
+      </footer>
+    </article>
+  `;
+}
+
+function openRegularizationDialog(processId = null) {
+  const process = state.regularizationClients.find((item) => item.id === processId);
+  const current = normalizeRegularizationClient(process || {});
+  openSimpleDialog(process ? "Editar regularização" : "Novo processo de regularização", [
+    { label: "Nome do cliente", name: "clientName", type: "text", value: current.clientName },
+    { label: "Tipo de imóvel", name: "propertyType", type: "text", value: current.propertyType },
+    { label: "Cidade/Estado", name: "cityState", type: "text", value: current.cityState },
+    { label: "Endereço", name: "address", type: "text", value: current.address },
+    { label: "Matrícula", name: "registryNumber", type: "text", value: current.registryNumber },
+    {
+      label: "Status",
+      name: "status",
+      type: "select",
+      value: current.status,
+      options: regularizationStatusOptions().map((status) => ({ value: status, label: status })),
+    },
+    { label: "Próxima ação", name: "nextAction", type: "textarea", rows: 3, value: current.nextAction },
+    { label: "Observações", name: "notes", type: "textarea", rows: 3, value: current.notes },
+  ], (values) => {
+    if (!values.clientName) {
+      alert("Informe o nome do cliente para salvar o processo.");
+      return false;
+    }
+    const now = new Date().toISOString();
+    const payload = normalizeRegularizationClient({
+      ...current,
+      ...values,
+      updatedAt: now,
+      createdAt: current.createdAt || now,
+    });
+    if (process) {
+      Object.assign(process, payload);
+      recordActivity("client", `Atualizou regularização: ${payload.clientName}.`, payload.status);
+    } else {
+      state.regularizationClients.unshift({ ...payload, id: id(), createdAt: now, updatedAt: now });
+      recordActivity("client", `Criou regularização: ${payload.clientName}.`, payload.status);
+    }
+    saveState();
+    renderRegularizationClients();
+    renderUpdates();
+  });
+}
+
+function deleteRegularizationProcess(processId) {
+  const process = state.regularizationClients.find((item) => item.id === processId);
+  if (!process) return;
+  const confirmed = confirm(`Excluir o processo de regularização de ${process.clientName || "cliente"}?`);
+  if (!confirmed) return;
+  state.regularizationClients = state.regularizationClients.filter((item) => item.id !== processId);
+  recordActivity("client", `Removeu regularização: ${process.clientName || "Cliente sem nome"}.`, "");
+  saveState();
+  renderRegularizationClients();
+  renderUpdates();
 }
 
 function filteredClients() {
@@ -3067,6 +3215,7 @@ function switchSection(sectionId) {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sectionId);
   });
+  el.newClientButton.hidden = sectionId !== "clientsSection";
   if (sectionId === "tasksSection") markNewTaskActivitiesRead();
 }
 
