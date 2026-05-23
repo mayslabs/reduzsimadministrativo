@@ -925,6 +925,9 @@ function bindEvents() {
       if (input.dataset.field === "cpf") syncDocumentTypeFromNumber(input.value);
       input.value = formatFieldValue(input.dataset.field, input.value);
       activeClient[input.dataset.field] = input.value;
+      if (input.dataset.field === "clientName") {
+        el.clientDialogTitle.textContent = input.value || "Novo cliente";
+      }
       if (input.dataset.field === "documentType") {
         const documentInput = document.querySelector('[data-field="cpf"]');
         if (documentInput) {
@@ -3250,6 +3253,7 @@ function documentStatusOptions(selected = "Pendente") {
 }
 
 function formatFieldValue(field, value) {
+  if (field === "clientName") return value.toLocaleUpperCase("pt-BR");
   if (field === "cpf") return formatDocumentNumber(value, activeClient?.documentType || "cpf");
   if (field === "phone") return formatPhoneNumber(value);
   if (field === "area") return formatAreaValue(value);
