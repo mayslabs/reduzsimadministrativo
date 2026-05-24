@@ -236,7 +236,6 @@ let activeClient = null;
 let activeViewMode = "list";
 let activeTaskCalendarMode = "week";
 let activeTaskDate = new Date();
-let activeDataDrilldown = null;
 let firebaseApp = null;
 let firebaseAuth = null;
 let firebaseDb = null;
@@ -257,7 +256,6 @@ const el = {
   currentUserLabel: document.getElementById("currentUserLabel"),
   logoutButton: document.getElementById("logoutButton"),
   newClientButton: document.getElementById("newClientButton"),
-  newRegularizationButton: document.getElementById("newRegularizationButton"),
   metricsGrid: document.getElementById("metricsGrid"),
   addInternalTaskButton: document.getElementById("addInternalTaskButton"),
   addMeetingButton: document.getElementById("addMeetingButton"),
@@ -275,36 +273,14 @@ const el = {
   tasksTodayBadge: document.getElementById("tasksTodayBadge"),
   tasksNewBadge: document.getElementById("tasksNewBadge"),
   updatesUnreadBadge: document.getElementById("updatesUnreadBadge"),
+  updatesSummary: document.getElementById("updatesSummary"),
   markAllUpdatesReadButton: document.getElementById("markAllUpdatesReadButton"),
   updatesSearchInput: document.getElementById("updatesSearchInput"),
   updatesReadFilter: document.getElementById("updatesReadFilter"),
-  updatesPeriodFilter: document.getElementById("updatesPeriodFilter"),
   updatesUserFilter: document.getElementById("updatesUserFilter"),
   updatesTypeFilter: document.getElementById("updatesTypeFilter"),
   updatesList: document.getElementById("updatesList"),
-  addGuidanceButton: document.getElementById("addGuidanceButton"),
-  guidanceQuestionInput: document.getElementById("guidanceQuestionInput"),
-  searchGuidanceButton: document.getElementById("searchGuidanceButton"),
-  guidanceAnswer: document.getElementById("guidanceAnswer"),
-  guidancePendingPanel: document.getElementById("guidancePendingPanel"),
-  guidanceSearchInput: document.getElementById("guidanceSearchInput"),
-  guidanceStageFilter: document.getElementById("guidanceStageFilter"),
-  guidanceStatusFilter: document.getElementById("guidanceStatusFilter"),
-  guidanceLibrary: document.getElementById("guidanceLibrary"),
-  dataPeriodFilter: document.getElementById("dataPeriodFilter"),
-  dataWorkStatusFilter: document.getElementById("dataWorkStatusFilter"),
-  dataStateFilter: document.getElementById("dataStateFilter"),
-  dataDestinationFilter: document.getElementById("dataDestinationFilter"),
-  dataDocumentFilter: document.getElementById("dataDocumentFilter"),
-  dataOriginFilter: document.getElementById("dataOriginFilter"),
-  exportDataButton: document.getElementById("exportDataButton"),
-  dataSummary: document.getElementById("dataSummary"),
-  dataQualityPanel: document.getElementById("dataQualityPanel"),
-  dataPanels: document.getElementById("dataPanels"),
-  dataDrilldown: document.getElementById("dataDrilldown"),
   searchInput: document.getElementById("searchInput"),
-  regularizationSearchInput: document.getElementById("regularizationSearchInput"),
-  regularizationList: document.getElementById("regularizationList"),
   statusFilter: document.getElementById("statusFilter"),
   clientSort: document.getElementById("clientSort"),
   listModeButton: document.getElementById("listModeButton"),
@@ -429,9 +405,6 @@ function loadState() {
     statuses: defaultStatuses,
     users: defaultUsers,
     clients: [],
-    regularizationClients: [],
-    guidanceItems: [],
-    guidanceQuestions: [],
     internalTasks: [],
     meetings: [],
     activities: [],
@@ -459,11 +432,6 @@ function migrateState(savedState = {}, persist = true) {
     statuses: Array.isArray(savedState.statuses) && savedState.statuses.length ? savedState.statuses : defaultStatuses,
     users: Array.isArray(savedState.users) ? savedState.users : [],
     clients: Array.isArray(savedState.clients) ? savedState.clients : [],
-    regularizationClients: Array.isArray(savedState.regularizationClients)
-      ? savedState.regularizationClients.map(normalizeRegularizationClient)
-      : [],
-    guidanceItems: Array.isArray(savedState.guidanceItems) ? savedState.guidanceItems.map(normalizeGuidanceItem) : [],
-    guidanceQuestions: Array.isArray(savedState.guidanceQuestions) ? savedState.guidanceQuestions.map(normalizeGuidanceQuestion) : [],
     internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
     meetings: Array.isArray(savedState.meetings) ? savedState.meetings.map(normalizeMeeting) : [],
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
@@ -574,6 +542,7 @@ function normalizeActivity(activity = {}) {
     title: activity.title || "Atualização registrada",
     detail: activity.detail || "",
     actorId: activity.actorId || "",
+    ownerId: activity.ownerId || "",
     clientId: activity.clientId || "",
     clientName: activity.clientName || "",
     internalTaskId: activity.internalTaskId || "",
@@ -609,84 +578,6 @@ function normalizeMeeting(meeting) {
     createdBy: meeting.createdBy || "",
     createdAt: meeting.createdAt || new Date().toISOString(),
     updatedAt: meeting.updatedAt || null,
-  };
-}
-
-function normalizeRegularizationClient(process = {}) {
-  return {
-    id: process.id || id(),
-    clientName: process.clientName || process.name || "",
-    propertyType: process.propertyType || "",
-    cityState: process.cityState || "",
-    address: process.address || "",
-    registryNumber: process.registryNumber || process.registration || "",
-    status: process.status || "Em análise",
-    nextAction: process.nextAction || "",
-    notes: process.notes || "",
-    createdAt: process.createdAt || new Date().toISOString(),
-    updatedAt: process.updatedAt || process.createdAt || new Date().toISOString(),
-  };
-}
-
-function normalizeGuidanceItem(item = {}) {
-  return {
-    id: item.id || id(),
-    title: item.title || "",
-    stage: item.stage || "",
-    status: normalizeGuidanceStatus(item.status),
-    situation: item.situation || "",
-    conduct: item.conduct || "",
-    whenCallMayssa: item.whenCallMayssa || "",
-    notUseWhen: item.notUseWhen || "",
-    examples: item.examples || item.questionExamples || "",
-    keywords: item.keywords || "",
-    important: item.important === true || item.important === "Sim",
-    usageCount: Number(item.usageCount || 0),
-    mismatchCount: Number(item.mismatchCount || 0),
-    archivedAt: item.archivedAt || "",
-    versions: Array.isArray(item.versions) ? item.versions.map(normalizeGuidanceVersion) : [],
-    createdBy: item.createdBy || "",
-    createdAt: item.createdAt || new Date().toISOString(),
-    updatedBy: item.updatedBy || item.createdBy || "",
-    updatedAt: item.updatedAt || item.createdAt || new Date().toISOString(),
-  };
-}
-
-function normalizeGuidanceVersion(version = {}) {
-  return {
-    title: version.title || "",
-    stage: version.stage || "",
-    status: normalizeGuidanceStatus(version.status),
-    situation: version.situation || "",
-    conduct: version.conduct || "",
-    whenCallMayssa: version.whenCallMayssa || "",
-    notUseWhen: version.notUseWhen || "",
-    examples: version.examples || "",
-    keywords: version.keywords || "",
-    important: Boolean(version.important),
-    savedAt: version.savedAt || version.updatedAt || new Date().toISOString(),
-    savedBy: version.savedBy || "",
-  };
-}
-
-function normalizeGuidanceStatus(status) {
-  const selected = normalizeSelectValue(status, guidanceStatusValues());
-  return selected || "Publicada";
-}
-
-function normalizeGuidanceQuestion(question = {}) {
-  return {
-    id: question.id || id(),
-    question: question.question || "",
-    stage: question.stage || "",
-    clientName: question.clientName || "",
-    askedBy: question.askedBy || "",
-    status: question.status || "Pendente",
-    guidanceId: question.guidanceId || "",
-    rejectedGuidanceId: question.rejectedGuidanceId || "",
-    rejectionCount: Number(question.rejectionCount || 0),
-    createdAt: question.createdAt || new Date().toISOString(),
-    updatedAt: question.updatedAt || question.createdAt || new Date().toISOString(),
   };
 }
 
@@ -877,6 +768,7 @@ function remapUserReferences(migrated, idMap) {
   });
   (migrated.activities || []).forEach((activity) => {
     activity.actorId = idMap[activity.actorId] || activity.actorId;
+    activity.ownerId = idMap[activity.ownerId] || activity.ownerId;
     activity.readBy = (activity.readBy || []).map((userId) => idMap[userId] || userId);
   });
 }
@@ -895,6 +787,7 @@ function recordActivity(type, title, detail = "", options = {}) {
     title,
     detail,
     actorId: currentUser.id,
+    ownerId: options.ownerId || "",
     clientId: options.clientId || "",
     clientName: options.clientName || "",
     internalTaskId: options.internalTaskId || "",
@@ -977,7 +870,6 @@ function bindEvents() {
   el.repairAccessButton.addEventListener("click", repairAccess);
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
-  el.newRegularizationButton.addEventListener("click", () => openRegularizationDialog());
   el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
   el.addMeetingButton.addEventListener("click", () => openMeetingDialog());
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
@@ -989,7 +881,6 @@ function bindEvents() {
   el.taskWeekModeButton.addEventListener("click", () => setTaskCalendarMode("week"));
   el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
   el.searchInput.addEventListener("input", renderClients);
-  el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
   el.statusFilter.addEventListener("change", renderClients);
   el.clientSort.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
@@ -997,27 +888,9 @@ function bindEvents() {
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
   el.updatesSearchInput.addEventListener("input", renderUpdates);
   el.updatesReadFilter.addEventListener("change", renderUpdates);
-  el.updatesPeriodFilter.addEventListener("change", renderUpdates);
   el.updatesUserFilter.addEventListener("change", renderUpdates);
   el.updatesTypeFilter.addEventListener("change", renderUpdates);
   el.markAllUpdatesReadButton.addEventListener("click", markAllActivitiesRead);
-  el.addGuidanceButton.addEventListener("click", () => openGuidanceDialog());
-  el.searchGuidanceButton.addEventListener("click", answerGuidanceQuestion);
-  el.guidanceQuestionInput.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    answerGuidanceQuestion();
-  });
-  el.guidanceSearchInput.addEventListener("input", renderGuidance);
-  el.guidanceStageFilter.addEventListener("change", renderGuidance);
-  el.guidanceStatusFilter.addEventListener("change", renderGuidance);
-  [el.dataPeriodFilter, el.dataWorkStatusFilter, el.dataStateFilter, el.dataDestinationFilter, el.dataDocumentFilter, el.dataOriginFilter].forEach((input) => {
-    input.addEventListener("change", () => {
-      activeDataDrilldown = null;
-      renderDataDashboard();
-    });
-  });
-  el.exportDataButton.addEventListener("click", exportDataDashboardCsv);
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
@@ -1043,9 +916,6 @@ function bindEvents() {
   el.addStatusButton.addEventListener("click", openStatusDialog);
   el.addUserButton.addEventListener("click", openUserDialog);
   el.saveAccountPasswordButton.addEventListener("click", changeOwnPassword);
-  document.querySelectorAll("[data-destination-option]").forEach((input) => {
-    input.addEventListener("change", syncDestinationOptions);
-  });
 
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => switchSection(button.dataset.section));
@@ -1211,7 +1081,6 @@ function configureNavigationForRole() {
   document.querySelector('[data-section="usersSection"]').style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="accountSection"]').style.display = isAdmin ? "none" : "";
   el.addUserButton.style.display = "none";
-  el.addGuidanceButton.style.display = isAdmin ? "" : "none";
 
   const activeSection = document.querySelector(".nav-item.active")?.dataset.section;
   if ((!isAdmin && activeSection === "usersSection") || (isAdmin && activeSection === "accountSection")) {
@@ -1223,12 +1092,9 @@ function renderAll() {
   renderStatusFilter();
   renderMetrics();
   renderClients();
-  renderRegularizationClients();
   renderTaskCenter();
   renderTaskNavSignals();
   renderUpdates();
-  renderGuidance();
-  renderDataDashboard();
   renderStatusManager();
   renderUserManager();
   renderAccount();
@@ -1255,509 +1121,6 @@ function renderMetrics() {
   ]
     .map(([label, value]) => `<article class="metric"><span>${label}</span><strong>${value}</strong></article>`)
     .join("");
-}
-
-function legacyRenderDataDashboard() {
-  const data = inssDataSummary();
-  el.dataSummary.innerHTML = [
-    ["Metragem total", formatAreaTotal(data.totalArea)],
-    ["Economia bruta total", calculatedCurrency(data.grossEconomyTotal)],
-    ["Obras cadastradas", data.totalWorks],
-    ["Honorários totais", calculatedCurrency(data.totalFees)],
-  ]
-    .map(([label, value]) => `<article class="data-total"><span>${label}</span><strong>${value}</strong></article>`)
-    .join("");
-
-  el.dataPanels.innerHTML = [
-    dataPanel("Obras cadastradas por mês", data.monthlyWorks, (row) => `${row.count} obra(s)`),
-    dataPanel("Obras por estado", data.byState, (row) => `${row.count} obra(s)`),
-    dataPanel("Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`),
-    dataPanel("PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`),
-    dataPanel("Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`),
-  ].join("");
-  refreshIcons();
-}
-
-function legacyInssDataSummary() {
-  const summary = {
-    totalArea: 0,
-    grossEconomyTotal: 0,
-    totalWorks: state.clients.length,
-    totalFees: 0,
-    monthlyWorks: new Map(),
-    byState: new Map(),
-    byDestination: new Map(),
-    byDocumentType: new Map(),
-    byOrigin: new Map(),
-  };
-
-  state.clients.forEach((client) => {
-    summary.totalArea += areaAmount(client.area);
-    summary.totalFees += currencyAmount(client.feeValue) || 0;
-
-    const original = currencyAmount(client.inssOriginalValue);
-    const reduced = currencyAmount(client.inssReducedValue);
-    if (original !== null && reduced !== null) summary.grossEconomyTotal += original - reduced;
-
-    incrementDataMap(summary.monthlyWorks, monthLabel(client.createdAt || client.updatedAt));
-    incrementDataMap(summary.byState, client.state || "Sem estado");
-    const destinations = destinationList(client.destination);
-    (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination));
-    incrementDataMap(summary.byDocumentType, documentTypeForClient(client) === "cnpj" ? "PJ" : "PF");
-    incrementDataMap(summary.byOrigin, client.clientOrigin || "Sem origem");
-  });
-
-  return {
-    ...summary,
-    monthlyWorks: mapToSortedRows(summary.monthlyWorks, "date"),
-    byState: mapToSortedRows(summary.byState),
-    byDestination: mapToSortedRows(summary.byDestination),
-    byDocumentType: mapToSortedRows(summary.byDocumentType),
-    byOrigin: mapToSortedRows(summary.byOrigin),
-  };
-}
-
-function legacyDataPanel(title, rows, valueFormatter) {
-  return `
-    <article class="data-panel">
-      <h3>${escapeHtml(title)}</h3>
-      <div class="data-list">
-        ${
-          rows.length
-            ? rows.map((row) => dataRow(row.label, valueFormatter(row), row.percent)).join("")
-            : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
-        }
-      </div>
-    </article>
-  `;
-}
-
-function legacyDataRow(label, value, percent) {
-  return `
-    <div class="data-row">
-      <div>
-        <strong>${escapeHtml(label)}</strong>
-        <span>${escapeHtml(value)}</span>
-      </div>
-      <div class="data-bar" aria-hidden="true"><span style="width:${percent}%"></span></div>
-    </div>
-  `;
-}
-
-function legacyIncrementDataMap(map, key) {
-  const label = key || "Não informado";
-  map.set(label, (map.get(label) || 0) + 1);
-}
-
-function legacyMapToSortedRows(map, mode = "count") {
-  const values = [...map.entries()].map(([label, count]) => ({ label, count }));
-  const max = Math.max(...values.map((row) => row.count), 1);
-  return values
-    .map((row) => ({ ...row, percent: Math.max(8, Math.round((row.count / max) * 100)) }))
-    .sort((a, b) => (mode === "date" ? a.label.localeCompare(b.label, "pt-BR") : b.count - a.count || a.label.localeCompare(b.label, "pt-BR")));
-}
-
-function monthLabel(dateValue) {
-  const date = dateValue ? new Date(dateValue) : new Date();
-  if (Number.isNaN(date.getTime())) return "Sem data";
-  return date.toLocaleDateString("pt-BR", { month: "2-digit", year: "numeric" });
-}
-
-function areaAmount(value) {
-  const digits = onlyDigits(value);
-  return digits ? Number(digits) / 100 : 0;
-}
-
-function formatAreaTotal(value) {
-  return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`;
-}
-
-function renderDataDashboard() {
-  renderDataFilterOptions();
-  const data = inssDataSummary();
-  const totals = [
-    { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area" },
-    { label: "Economia bruta total", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy" },
-    { label: "Obras cadastradas", value: data.totalWorks, hint: `${data.finishedWorks} finalizada(s)`, tone: "works" },
-    { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees" },
-  ];
-  el.dataSummary.innerHTML = totals.map(renderDataTotal).join("");
-  el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
-  el.dataPanels.innerHTML = [
-    dataPanel("Volume", "Obras cadastradas por mês", data.monthlyWorks, (row) => `${row.count} obra(s)`, "monthlyWorks"),
-    dataPanel("Localização", "Obras por estado", data.byState, (row) => `${row.count} obra(s)`, "byState"),
-    dataPanel("Perfil da obra", "Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`, "byDestination"),
-    dataPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`, "byDocumentType"),
-    dataPanel("Comercial", "Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`, "byOrigin"),
-  ].join("");
-  renderDataDrilldown();
-  bindDataDashboardActions();
-  refreshIcons();
-}
-
-function renderDataFilterOptions() {
-  setDataSelectOptions(el.dataStateFilter, "Todos os estados", sortedDataValues((client) => client.state || "Sem estado"));
-  setDataSelectOptions(el.dataDestinationFilter, "Todas as destinações", sortedDataValues((client) => {
-    const destinations = destinationList(client.destination);
-    return destinations.length ? destinations : ["Sem destinação"];
-  }));
-  setDataSelectOptions(el.dataOriginFilter, "Todas as origens", sortedDataValues((client) => client.clientOrigin || "Sem origem"));
-}
-
-function setDataSelectOptions(select, allLabel, values) {
-  const selected = select.value;
-  const options = [...new Set(values)].filter(Boolean);
-  select.innerHTML = `<option value="">${escapeHtml(allLabel)}</option>${options
-    .map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`)
-    .join("")}`;
-  select.value = options.includes(selected) ? selected : "";
-}
-
-function sortedDataValues(getValues) {
-  return state.clients
-    .flatMap((client) => {
-      const value = getValues(client);
-      return Array.isArray(value) ? value : [value];
-    })
-    .sort((a, b) => a.localeCompare(b, "pt-BR"));
-}
-
-function renderDataTotal(item) {
-  return `
-    <article class="data-total tone-${item.tone}">
-      <span>${escapeHtml(item.label)}</span>
-      <strong>${escapeHtml(item.value)}</strong>
-      <small>${escapeHtml(item.hint)}</small>
-    </article>
-  `;
-}
-
-function renderDataQualityPanel(items) {
-  return `
-    <section class="data-quality-card">
-      <div>
-        <p class="eyebrow">Conferência dos dados</p>
-        <h3>Campos que ainda precisam de atenção</h3>
-      </div>
-      <div class="data-quality-list">
-        ${items.map(renderDataQualityItem).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function renderDataQualityItem(item) {
-  return `
-    <button class="data-quality-item ${item.count ? "needs-attention" : ""}" type="button" data-data-quality="${item.key}">
-      <span>${escapeHtml(item.label)}</span>
-      <strong>${item.count}</strong>
-      <small>${escapeHtml(item.hint)}</small>
-    </button>
-  `;
-}
-
-function bindDataDashboardActions() {
-  el.dataPanels.querySelectorAll("[data-data-group]").forEach((button) => {
-    button.addEventListener("click", () => {
-      activeDataDrilldown = { type: "group", group: button.dataset.dataGroup, label: button.dataset.dataLabel };
-      renderDataDashboard();
-    });
-  });
-  el.dataQualityPanel.querySelectorAll("[data-data-quality]").forEach((button) => {
-    button.addEventListener("click", () => {
-      activeDataDrilldown = { type: "quality", key: button.dataset.dataQuality };
-      renderDataDashboard();
-    });
-  });
-  el.dataDrilldown.querySelectorAll("[data-open-data-client]").forEach((button) => {
-    button.addEventListener("click", () => openClientById(button.dataset.openDataClient));
-  });
-}
-
-function inssDataSummary() {
-  const clients = filteredDataClients();
-  const summary = {
-    totalArea: 0,
-    grossEconomyTotal: 0,
-    totalWorks: clients.length,
-    finishedWorks: clients.filter(isClientFinished).length,
-    totalFees: 0,
-    monthlyWorks: new Map(),
-    byState: new Map(),
-    byDestination: new Map(),
-    byDocumentType: new Map(),
-    byOrigin: new Map(),
-  };
-
-  clients.forEach((client) => {
-    summary.totalArea += areaAmount(client.area);
-    summary.totalFees += currencyAmount(client.feeValue) || 0;
-
-    const grossEconomy = clientGrossEconomy(client);
-    if (grossEconomy !== null) summary.grossEconomyTotal += grossEconomy;
-
-    incrementDataMap(summary.monthlyWorks, monthLabel(client.createdAt || client.updatedAt), client.id);
-    incrementDataMap(summary.byState, client.state || "Sem estado", client.id);
-    const destinations = destinationList(client.destination);
-    (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, client.id));
-    incrementDataMap(summary.byDocumentType, documentTypeForClient(client) === "cnpj" ? "PJ" : "PF", client.id);
-    incrementDataMap(summary.byOrigin, client.clientOrigin || "Sem origem", client.id);
-  });
-
-  return {
-    ...summary,
-    quality: dataQualityItems(clients),
-    monthlyWorks: mapToSortedRows(summary.monthlyWorks, "date"),
-    byState: mapToSortedRows(summary.byState),
-    byDestination: mapToSortedRows(summary.byDestination),
-    byDocumentType: mapToSortedRows(summary.byDocumentType),
-    byOrigin: mapToSortedRows(summary.byOrigin),
-  };
-}
-
-function filteredDataClients() {
-  const period = el.dataPeriodFilter.value;
-  const workStatus = el.dataWorkStatusFilter.value;
-  const stateFilter = el.dataStateFilter.value;
-  const destinationFilter = el.dataDestinationFilter.value;
-  const documentFilter = el.dataDocumentFilter.value;
-  const originFilter = el.dataOriginFilter.value;
-
-  return state.clients.filter((client) => {
-    const destinations = destinationList(client.destination);
-    const destinationLabels = destinations.length ? destinations : ["Sem destinação"];
-    const documentLabel = documentTypeForClient(client) === "cnpj" ? "PJ" : "PF";
-    const originLabel = client.clientOrigin || "Sem origem";
-    const stateLabel = client.state || "Sem estado";
-    const finished = isClientFinished(client);
-
-    return (
-      matchesDataPeriod(client, period) &&
-      (!workStatus || (workStatus === "finished" ? finished : !finished)) &&
-      (!stateFilter || stateLabel === stateFilter) &&
-      (!destinationFilter || destinationLabels.includes(destinationFilter)) &&
-      (!documentFilter || documentLabel === documentFilter) &&
-      (!originFilter || originLabel === originFilter)
-    );
-  });
-}
-
-function matchesDataPeriod(client, period) {
-  if (!period) return true;
-  const date = new Date(client.createdAt || client.updatedAt || "");
-  if (Number.isNaN(date.getTime())) return false;
-  const now = new Date();
-  if (period === "month") return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  if (period === "year") return date.getFullYear() === now.getFullYear();
-  if (period === "last12") {
-    const start = new Date(now);
-    start.setFullYear(start.getFullYear() - 1);
-    return date >= start;
-  }
-  return true;
-}
-
-function dataQualityItems(clients) {
-  return [
-    { key: "area", label: "Sem área", hint: "Afeta a metragem total", count: dataQualityClients("area", clients).length },
-    { key: "economy", label: "Sem economia", hint: "Afeta a economia bruta", count: dataQualityClients("economy", clients).length },
-    { key: "fees", label: "Sem honorários", hint: "Afeta os honorários totais", count: dataQualityClients("fees", clients).length },
-    { key: "state", label: "Sem estado", hint: "Afeta obras por estado", count: dataQualityClients("state", clients).length },
-    { key: "origin", label: "Sem origem", hint: "Afeta origem dos clientes", count: dataQualityClients("origin", clients).length },
-  ];
-}
-
-function dataQualityClients(key, clients = filteredDataClients()) {
-  return clients.filter((client) => {
-    if (key === "area") return !areaAmount(client.area);
-    if (key === "economy") return currencyAmount(client.inssOriginalValue) === null || currencyAmount(client.inssReducedValue) === null;
-    if (key === "fees") return currencyAmount(client.feeValue) === null;
-    if (key === "state") return !client.state;
-    if (key === "origin") return !client.clientOrigin;
-    return false;
-  });
-}
-
-function dataPanel(groupLabel, title, rows, valueFormatter, group) {
-  return `
-    <article class="data-panel">
-      <p class="eyebrow">${escapeHtml(groupLabel)}</p>
-      <h3>${escapeHtml(title)}</h3>
-      <div class="data-list">
-        ${
-          rows.length
-            ? rows.map((row) => dataRow(row, valueFormatter(row), group)).join("")
-            : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
-        }
-      </div>
-    </article>
-  `;
-}
-
-function dataRow(row, value, group) {
-  return `
-    <button class="data-row" type="button" data-data-group="${escapeAttr(group)}" data-data-label="${escapeAttr(row.label)}">
-      <div>
-        <strong>${escapeHtml(row.label)}</strong>
-        <span>${escapeHtml(value)}</span>
-      </div>
-      <div class="data-bar" aria-hidden="true"><span style="width:${row.percent}%"></span></div>
-    </button>
-  `;
-}
-
-function renderDataDrilldown() {
-  if (!activeDataDrilldown) {
-    el.dataDrilldown.innerHTML = "";
-    return;
-  }
-  const clients = dataClientsForDrilldown(activeDataDrilldown);
-  const title = dataDrilldownTitle(activeDataDrilldown);
-  el.dataDrilldown.innerHTML = `
-    <section class="data-drilldown-card">
-      <header>
-        <div>
-          <p class="eyebrow">Clientes do indicador</p>
-          <h3>${escapeHtml(title)}</h3>
-        </div>
-        <span>${clients.length} card(s)</span>
-      </header>
-      <div class="data-client-list">
-        ${
-          clients.length
-            ? clients.map(renderDataClientRow).join("")
-            : `<p class="empty-state compact">Nenhum card encontrado para esse recorte.</p>`
-        }
-      </div>
-    </section>
-  `;
-}
-
-function dataClientsForDrilldown(drilldown) {
-  const clients = filteredDataClients();
-  if (drilldown.type === "quality") return dataQualityClients(drilldown.key, clients);
-  return clients.filter((client) => dataClientMatchesGroup(client, drilldown.group, drilldown.label));
-}
-
-function dataClientMatchesGroup(client, group, label) {
-  if (group === "monthlyWorks") return monthLabel(client.createdAt || client.updatedAt) === label;
-  if (group === "byState") return (client.state || "Sem estado") === label;
-  if (group === "byDestination") {
-    const destinations = destinationList(client.destination);
-    return (destinations.length ? destinations : ["Sem destinação"]).includes(label);
-  }
-  if (group === "byDocumentType") return (documentTypeForClient(client) === "cnpj" ? "PJ" : "PF") === label;
-  if (group === "byOrigin") return (client.clientOrigin || "Sem origem") === label;
-  return false;
-}
-
-function dataDrilldownTitle(drilldown) {
-  if (drilldown.type === "quality") {
-    return dataQualityItems(filteredDataClients()).find((item) => item.key === drilldown.key)?.label || "Conferência dos dados";
-  }
-  return `${dataGroupTitle(drilldown.group)}: ${drilldown.label}`;
-}
-
-function dataGroupTitle(group) {
-  return {
-    monthlyWorks: "Obras cadastradas por mês",
-    byState: "Obras por estado",
-    byDestination: "Obras por destinação",
-    byDocumentType: "PF ou PJ",
-    byOrigin: "Origem dos clientes",
-  }[group] || "Dados";
-}
-
-function renderDataClientRow(client) {
-  const grossEconomy = clientGrossEconomy(client);
-  const workLine = [destinationLabel(client), client.state || "Sem estado", client.area || "Sem área"].filter(Boolean).join(" | ");
-  return `
-    <article class="data-client-row">
-      <div>
-        <strong>${escapeHtml(client.clientName || "Cliente sem nome")}</strong>
-        <small>${escapeHtml(workLine)}</small>
-      </div>
-      <span>${escapeHtml(grossEconomy === null ? "Economia não informada" : calculatedCurrency(grossEconomy))}</span>
-      <button class="small-button" type="button" data-open-data-client="${client.id}"><i data-lucide="external-link"></i> Abrir card</button>
-    </article>
-  `;
-}
-
-function clientGrossEconomy(client) {
-  const original = currencyAmount(client.inssOriginalValue);
-  const reduced = currencyAmount(client.inssReducedValue);
-  if (original === null || reduced === null) return null;
-  return original - reduced;
-}
-
-function incrementDataMap(map, key, clientId) {
-  const label = key || "Não informado";
-  const current = map.get(label) || { count: 0, clientIds: new Set() };
-  current.count += 1;
-  if (clientId) current.clientIds.add(clientId);
-  map.set(label, current);
-}
-
-function mapToSortedRows(map, mode = "count") {
-  const values = [...map.entries()].map(([label, data]) => ({
-    label,
-    count: data.count,
-    clientIds: [...data.clientIds],
-  }));
-  const max = Math.max(...values.map((row) => row.count), 1);
-  return values
-    .map((row) => ({ ...row, percent: Math.max(8, Math.round((row.count / max) * 100)) }))
-    .sort((a, b) => (mode === "date" ? a.label.localeCompare(b.label, "pt-BR") : b.count - a.count || a.label.localeCompare(b.label, "pt-BR")));
-}
-
-function exportDataDashboardCsv() {
-  const clients = filteredDataClients();
-  const rows = [
-    [
-      "Cliente",
-      "Título da obra",
-      "Estado",
-      "Destinação",
-      "PF/PJ",
-      "Área",
-      "INSS sem redução",
-      "INSS com redução",
-      "Economia bruta",
-      "Honorários",
-      "Origem",
-      "Status",
-      "Criado em",
-    ],
-    ...clients.map((client) => [
-      client.clientName || "",
-      client.workTitle || "",
-      client.state || "",
-      client.destination || "",
-      documentTypeForClient(client) === "cnpj" ? "PJ" : "PF",
-      client.area || "",
-      client.inssOriginalValue || "",
-      client.inssReducedValue || "",
-      clientGrossEconomy(client) === null ? "" : calculatedCurrency(clientGrossEconomy(client)),
-      client.feeValue || "",
-      client.clientOrigin || "",
-      getClientStatuses(client).map((status) => status.name).join(" | "),
-      formatDateTime(client.createdAt || client.updatedAt),
-    ]),
-  ];
-  const csv = rows.map((row) => row.map(csvCell).join(";")).join("\n");
-  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  const date = localDateKey();
-  link.href = URL.createObjectURL(blob);
-  link.download = `dados-inss-obras-${date}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(link.href);
-}
-
-function csvCell(value) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
 function renderTaskCenter() {
@@ -1809,39 +1172,91 @@ function renderUpdates() {
   const unreadCount = visibleActivities.filter((activity) => !activityIsRead(activity)).length;
   el.updatesUnreadBadge.hidden = !unreadCount;
   el.updatesUnreadBadge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+  renderUpdatesSummary(visibleActivities);
 
   const query = normalize(el.updatesSearchInput.value);
   const readFilter = el.updatesReadFilter.value;
-  const periodFilter = el.updatesPeriodFilter.value;
   const actorId = el.updatesUserFilter.value;
   const type = el.updatesTypeFilter.value;
   const activities = visibleActivities
     .filter((activity) => {
-      const displayType = activityDisplayType(activity);
-      const haystack = normalize([activity.title, activity.detail, activity.clientName, ownerName(activity.actorId), activityTypeLabel(displayType)].join(" "));
+      const haystack = normalize([activity.title, activity.detail, activity.clientName, ownerName(activity.actorId), ownerName(activity.ownerId), activityTypeLabel(activity.type)].join(" "));
       return (
         (!query || haystack.includes(query)) &&
         (!readFilter || !activityIsRead(activity)) &&
-        matchesActivityPeriod(activity, periodFilter) &&
         (!actorId || activity.actorId === actorId) &&
-        (!type || displayType === type)
+        (!type || activity.type === type)
       );
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   el.updatesList.innerHTML = activities.length
-    ? groupedActivitiesByDay(activities)
-        .map(([day, dayActivities]) => updateDayGroup(day, dayActivities))
+    ? activities
+        .map(
+          (activity) => `
+            <article class="update-item update-${escapeAttr(activity.type || "client")} ${activityIsRead(activity) ? "" : "unread"}" data-activity="${activity.id}">
+              <div class="update-icon"><i data-lucide="${activityIcon(activity.type)}"></i></div>
+              <div class="update-content">
+                <div class="update-meta">
+                  <span>${escapeHtml(activityTypeLabel(activity.type))}</span>
+                  <span>${escapeHtml(activityActorLabel(activity))}</span>
+                  ${activityResponsibleLabel(activity) ? `<span class="update-responsible">${escapeHtml(activityResponsibleLabel(activity))}</span>` : ""}
+                  <span>${formatDateTime(activity.createdAt)}</span>
+                </div>
+                <h3>${escapeHtml(activity.title)}</h3>
+                ${activity.detail ? `<p class="update-detail-line">${escapeHtml(activity.detail)}</p>` : ""}
+              </div>
+              <div class="inline-actions update-actions">
+                ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}" data-activity-id="${activity.id}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
+                ${
+                  activityIsRead(activity)
+                    ? ""
+                    : `<button class="small-button" type="button" data-mark-activity-read="${activity.id}"><i data-lucide="check"></i> Marcar lida</button>`
+                }
+              </div>
+            </article>
+          `
+        )
         .join("")
     : `<p class="empty-state">Nenhuma atualização encontrada.</p>`;
 
   document.querySelectorAll("[data-open-update-client]").forEach((button) => {
-    button.addEventListener("click", () => openClientById(button.dataset.openUpdateClient));
+    button.addEventListener("click", () => {
+      markActivityRead(button.dataset.activityId, false);
+      openClientById(button.dataset.openUpdateClient);
+      renderUpdates();
+    });
   });
   document.querySelectorAll("[data-mark-activity-read]").forEach((button) => {
     button.addEventListener("click", () => markActivityRead(button.dataset.markActivityRead));
   });
   refreshIcons();
+}
+
+function renderUpdatesSummary(activities) {
+  if (!el.updatesSummary) return;
+  const stats = [
+    { label: "Não lidas", value: activities.filter((activity) => !activityIsRead(activity)).length, type: "unread" },
+    { label: "Hoje", value: activities.filter(isTodayActivity).length, type: "today" },
+    { label: "Tarefas/Prazos", value: activities.filter((activity) => ["task", "deadline"].includes(activity.type)).length, type: "task" },
+    { label: "Anotações", value: activities.filter((activity) => activity.type === "note").length, type: "note" },
+    { label: "Mensal", value: activities.filter((activity) => activity.type === "monthly").length, type: "monthly" },
+  ];
+
+  el.updatesSummary.innerHTML = stats
+    .map(
+      (stat) => `
+        <article class="updates-summary-card ${stat.type}">
+          <span>${stat.label}</span>
+          <strong>${stat.value}</strong>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function isTodayActivity(activity) {
+  return localDateKey(new Date(activity.createdAt)) === localDateKey();
 }
 
 function renderUpdatesUserFilter() {
@@ -1860,11 +1275,12 @@ function activityIsRead(activity) {
   return (activity.readBy || []).includes(currentUser.id);
 }
 
-function markActivityRead(activityId) {
+function markActivityRead(activityId, shouldRender = true) {
   const activity = state.activities.find((item) => item.id === activityId);
   if (!activity || activityIsRead(activity)) return;
   activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
   saveState();
+  if (!shouldRender) return;
   renderTaskNavSignals();
   renderUpdates();
 }
@@ -1878,665 +1294,6 @@ function markAllActivitiesRead() {
   renderUpdates();
 }
 
-function guidanceStages() {
-  return ["Cliente", "Documentos", "Mensal", "Guia", "CND", "Receita", "Financeiro", "Engenharia", "Regularização", "Outro"];
-}
-
-function guidanceStatusValues() {
-  return ["Publicada", "Rascunho", "Arquivada"];
-}
-
-function renderGuidance() {
-  if (!currentUser || !el.guidanceLibrary) return;
-  renderGuidanceStageFilter();
-  renderGuidanceStatusFilter();
-  renderGuidancePendingPanel();
-  renderGuidanceLibrary();
-}
-
-function renderGuidanceStageFilter() {
-  const selected = el.guidanceStageFilter.value;
-  el.guidanceStageFilter.innerHTML = `<option value="">Todas as etapas</option>${guidanceStages()
-    .map((stage) => `<option value="${escapeAttr(stage)}">${escapeHtml(stage)}</option>`)
-    .join("")}`;
-  el.guidanceStageFilter.value = selected;
-}
-
-function renderGuidanceStatusFilter() {
-  const selected = el.guidanceStatusFilter.value;
-  el.guidanceStatusFilter.hidden = currentUser.role !== "admin";
-  el.guidanceStatusFilter.parentElement?.classList.toggle("has-status-filter", currentUser.role === "admin");
-  el.guidanceStatusFilter.innerHTML = `<option value="">Ativas</option>${guidanceStatusValues()
-    .map((status) => `<option value="${escapeAttr(status)}">${escapeHtml(status)}</option>`)
-    .join("")}`;
-  el.guidanceStatusFilter.value = ["", ...guidanceStatusValues()].includes(selected) ? selected : "";
-}
-
-function renderGuidancePendingPanel() {
-  const pending = guidancePendingQuestions();
-  const allPending = (state.guidanceQuestions || []).filter((question) => question.status === "Pendente");
-  const mismatchPending = allPending.filter((question) => question.rejectedGuidanceId).length;
-  const topGuidance = mostUsedGuidanceItem();
-  const topRejectedGuidance = mostRejectedGuidanceItem();
-  if (!pending.length) {
-    el.guidancePendingPanel.innerHTML =
-      currentUser.role === "admin"
-        ? `
-          <div class="guidance-insights">
-            ${guidanceInsight("Pendentes", allPending.length)}
-            ${guidanceInsight("Não era isso", mismatchPending)}
-            ${guidanceInsight("Mais consultada", topGuidance ? `${topGuidance.title} (${topGuidance.usageCount})` : "Sem consultas")}
-            ${guidanceInsight("Mais rejeitada", topRejectedGuidance ? `${topRejectedGuidance.title} (${topRejectedGuidance.mismatchCount})` : "Sem rejeições")}
-          </div>
-          <p class="empty-state compact">Nenhuma dúvida pendente de orientação.</p>
-        `
-        : "";
-    return;
-  }
-
-  el.guidancePendingPanel.innerHTML = `
-    ${
-      currentUser.role === "admin"
-        ? `<div class="guidance-insights">
-            ${guidanceInsight("Pendentes", allPending.length)}
-            ${guidanceInsight("Não era isso", mismatchPending)}
-            ${guidanceInsight("Mais consultada", topGuidance ? `${topGuidance.title} (${topGuidance.usageCount})` : "Sem consultas")}
-            ${guidanceInsight("Mais rejeitada", topRejectedGuidance ? `${topRejectedGuidance.title} (${topRejectedGuidance.mismatchCount})` : "Sem rejeições")}
-          </div>`
-        : ""
-    }
-    <div class="guidance-panel-heading">
-      <div>
-        <p class="eyebrow">Pendentes de orientação</p>
-        <h3>${pending.length} dúvida${pending.length > 1 ? "s" : ""} para transformar em conduta</h3>
-      </div>
-    </div>
-    <div class="guidance-pending-list">
-      ${pending.map(renderPendingGuidanceQuestion).join("")}
-    </div>
-  `;
-
-  document.querySelectorAll("[data-create-guidance-from-question]").forEach((button) => {
-    bindGuidanceButton(button, () => openGuidanceDialog(null, button.dataset.createGuidanceFromQuestion));
-  });
-  document.querySelectorAll("[data-dismiss-guidance-question]").forEach((button) => {
-    bindGuidanceButton(button, () => dismissGuidanceQuestion(button.dataset.dismissGuidanceQuestion));
-  });
-  document.querySelectorAll("[data-attach-guidance-question]").forEach((button) => {
-    bindGuidanceButton(button, () => openAttachGuidanceQuestionDialog(button.dataset.attachGuidanceQuestion));
-  });
-  refreshIcons();
-}
-
-function guidanceInsight(label, value) {
-  return `<article class="guidance-insight"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`;
-}
-
-function mostUsedGuidanceItem() {
-  return [...(state.guidanceItems || [])]
-    .filter((item) => item.usageCount > 0)
-    .sort((a, b) => b.usageCount - a.usageCount)[0];
-}
-
-function mostRejectedGuidanceItem() {
-  return [...(state.guidanceItems || [])]
-    .filter((item) => item.mismatchCount > 0)
-    .sort((a, b) => b.mismatchCount - a.mismatchCount)[0];
-}
-
-function renderPendingGuidanceQuestion(question) {
-  const canManage = currentUser.role === "admin";
-  const rejectedGuidance = question.rejectedGuidanceId ? state.guidanceItems.find((item) => item.id === question.rejectedGuidanceId) : null;
-  return `
-    <article class="guidance-pending-item">
-      <div>
-        <div class="guidance-meta">
-          <span>${escapeHtml(question.stage || "Sem etapa")}</span>
-          <span>${escapeHtml(ownerName(question.askedBy))}</span>
-          <span>${formatDateTime(question.createdAt)}</span>
-        </div>
-        <h4>${escapeHtml(question.question)}</h4>
-        ${question.clientName ? `<p>Cliente: ${escapeHtml(question.clientName)}</p>` : ""}
-        ${rejectedGuidance ? `<p>Não encontrou resposta em: ${escapeHtml(rejectedGuidance.title)}</p>` : ""}
-      </div>
-      ${
-        canManage
-          ? `<div class="inline-actions">
-              <button class="small-button" type="button" data-create-guidance-from-question="${question.id}"><i data-lucide="plus"></i> Criar orientação</button>
-              <button class="small-button" type="button" data-attach-guidance-question="${question.id}"><i data-lucide="link"></i> Adicionar a existente</button>
-              <button class="small-button" type="button" data-dismiss-guidance-question="${question.id}"><i data-lucide="check"></i> Resolver sem orientação</button>
-            </div>`
-          : `<span class="guidance-status">Pendente</span>`
-      }
-    </article>
-  `;
-}
-
-function renderGuidanceLibrary() {
-  const query = normalize(el.guidanceSearchInput.value);
-  const stage = el.guidanceStageFilter.value;
-  const statusFilter = currentUser.role === "admin" ? el.guidanceStatusFilter.value : "Publicada";
-  const baseForLibrary = guidanceLibraryBaseItems(statusFilter);
-  const rankedMatches = query ? guidanceMatches(query, baseForLibrary).filter((match) => match.score >= 8) : [];
-  const scoreByGuidanceId = new Map(rankedMatches.map((match) => [match.item.id, match.score]));
-  const baseItems = query
-    ? rankedMatches.map((match) => match.item)
-    : baseForLibrary;
-  const items = baseItems
-    .filter((item) => !stage || item.stage === stage)
-    .sort((a, b) =>
-      query
-        ? (scoreByGuidanceId.get(b.id) || 0) - (scoreByGuidanceId.get(a.id) || 0)
-        : Number(Boolean(b.important)) - Number(Boolean(a.important)) || new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0)
-    );
-
-  el.guidanceLibrary.innerHTML = items.length
-    ? items.map(renderGuidanceCard).join("")
-    : `<p class="empty-state">Nenhuma orientação cadastrada.</p>`;
-
-  bindGuidanceActions(el.guidanceLibrary);
-  refreshIcons();
-}
-
-function guidanceLibraryBaseItems(statusFilter = "") {
-  const items = currentUser.role === "admin" ? state.guidanceItems : state.guidanceItems.filter((item) => item.status === "Publicada");
-  if (currentUser.role !== "admin") return items;
-  if (statusFilter) return items.filter((item) => item.status === statusFilter);
-  return items.filter((item) => item.status !== "Arquivada");
-}
-
-function renderGuidanceCard(item) {
-  const canManage = currentUser.role === "admin";
-  return `
-    <article class="guidance-card ${item.important ? "important" : ""} status-${normalize(item.status)}">
-      <header>
-        <div>
-          <div class="guidance-meta">
-            <span>${escapeHtml(item.stage || "Sem etapa")}</span>
-            <span class="guidance-status-chip status-${normalize(item.status)}">${escapeHtml(item.status)}</span>
-            ${item.important ? `<span>Importante</span>` : ""}
-          </div>
-          <h3>${escapeHtml(item.title || "Orientação sem título")}</h3>
-        </div>
-        ${
-          canManage
-            ? `<div class="inline-actions">
-                <button class="small-button" type="button" data-edit-guidance="${item.id}"><i data-lucide="pencil"></i> Editar</button>
-                ${
-                  item.status === "Arquivada"
-                    ? `<button class="small-button" type="button" data-restore-guidance="${item.id}"><i data-lucide="rotate-ccw"></i> Restaurar</button>`
-                    : `<button class="small-button" type="button" data-archive-guidance="${item.id}"><i data-lucide="archive"></i> Arquivar</button>`
-                }
-              </div>`
-            : ""
-        }
-      </header>
-      <div class="guidance-card-body">
-        <section>
-          <strong>Situação</strong>
-          <p>${escapeHtml(item.situation || "Não informado.")}</p>
-        </section>
-        <section>
-          <strong>Conduta</strong>
-          <p>${escapeHtml(item.conduct || "Não informado.")}</p>
-        </section>
-        <section>
-          <strong>Quando chamar Mayssa</strong>
-          <p>${escapeHtml(item.whenCallMayssa || "Não informado.")}</p>
-        </section>
-        <section>
-          <strong>Não usar quando</strong>
-          <p>${escapeHtml(item.notUseWhen || "Não informado.")}</p>
-        </section>
-      </div>
-      ${item.examples ? `<p class="guidance-keywords"><strong>Exemplos:</strong> ${escapeHtml(item.examples)}</p>` : ""}
-      ${item.keywords ? `<p class="guidance-keywords"><strong>Termos:</strong> ${escapeHtml(item.keywords)}</p>` : ""}
-      <footer class="guidance-card-footer">
-        <span>${item.usageCount || 0} consulta(s)</span>
-        <span>${item.mismatchCount || 0} rejeição(ões)</span>
-        <span>${(item.versions || []).length} versão(ões)</span>
-      </footer>
-    </article>
-  `;
-}
-
-function answerGuidanceQuestion() {
-  const question = el.guidanceQuestionInput.value.trim();
-  if (!question) {
-    el.guidanceAnswer.innerHTML = `<p class="empty-state compact">Digite uma dúvida para buscar nas orientações.</p>`;
-    return;
-  }
-
-  const matches = guidanceMatches(question);
-  const candidates = matches.filter((match) => match.score >= 10).slice(0, 3);
-  el.guidanceAnswer.dataset.currentQuestion = question;
-  if (!candidates.length) {
-    el.guidanceAnswer.innerHTML = guidanceNoAnswerTemplate();
-    bindGuidanceNoAnswerButton(question);
-    refreshIcons();
-    return;
-  }
-  registerGuidanceUsage(candidates[0].item.id);
-
-  el.guidanceAnswer.innerHTML = `
-    <div class="guidance-results">
-      ${candidates.map((match, index) => renderGuidanceMatch(match, index)).join("")}
-    </div>
-  `;
-  bindGuidanceActions(el.guidanceAnswer);
-  refreshIcons();
-}
-
-function registerGuidanceUsage(guidanceId) {
-  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
-  if (!guidance) return;
-  guidance.usageCount = (guidance.usageCount || 0) + 1;
-  guidance.updatedAt = guidance.updatedAt || new Date().toISOString();
-  saveState();
-}
-
-function renderGuidanceMatch(match, index) {
-  const item = match.item;
-  const confidenceClass = guidanceConfidenceClass(match.score);
-  return `
-    <article class="guidance-answer-card ${index === 0 ? "best" : ""} ${confidenceClass}">
-      <div class="guidance-answer-top">
-        <span>${index === 0 ? "Melhor orientação encontrada" : "Orientação parecida"}</span>
-        <strong>${guidanceConfidenceLabel(match.score)}</strong>
-      </div>
-      ${confidenceClass === "confidence-low" ? `<p class="guidance-match-note">Correspondência baixa. Confira com cuidado; se não for isso, registre como pendência.</p>` : ""}
-      ${renderGuidanceCard(item)}
-      <div class="guidance-result-actions">
-        <button class="small-button" type="button" data-register-guidance-mismatch="${item.id}"><i data-lucide="message-circle-question"></i> Não era isso</button>
-      </div>
-    </article>
-  `;
-}
-
-function guidanceNoAnswerTemplate() {
-  return `
-    <article class="guidance-no-answer">
-      <h3>Nenhuma orientação segura encontrada.</h3>
-      <p>Registre essa dúvida como pendente para a Mayssa transformar em orientação depois.</p>
-      <div class="guidance-mini-form">
-        <select id="pendingGuidanceStage">
-          <option value="">Etapa, se souber</option>
-          ${guidanceStages().map((stage) => `<option value="${escapeAttr(stage)}">${escapeHtml(stage)}</option>`).join("")}
-        </select>
-        <input id="pendingGuidanceClient" type="text" placeholder="Cliente relacionado, se houver" />
-        <button id="savePendingGuidanceButton" class="primary-button" type="button"><i data-lucide="send"></i> Registrar pendência</button>
-      </div>
-    </article>
-  `;
-}
-
-function bindGuidanceNoAnswerButton(question) {
-  const button = document.getElementById("savePendingGuidanceButton");
-  if (!button) return;
-  bindGuidanceButton(button, () => savePendingGuidanceQuestion(question));
-}
-
-function bindGuidanceActions(scope = document) {
-  scope.querySelectorAll("[data-edit-guidance]").forEach((button) => {
-    bindGuidanceButton(button, () => openGuidanceDialog(button.dataset.editGuidance));
-  });
-  scope.querySelectorAll("[data-delete-guidance]").forEach((button) => {
-    bindGuidanceButton(button, () => archiveGuidanceItem(button.dataset.deleteGuidance));
-  });
-  scope.querySelectorAll("[data-archive-guidance]").forEach((button) => {
-    bindGuidanceButton(button, () => archiveGuidanceItem(button.dataset.archiveGuidance));
-  });
-  scope.querySelectorAll("[data-restore-guidance]").forEach((button) => {
-    bindGuidanceButton(button, () => restoreGuidanceItem(button.dataset.restoreGuidance));
-  });
-  scope.querySelectorAll("[data-create-guidance-from-question]").forEach((button) => {
-    bindGuidanceButton(button, () => openGuidanceDialog(null, button.dataset.createGuidanceFromQuestion));
-  });
-  scope.querySelectorAll("[data-dismiss-guidance-question]").forEach((button) => {
-    bindGuidanceButton(button, () => dismissGuidanceQuestion(button.dataset.dismissGuidanceQuestion));
-  });
-  scope.querySelectorAll("[data-attach-guidance-question]").forEach((button) => {
-    bindGuidanceButton(button, () => openAttachGuidanceQuestionDialog(button.dataset.attachGuidanceQuestion));
-  });
-  scope.querySelectorAll("[data-register-guidance-mismatch]").forEach((button) => {
-    bindGuidanceButton(button, () => registerGuidanceMismatch(button.dataset.registerGuidanceMismatch));
-  });
-}
-
-function bindGuidanceButton(button, handler) {
-  if (button.dataset.guidanceBound === "true") return;
-  button.dataset.guidanceBound = "true";
-  button.addEventListener("click", handler);
-}
-
-function guidanceMatches(question, items = guidancePublishedItems()) {
-  const queryTokens = guidanceTokens(question);
-  return items
-    .map((item) => ({ item, score: guidanceMatchScore(queryTokens, item) }))
-    .filter((match) => match.score > 0)
-    .sort((a, b) => b.score - a.score);
-}
-
-function guidancePublishedItems() {
-  return state.guidanceItems.filter((item) => item.status === "Publicada");
-}
-
-function guidanceMatchScore(queryTokens, item) {
-  const titleTokens = guidanceTokens(item.title);
-  const keywordTokens = guidanceTokens(item.keywords);
-  const exampleTokens = guidanceTokens(item.examples);
-  const bodyTokens = guidanceTokens([item.stage, item.situation, item.conduct, item.whenCallMayssa, item.notUseWhen].join(" "));
-  const allTokens = new Set([...titleTokens, ...keywordTokens, ...bodyTokens]);
-  return queryTokens.reduce((score, token) => {
-    if (exampleTokens.includes(token)) return score + 16;
-    if (keywordTokens.includes(token)) return score + 14;
-    if (titleTokens.includes(token)) return score + 10;
-    if (allTokens.has(token)) return score + 5;
-    if (guidanceTokenHasPartialMatch(token, exampleTokens)) return score + 10;
-    if (guidanceTokenHasPartialMatch(token, keywordTokens)) return score + 8;
-    if (guidanceTokenHasPartialMatch(token, titleTokens)) return score + 6;
-    if (guidanceTokenHasPartialMatch(token, bodyTokens)) return score + 3;
-    return score;
-  }, 0);
-}
-
-function guidanceTokenHasPartialMatch(token, tokens) {
-  if (token.length < 4) return false;
-  return tokens.some((candidate) => candidate.length >= 4 && (candidate.startsWith(token) || token.startsWith(candidate)));
-}
-
-function guidanceTokens(value) {
-  const ignored = new Set(["para", "como", "quando", "cliente", "fazer", "qual", "que", "com", "uma", "por", "dos", "das", "tem", "devo", "deve", "nao", "sim", "isso", "essa", "esse", "estou", "esta"]);
-  return normalize(value)
-    .split(/[^a-z0-9]+/i)
-    .map(canonicalGuidanceToken)
-    .filter((token) => token.length > 2 && !ignored.has(token));
-}
-
-function canonicalGuidanceToken(token) {
-  const aliases = {
-    atrasou: "atraso",
-    atrasada: "atraso",
-    atrasado: "atraso",
-    atrasados: "atraso",
-    cac: "ecac",
-    certidao: "cnd",
-    certidoes: "cnd",
-    cnds: "cnd",
-    documentacao: "documento",
-    documentos: "documento",
-    darf: "guia",
-    darfs: "guia",
-    emitiu: "emitir",
-    emitida: "emitir",
-    emitido: "emitir",
-    emitir: "emitir",
-    emissao: "emitir",
-    expirada: "vencimento",
-    expirado: "vencimento",
-    expirou: "vencimento",
-    guia: "guia",
-    guias: "guia",
-    pagamento: "pagamento",
-    pagamentos: "pagamento",
-    pagar: "pagamento",
-    pagou: "pagamento",
-    paga: "pagamento",
-    pago: "pagamento",
-    quitar: "pagamento",
-    quitou: "pagamento",
-    reemissao: "emitir",
-    reemitir: "emitir",
-    reemitiu: "emitir",
-    vencendo: "vencimento",
-    vencer: "vencimento",
-    venceu: "vencimento",
-    vencida: "vencimento",
-    vencidas: "vencimento",
-    vencido: "vencimento",
-    vencidos: "vencimento",
-    vencimento: "vencimento",
-    vencimentos: "vencimento",
-  };
-  const clean = aliases[token] || token;
-  if (clean.endsWith("s") && clean.length > 4) return clean.slice(0, -1);
-  return clean;
-}
-
-function guidanceConfidenceLabel(score) {
-  if (score >= 55) return "Correspondência alta";
-  if (score >= 28) return "Correspondência média";
-  return "Correspondência baixa";
-}
-
-function guidanceConfidenceClass(score) {
-  if (score >= 55) return "confidence-high";
-  if (score >= 28) return "confidence-medium";
-  return "confidence-low";
-}
-
-function savePendingGuidanceQuestion(question, options = {}) {
-  const now = new Date().toISOString();
-  const stage = options.stage ?? document.getElementById("pendingGuidanceStage")?.value ?? "";
-  const clientName = options.clientName ?? document.getElementById("pendingGuidanceClient")?.value.trim() ?? "";
-  const rejectedGuidanceId = options.rejectedGuidanceId || "";
-  const existing = state.guidanceQuestions.find(
-    (item) => item.status === "Pendente" && item.askedBy === currentUser.id && normalize(item.question) === normalize(question)
-  );
-  if (existing) {
-    existing.stage = stage || existing.stage;
-    existing.clientName = clientName || existing.clientName;
-    existing.rejectedGuidanceId = rejectedGuidanceId || existing.rejectedGuidanceId;
-    existing.rejectionCount = (existing.rejectionCount || 0) + (rejectedGuidanceId ? 1 : 0);
-    existing.updatedAt = now;
-    saveState();
-    el.guidanceAnswer.innerHTML = `<article class="guidance-saved"><i data-lucide="check-circle"></i><strong>Dúvida pendente atualizada para Mayssa.</strong></article>`;
-    renderGuidance();
-    renderUpdates();
-    refreshIcons();
-    return;
-  }
-  const newQuestion = normalizeGuidanceQuestion({
-    id: id(),
-    question,
-    stage,
-    clientName,
-    askedBy: currentUser.id,
-    status: "Pendente",
-    rejectedGuidanceId,
-    rejectionCount: rejectedGuidanceId ? 1 : 0,
-    createdAt: now,
-    updatedAt: now,
-  });
-  state.guidanceQuestions.unshift(newQuestion);
-  recordActivity("guidance", `Registrou dúvida pendente: ${truncateHistoryValue(question, 80)}.`, newQuestion.stage || "", { visibility: "admin" });
-  saveState();
-  el.guidanceAnswer.innerHTML = `<article class="guidance-saved"><i data-lucide="check-circle"></i><strong>Dúvida registrada para Mayssa.</strong></article>`;
-  renderGuidance();
-  renderUpdates();
-}
-
-function registerGuidanceMismatch(guidanceId) {
-  const question = el.guidanceAnswer.dataset.currentQuestion || el.guidanceQuestionInput.value.trim();
-  if (!question) return;
-  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
-  if (guidance) {
-    guidance.mismatchCount = (guidance.mismatchCount || 0) + 1;
-    saveState();
-  }
-  savePendingGuidanceQuestion(question, {
-    stage: guidance?.stage || "",
-    rejectedGuidanceId: guidanceId,
-  });
-}
-
-function guidancePendingQuestions() {
-  const pending = (state.guidanceQuestions || []).filter((question) => question.status === "Pendente");
-  return currentUser.role === "admin" ? pending : pending.filter((question) => question.askedBy === currentUser.id);
-}
-
-function openGuidanceDialog(guidanceId = null, questionId = null) {
-  if (currentUser.role !== "admin") return;
-  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
-  const question = state.guidanceQuestions.find((item) => item.id === questionId);
-  const draft = normalizeGuidanceItem(guidance || {
-    title: question ? truncateHistoryValue(question.question, 70) : "",
-    stage: question?.stage || "",
-    situation: question?.question || "",
-  });
-  openSimpleDialog(guidance ? "Editar orientação" : "Nova orientação", [
-    { label: "Título", name: "title", type: "text", value: draft.title },
-    { label: "Etapa", name: "stage", type: "select", value: draft.stage, options: guidanceStages().map((stage) => ({ value: stage, label: stage })) },
-    { label: "Status da orientação", name: "status", type: "select", value: draft.status, options: guidanceStatusValues().map((status) => ({ value: status, label: status })) },
-    { label: "Situação", name: "situation", type: "textarea", rows: 3, value: draft.situation },
-    { label: "Conduta", name: "conduct", type: "textarea", rows: 4, value: draft.conduct },
-    { label: "Quando chamar Mayssa", name: "whenCallMayssa", type: "textarea", rows: 3, value: draft.whenCallMayssa },
-    { label: "Não usar quando", name: "notUseWhen", type: "textarea", rows: 3, value: draft.notUseWhen },
-    { label: "Exemplos de perguntas", name: "examples", type: "textarea", rows: 3, value: draft.examples },
-    { label: "Palavras-chave e termos relacionados", name: "keywords", type: "textarea", rows: 2, value: draft.keywords },
-    { label: "Importante", name: "important", type: "select", value: draft.important ? "Sim" : "Não", options: ["Não", "Sim"].map((value) => ({ value, label: value })) },
-  ], (values) => {
-    if (!values.title || !values.conduct) {
-      alert("Informe pelo menos o título e a conduta.");
-      return false;
-    }
-    const now = new Date().toISOString();
-    const payload = normalizeGuidanceItem({
-      ...draft,
-      ...values,
-      important: values.important === "Sim",
-      updatedAt: now,
-      updatedBy: currentUser.id,
-      createdAt: draft.createdAt || now,
-      createdBy: draft.createdBy || currentUser.id,
-    });
-    if (guidance) {
-      Object.assign(guidance, payload, {
-        versions: [guidanceVersionSnapshot(guidance, now), ...(guidance.versions || [])].slice(0, 20),
-      });
-      recordActivity("guidance", `Atualizou orientação: ${payload.title}.`, payload.stage);
-    } else {
-      state.guidanceItems.unshift({ ...payload, createdAt: now, updatedAt: now, createdBy: currentUser.id, updatedBy: currentUser.id, versions: [] });
-      recordActivity("guidance", `Criou orientação: ${payload.title}.`, payload.stage);
-    }
-    if (question) {
-      question.status = "Virou orientação";
-      question.guidanceId = payload.id;
-      question.updatedAt = now;
-    }
-    saveState();
-    renderGuidance();
-    renderUpdates();
-  });
-}
-
-function guidanceVersionSnapshot(guidance, savedAt = new Date().toISOString()) {
-  return normalizeGuidanceVersion({
-    title: guidance.title,
-    stage: guidance.stage,
-    status: guidance.status,
-    situation: guidance.situation,
-    conduct: guidance.conduct,
-    whenCallMayssa: guidance.whenCallMayssa,
-    notUseWhen: guidance.notUseWhen,
-    examples: guidance.examples,
-    keywords: guidance.keywords,
-    important: guidance.important,
-    savedAt,
-    savedBy: guidance.updatedBy || guidance.createdBy || currentUser?.id || "",
-  });
-}
-
-function archiveGuidanceItem(guidanceId) {
-  if (currentUser.role !== "admin") return;
-  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
-  if (!guidance || guidance.status === "Arquivada") return;
-  if (!confirm(`Arquivar a orientação "${guidance.title}"? Ela sai das buscas, mas continua guardada.`)) return;
-  const now = new Date().toISOString();
-  guidance.versions = [guidanceVersionSnapshot(guidance, now), ...(guidance.versions || [])].slice(0, 20);
-  guidance.status = "Arquivada";
-  guidance.archivedAt = now;
-  guidance.updatedAt = now;
-  guidance.updatedBy = currentUser.id;
-  recordActivity("guidance", `Arquivou orientação: ${guidance.title}.`, guidance.stage);
-  saveState();
-  renderGuidance();
-  renderUpdates();
-}
-
-function restoreGuidanceItem(guidanceId) {
-  if (currentUser.role !== "admin") return;
-  const guidance = state.guidanceItems.find((item) => item.id === guidanceId);
-  if (!guidance || guidance.status !== "Arquivada") return;
-  const now = new Date().toISOString();
-  guidance.versions = [guidanceVersionSnapshot(guidance, now), ...(guidance.versions || [])].slice(0, 20);
-  guidance.status = "Publicada";
-  guidance.archivedAt = "";
-  guidance.updatedAt = now;
-  guidance.updatedBy = currentUser.id;
-  recordActivity("guidance", `Restaurou orientação: ${guidance.title}.`, guidance.stage);
-  saveState();
-  renderGuidance();
-  renderUpdates();
-}
-
-function deleteGuidanceItem(guidanceId) {
-  archiveGuidanceItem(guidanceId);
-}
-
-function openAttachGuidanceQuestionDialog(questionId) {
-  if (currentUser.role !== "admin") return;
-  const question = state.guidanceQuestions.find((item) => item.id === questionId);
-  if (!question) return;
-  const options = guidanceLibraryBaseItems("")
-    .filter((item) => item.status !== "Arquivada")
-    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"))
-    .map((item) => ({ value: item.id, label: `${item.title || "Orientação sem título"} (${item.stage || "Sem etapa"})` }));
-  if (!options.length) {
-    alert("Cadastre uma orientação antes de vincular essa dúvida.");
-    return;
-  }
-
-  openSimpleDialog("Adicionar dúvida a orientação", [
-    { label: "Dúvida", name: "question", type: "readonly", value: question.question },
-    { label: "Orientação existente", name: "guidanceId", type: "select", value: question.rejectedGuidanceId || options[0].value, options },
-  ], (values) => {
-    const guidance = state.guidanceItems.find((item) => item.id === values.guidanceId);
-    if (!guidance) return false;
-    const now = new Date().toISOString();
-    guidance.versions = [guidanceVersionSnapshot(guidance, now), ...(guidance.versions || [])].slice(0, 20);
-    guidance.examples = appendGuidanceExample(guidance.examples, question.question);
-    guidance.updatedAt = now;
-    guidance.updatedBy = currentUser.id;
-    question.status = "Adicionada à orientação";
-    question.guidanceId = guidance.id;
-    question.updatedAt = now;
-    recordActivity("guidance", `Adicionou dúvida à orientação: ${guidance.title}.`, guidance.stage);
-    saveState();
-    renderGuidance();
-    renderUpdates();
-  });
-}
-
-function appendGuidanceExample(existingExamples, newExample) {
-  const list = String(existingExamples || "")
-    .split(/\n+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  if (!list.some((item) => normalize(item) === normalize(newExample))) list.push(newExample.trim());
-  return list.join("\n");
-}
-
-function dismissGuidanceQuestion(questionId) {
-  if (currentUser.role !== "admin") return;
-  const question = state.guidanceQuestions.find((item) => item.id === questionId);
-  if (!question) return;
-  question.status = "Resolvida";
-  question.updatedAt = new Date().toISOString();
-  saveState();
-  renderGuidance();
-}
-
 function activityTypeLabel(type) {
   return {
     client: "Cliente",
@@ -2546,7 +1303,6 @@ function activityTypeLabel(type) {
     meeting: "Reunião",
     deadline: "Prazo",
     monthly: "Mensal",
-    guidance: "Orientação",
     finance: "Financeiro",
     history: "Histórico",
   }[type] || "Atualização";
@@ -2561,10 +1317,24 @@ function activityIcon(type) {
     meeting: "users-round",
     deadline: "calendar-clock",
     monthly: "calendar-check",
-    guidance: "book-open-check",
     finance: "banknote",
     history: "file-clock",
   }[type] || "bell";
+}
+
+function activityActorLabel(activity) {
+  const actor = ownerName(activity.actorId);
+  if (["task", "deadline"].includes(activity.type)) {
+    const title = normalize(activity.title);
+    if (title.startsWith("criou")) return `Criada por ${actor}`;
+    if (title.startsWith("atualizou") || title.startsWith("alterou")) return `Alterada por ${actor}`;
+  }
+  return `Por ${actor}`;
+}
+
+function activityResponsibleLabel(activity) {
+  if (!["task", "deadline", "meeting"].includes(activity.type) || !activity.ownerId) return "";
+  return `Responsável: ${ownerName(activity.ownerId)}`;
 }
 
 function renderTaskPeriodControls() {
@@ -2681,6 +1451,7 @@ function bindTaskCenterActions() {
         task.updatedAt = new Date().toISOString();
         recordActivity("task", `Alterou tarefa interna: ${task.title || "Tarefa sem título"}.`, `Status: ${select.value}.`, {
           internalTaskId: task.id,
+          ownerId: task.ownerId,
           visibility: task.visibility,
         });
         saveState();
@@ -2703,6 +1474,7 @@ function bindTaskCenterActions() {
       recordActivity("task", `Alterou tarefa em ${client.clientName || "cliente"}.`, `${task.title || "Tarefa sem título"}: ${oldStatus} -> ${select.value}.`, {
         clientId: client.id,
         clientName: client.clientName,
+        ownerId: task.ownerId,
       });
       saveState();
       renderMetrics();
@@ -2722,6 +1494,7 @@ function bindTaskCenterActions() {
       if (task) {
         recordActivity("task", `Removeu tarefa interna: ${task.title || "Tarefa sem título"}.`, "", {
           internalTaskId: task.id,
+          ownerId: task.ownerId,
           visibility: task.visibility,
         });
       }
@@ -2940,10 +1713,6 @@ function taskOwnerClass(userId) {
   return "owner-other";
 }
 
-function destinationLabel(client = {}) {
-  return client.destination || "Obra sem destinação informada";
-}
-
 function renderClients() {
   const clients = filteredClients();
   el.listView.hidden = activeViewMode !== "list";
@@ -2963,235 +1732,6 @@ function renderClients() {
   refreshIcons();
 }
 
-function groupedActivitiesByDay(activities) {
-  return activities.reduce((groups, activity) => {
-    const key = activityDayKey(activity.createdAt);
-    const existing = groups.find(([day]) => day === key);
-    if (existing) existing[1].push(activity);
-    else groups.push([key, [activity]]);
-    return groups;
-  }, []);
-}
-
-function updateDayGroup(day, activities) {
-  return `
-    <section class="update-day-group">
-      <div class="update-day-heading">
-        <h3>${escapeHtml(activityDayLabel(day))}</h3>
-        <span>${activities.length} atualização${activities.length > 1 ? "ões" : ""}</span>
-      </div>
-      <div class="update-day-timeline">
-        ${activities.map(updateTimelineItem).join("")}
-      </div>
-    </section>
-  `;
-}
-
-function updateTimelineItem(activity) {
-  const unread = !activityIsRead(activity);
-  const displayType = activityDisplayType(activity);
-  const priorityClass = priorityActivityTypes().includes(displayType) ? "update-priority" : "";
-  return `
-    <article class="update-item ${unread ? "unread" : ""} ${priorityClass} update-type-${displayType}" data-activity="${activity.id}">
-      <div class="update-time">
-        <strong>${activityTimeLabel(activity.createdAt)}</strong>
-        ${unread ? `<span>Nova</span>` : ""}
-      </div>
-      <div class="update-icon"><i data-lucide="${activityIcon(displayType)}"></i></div>
-      <div class="update-content">
-        <div class="update-meta">
-          <span class="update-type-pill">${escapeHtml(activityTypeLabel(displayType))}</span>
-          <span><i data-lucide="user-round"></i>${escapeHtml(ownerName(activity.actorId))}</span>
-          ${activity.clientName ? `<span><i data-lucide="folder-open"></i>${escapeHtml(activity.clientName)}</span>` : ""}
-        </div>
-        <h3>${escapeHtml(activity.title)}</h3>
-        ${activity.detail ? `<p>${escapeHtml(activity.detail)}</p>` : ""}
-      </div>
-      <div class="inline-actions update-actions">
-        ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
-        ${
-          unread
-            ? `<button class="small-button" type="button" data-mark-activity-read="${activity.id}"><i data-lucide="check"></i> Marcar lida</button>`
-            : ""
-        }
-      </div>
-    </article>
-  `;
-}
-
-function activityDisplayType(activity = {}) {
-  const text = normalize([activity.title, activity.detail].join(" "));
-  if (activity.type === "monthly" || text.includes("controle mensal") || text.includes("acompanhamento mensal")) return "monthly";
-  return activity.type || "client";
-}
-
-function priorityActivityTypes() {
-  return ["note", "task", "deadline", "monthly"];
-}
-
-function matchesActivityPeriod(activity, periodFilter) {
-  if (!periodFilter) return true;
-  const date = new Date(activity.createdAt);
-  if (Number.isNaN(date.getTime())) return false;
-  const today = new Date();
-  if (periodFilter === "today") return activityDayKey(date) === activityDayKey(today);
-  if (periodFilter === "week") {
-    const start = new Date(today);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - 6);
-    return date >= start;
-  }
-  return true;
-}
-
-function activityDayKey(dateValue) {
-  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return "Sem data";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function activityDayLabel(dayKey) {
-  if (dayKey === "Sem data") return dayKey;
-  const today = activityDayKey(new Date());
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = activityDayKey(yesterday);
-  if (dayKey === today) return "Hoje";
-  if (dayKey === yesterdayKey) return "Ontem";
-  return formatDate(dayKey);
-}
-
-function activityTimeLabel(dateValue) {
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return "--:--";
-  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-}
-
-function regularizationStatusOptions() {
-  return ["Em análise", "Documentos pendentes", "Em andamento", "Aguardando cliente", "Finalizado"];
-}
-
-function renderRegularizationClients() {
-  const processes = filteredRegularizationClients();
-  el.regularizationList.innerHTML = processes.length
-    ? processes.map(renderRegularizationCard).join("")
-    : `<p class="empty-state">Nenhum processo de regularização cadastrado.</p>`;
-
-  document.querySelectorAll("[data-edit-regularization]").forEach((button) => {
-    button.addEventListener("click", () => openRegularizationDialog(button.dataset.editRegularization));
-  });
-  document.querySelectorAll("[data-delete-regularization]").forEach((button) => {
-    button.addEventListener("click", () => deleteRegularizationProcess(button.dataset.deleteRegularization));
-  });
-  refreshIcons();
-}
-
-function filteredRegularizationClients() {
-  const query = normalize(el.regularizationSearchInput.value);
-  return [...state.regularizationClients]
-    .filter((process) => {
-      const haystack = normalize([
-        process.clientName,
-        process.propertyType,
-        process.cityState,
-        process.address,
-        process.registryNumber,
-        process.status,
-        process.nextAction,
-        process.notes,
-      ].join(" "));
-      return !query || haystack.includes(query);
-    })
-    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
-}
-
-function renderRegularizationCard(process) {
-  const isFinished = normalize(process.status) === "finalizado";
-  const details = [process.propertyType, process.cityState].filter(Boolean).join(" | ");
-  return `
-    <article class="regularization-card ${isFinished ? "finished" : ""}">
-      <header>
-        <div>
-          <h3>${escapeHtml(process.clientName || "Cliente sem nome")}</h3>
-          <p>${escapeHtml(details || "Imóvel sem detalhe informado")}</p>
-        </div>
-        <span class="regularization-status">${escapeHtml(process.status || "Em análise")}</span>
-      </header>
-      <div class="card-meta">
-        <span><i data-lucide="map-pin"></i>${escapeHtml(process.address || "Endereço não informado")}</span>
-        <span><i data-lucide="file-text"></i>${escapeHtml(process.registryNumber || "Matrícula não informada")}</span>
-      </div>
-      <p>${escapeHtml(process.nextAction || "Sem próxima ação registrada.")}</p>
-      ${process.notes ? `<p class="regularization-note">${escapeHtml(process.notes)}</p>` : ""}
-      <footer class="regularization-actions">
-        <small>Atualizado em ${formatDateTime(process.updatedAt || process.createdAt)}</small>
-        <span class="inline-actions">
-          <button class="small-button" type="button" data-edit-regularization="${process.id}"><i data-lucide="pencil"></i> Editar</button>
-          <button class="icon-button danger-icon" type="button" data-delete-regularization="${process.id}" aria-label="Remover processo"><i data-lucide="trash-2"></i></button>
-        </span>
-      </footer>
-    </article>
-  `;
-}
-
-function openRegularizationDialog(processId = null) {
-  const process = state.regularizationClients.find((item) => item.id === processId);
-  const current = normalizeRegularizationClient(process || {});
-  openSimpleDialog(process ? "Editar regularização" : "Novo processo de regularização", [
-    { label: "Nome do cliente", name: "clientName", type: "text", value: current.clientName },
-    { label: "Tipo de imóvel", name: "propertyType", type: "text", value: current.propertyType },
-    { label: "Cidade/Estado", name: "cityState", type: "text", value: current.cityState },
-    { label: "Endereço", name: "address", type: "text", value: current.address },
-    { label: "Matrícula", name: "registryNumber", type: "text", value: current.registryNumber },
-    {
-      label: "Status",
-      name: "status",
-      type: "select",
-      value: current.status,
-      options: regularizationStatusOptions().map((status) => ({ value: status, label: status })),
-    },
-    { label: "Próxima ação", name: "nextAction", type: "textarea", rows: 3, value: current.nextAction },
-    { label: "Observações", name: "notes", type: "textarea", rows: 3, value: current.notes },
-  ], (values) => {
-    if (!values.clientName) {
-      alert("Informe o nome do cliente para salvar o processo.");
-      return false;
-    }
-    const now = new Date().toISOString();
-    const payload = normalizeRegularizationClient({
-      ...current,
-      ...values,
-      updatedAt: now,
-      createdAt: current.createdAt || now,
-    });
-    if (process) {
-      Object.assign(process, payload);
-      recordActivity("client", `Atualizou regularização: ${payload.clientName}.`, payload.status);
-    } else {
-      state.regularizationClients.unshift({ ...payload, id: id(), createdAt: now, updatedAt: now });
-      recordActivity("client", `Criou regularização: ${payload.clientName}.`, payload.status);
-    }
-    saveState();
-    renderRegularizationClients();
-    renderUpdates();
-  });
-}
-
-function deleteRegularizationProcess(processId) {
-  const process = state.regularizationClients.find((item) => item.id === processId);
-  if (!process) return;
-  const confirmed = confirm(`Excluir o processo de regularização de ${process.clientName || "cliente"}?`);
-  if (!confirmed) return;
-  state.regularizationClients = state.regularizationClients.filter((item) => item.id !== processId);
-  recordActivity("client", `Removeu regularização: ${process.clientName || "Cliente sem nome"}.`, "");
-  saveState();
-  renderRegularizationClients();
-  renderUpdates();
-}
-
 function filteredClients() {
   const query = normalize(el.searchInput.value);
   const statusId = el.statusFilter.value;
@@ -3201,8 +1741,6 @@ function filteredClients() {
       client.fullName,
       client.cpf,
       client.phone,
-      client.destination,
-      client.workType,
       client.infoOwner,
       client.workResponsible,
       client.folderPath,
@@ -3243,7 +1781,7 @@ function renderClientCard(client) {
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
   const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
-  const workSubtitle = `${workTitle}${destinationLabel(client)}`;
+  const workSubtitle = `${workTitle}${client.destination || "Obra sem destinação informada"}`;
   const workDetails = [client.state, client.area].filter(Boolean).join(" | ");
   return `
     <button class="client-card ${completionClass}" type="button" data-open-client="${client.id}">
@@ -3264,6 +1802,9 @@ function renderClientCard(client) {
           ${deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"}
         </span>
       </div>
+      <div class="card-meta">
+        <span><i data-lucide="user"></i>${escapeHtml(ownerName(client.internalOwner))}</span>
+      </div>
       <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
     </button>
   `;
@@ -3275,6 +1816,7 @@ function renderCompactClients(clients) {
       <div class="compact-client-head">
         <span>Cliente e obra</span>
         <span>Status</span>
+        <span>Responsável</span>
         <span>Pendências</span>
       </div>
       ${clients.map((client) => renderCompactClientRow(client)).join("")}
@@ -3287,7 +1829,7 @@ function renderCompactClientRow(client) {
   const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
   const deadlines = client.deadlines || [];
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
-  const workLine = [destinationLabel(client), client.state, client.area].filter(Boolean).join(" | ");
+  const workLine = [client.destination || "Obra sem destinação informada", client.state, client.area].filter(Boolean).join(" | ");
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
       <span class="compact-client-main">
@@ -3295,6 +1837,7 @@ function renderCompactClientRow(client) {
         <small>${escapeHtml(`${workTitle}${workLine}`)}</small>
       </span>
       <span class="compact-client-status">${statuses || `<span class="chip neutral">Sem status</span>`}</span>
+      <span>${escapeHtml(ownerName(client.internalOwner))}</span>
       <span>${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)</span>
     </button>
   `;
@@ -3339,7 +1882,6 @@ function openClient(client) {
   el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
   renderUserSelects();
   fillClientFields();
-  renderDestinationOptions();
   renderActiveStatuses();
   renderStatusPicker();
   renderMonthlyTable();
@@ -3360,20 +1902,6 @@ function fillClientFields() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = activeClient[input.dataset.field] || "";
   });
-}
-
-function renderDestinationOptions() {
-  const selected = new Set(destinationList(activeClient.destination));
-  document.querySelectorAll("[data-destination-option]").forEach((input) => {
-    input.checked = selected.has(input.value);
-  });
-}
-
-function syncDestinationOptions() {
-  if (!activeClient) return;
-  activeClient.destination = Array.from(document.querySelectorAll("[data-destination-option]:checked"))
-    .map((input) => input.value)
-    .join(" + ");
 }
 
 function renderInssReduction() {
@@ -4012,6 +2540,8 @@ function recordClientChangeActivities(previousClient, nextClient, changes) {
   const changedTasks = changedCollectionItems(previousClient.tasks, nextClient.tasks);
   const addedDeadlines = addedCollectionItems(previousClient.deadlines, nextClient.deadlines);
   const changedDeadlines = changedCollectionItems(previousClient.deadlines, nextClient.deadlines);
+  const addedMonthly = addedCollectionItems(previousClient.monthly, nextClient.monthly);
+  const changedMonthly = changedCollectionItems(previousClient.monthly, nextClient.monthly);
   const addedHistory = addedCollectionItems(previousClient.history, nextClient.history).filter((entry) => entry.type === "manual");
   const addedFinanceMessages = addedCollectionItems(previousClient.financeMessages, nextClient.financeMessages);
   const previousStatuses = new Set(previousClient.statusIds || []);
@@ -4021,16 +2551,22 @@ function recordClientChangeActivities(previousClient, nextClient, changes) {
     recordActivity("note", `Adicionou anotação em ${context.clientName}.`, truncateHistoryValue(note.text || "Anotação sem texto", 120), context);
   });
   addedTasks.forEach((task) => {
-    recordActivity("task", `Criou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", context);
+    recordActivity("task", `Criou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", { ...context, ownerId: task.ownerId });
   });
   changedTasks.forEach((task) => {
-    recordActivity("task", `Atualizou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", context);
+    recordActivity("task", `Atualizou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", { ...context, ownerId: task.ownerId });
   });
   addedDeadlines.forEach((deadline) => {
-    recordActivity("deadline", `Criou prazo em ${context.clientName}.`, `${deadline.title || "Prazo sem título"}${deadline.date ? ` | ${formatDate(deadline.date)}` : ""}`, context);
+    recordActivity("deadline", `Criou prazo em ${context.clientName}.`, `${deadline.title || "Prazo sem título"}${deadline.date ? ` | ${formatDate(deadline.date)}` : ""}`, { ...context, ownerId: deadline.ownerId });
   });
   changedDeadlines.forEach((deadline) => {
-    recordActivity("deadline", `Atualizou prazo em ${context.clientName}.`, `${deadline.title || "Prazo sem título"}${deadline.date ? ` | ${formatDate(deadline.date)}` : ""}`, context);
+    recordActivity("deadline", `Atualizou prazo em ${context.clientName}.`, `${deadline.title || "Prazo sem título"}${deadline.date ? ` | ${formatDate(deadline.date)}` : ""}`, { ...context, ownerId: deadline.ownerId });
+  });
+  addedMonthly.forEach((row) => {
+    recordActivity("monthly", `Criou controle mensal em ${context.clientName}.`, monthlyActivityDetail(row), context);
+  });
+  changedMonthly.forEach((row) => {
+    recordActivity("monthly", `Atualizou mensal em ${context.clientName}.`, monthlyActivityDetail(row), context);
   });
   addedHistory.forEach((entry) => {
     recordActivity("history", `Registrou histórico em ${context.clientName}.`, truncateHistoryValue((entry.details || []).join(" "), 120), context);
@@ -4051,6 +2587,8 @@ function recordClientChangeActivities(previousClient, nextClient, changes) {
     changedTasks.length ||
     addedDeadlines.length ||
     changedDeadlines.length ||
+    addedMonthly.length ||
+    changedMonthly.length ||
     addedHistory.length ||
     addedFinanceMessages.length ||
     !sameIds(previousClient.statusIds, nextClient.statusIds);
@@ -4076,6 +2614,10 @@ function sameIds(first = [], second = []) {
 
 function statusName(statusId) {
   return state.statuses.find((status) => status.id === statusId)?.name || "Status";
+}
+
+function monthlyActivityDetail(row = {}) {
+  return row.month ? `Competência ${row.month}` : "Competência sem data";
 }
 
 function summarizeClientChanges(previousClient, nextClient) {
@@ -4454,6 +2996,7 @@ function openInternalTaskDialog(taskId = null) {
       Object.assign(task, payload);
       recordActivity("task", `Atualizou tarefa interna: ${task.title || "Tarefa sem título"}.`, task.description || "", {
         internalTaskId: task.id,
+        ownerId: task.ownerId,
         visibility: task.visibility,
       });
     } else {
@@ -4466,6 +3009,7 @@ function openInternalTaskDialog(taskId = null) {
       state.internalTasks.unshift(newTask);
       recordActivity("task", `Criou tarefa interna: ${newTask.title}.`, newTask.description || "", {
         internalTaskId: newTask.id,
+        ownerId: newTask.ownerId,
         visibility: newTask.visibility,
       });
     }
@@ -4507,7 +3051,9 @@ function openMeetingDialog(meetingId = null) {
 
     if (meeting) {
       Object.assign(meeting, payload);
-      recordActivity("meeting", `Atualizou reunião: ${meeting.title}.`, meeting.description || "");
+      recordActivity("meeting", `Atualizou reunião: ${meeting.title}.`, meeting.description || "", {
+        ownerId: meeting.ownerId,
+      });
     } else {
       const newMeeting = {
         id: id(),
@@ -4516,7 +3062,9 @@ function openMeetingDialog(meetingId = null) {
         createdAt: new Date().toISOString(),
       };
       state.meetings.unshift(newMeeting);
-      recordActivity("meeting", `Criou reunião: ${newMeeting.title}.`, newMeeting.description || "");
+      recordActivity("meeting", `Criou reunião: ${newMeeting.title}.`, newMeeting.description || "", {
+        ownerId: newMeeting.ownerId,
+      });
     }
 
     saveState();
@@ -4577,7 +3125,6 @@ function switchSection(sectionId) {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sectionId);
   });
-  el.newClientButton.hidden = sectionId !== "clientsSection";
   if (sectionId === "tasksSection") markNewTaskActivitiesRead();
 }
 
@@ -4776,26 +3323,6 @@ function deadlineTypeValues() {
   return ["Guia", "Receita", "Cliente", "Interno", "NF", "Outro"];
 }
 
-function destinationValues() {
-  return [
-    "Residencial unifamiliar",
-    "Residencial multifamiliar",
-    "Comercial salas e lojas",
-    "Galpão industrial",
-    "Casa popular",
-    "Conjunto habitacional popular",
-    "Edifício de garagens",
-  ];
-}
-
-function destinationList(value) {
-  if (Array.isArray(value)) return value.map((item) => normalizeSelectValue(item, destinationValues())).filter(Boolean);
-  return String(value || "")
-    .split(/\s*\+\s*|\s*,\s*/)
-    .map((item) => normalizeSelectValue(item, destinationValues()))
-    .filter(Boolean);
-}
-
 function documentStatusOptions(selected = "Pendente") {
   return ["Pendente", "Recebido", "Aprovado", "Inválido", "Não possui"]
     .map((value) => `<option value="${value}" ${selected === value ? "selected" : ""}>${value}</option>`)
@@ -4929,8 +3456,15 @@ function normalizeClientSelectValues(client) {
     construcao: "Alvenaria",
     construção: "Alvenaria",
   };
-  const rawDestination = destinationAliases[normalize(client.destination)] || client.destination;
-  client.destination = destinationList(rawDestination).join(" + ");
+  client.destination = normalizeSelectValue(destinationAliases[normalize(client.destination)] || client.destination, [
+    "Residencial unifamiliar",
+    "Residencial multifamiliar",
+    "Comercial salas e lojas",
+    "Galpão industrial",
+    "Casa popular",
+    "Conjunto habitacional popular",
+    "Edifício de garagens",
+  ]);
   client.workType = normalizeSelectValue(workTypeAliases[normalize(client.workType)] || client.workType, ["Alvenaria", "Madeira ou mista"]);
   client.concrete = normalizeSelectValue(client.concrete, ["Sim", "Não"]);
   client.state = normalizeSelectValue(String(client.state || "").toUpperCase(), brazilianStates());

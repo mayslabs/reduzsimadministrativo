@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=73" />
+    <link rel="stylesheet" href="./styles.css?v=62" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -42,8 +42,7 @@
           </div>
         </div>
         <nav class="side-nav" aria-label="Navegação principal">
-          <button class="nav-item active" data-section="clientsSection"><i data-lucide="building-2"></i> INSS de obras</button>
-          <button class="nav-item" data-section="regularizationSection"><i data-lucide="home"></i> Regularização de imóvel</button>
+          <button class="nav-item active" data-section="clientsSection"><i data-lucide="layout-dashboard"></i> Painel</button>
           <button class="nav-item tasks-nav-item" data-section="tasksSection">
             <i data-lucide="list-checks"></i>
             <span>Tarefas</span>
@@ -53,8 +52,6 @@
             </span>
           </button>
           <button class="nav-item updates-nav-item" data-section="updatesSection"><i data-lucide="bell"></i> Atualizações <span id="updatesUnreadBadge" class="nav-badge" hidden></span></button>
-          <button class="nav-item" data-section="guidanceSection"><i data-lucide="book-open-check"></i> Orientações</button>
-          <button class="nav-item" data-section="dataSection"><i data-lucide="chart-column"></i> Dados</button>
           <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuários</button>
           <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
         </nav>
@@ -88,32 +85,13 @@
               <option value="finished">Obras finalizadas</option>
             </select>
             <div class="segmented-control" role="group" aria-label="Modo de visualização">
-              <button id="listModeButton" class="active" type="button"><i data-lucide="layout-grid"></i> Card</button>
+              <button id="listModeButton" class="active" type="button"><i data-lucide="list"></i> Lista</button>
               <button id="compactModeButton" type="button"><i data-lucide="rows-3"></i> Compacta</button>
             </div>
           </div>
 
           <div id="listView" class="client-grid"></div>
           <div id="compactView" class="compact-client-list" hidden></div>
-        </section>
-
-        <section id="regularizationSection" class="app-section" hidden>
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Processos independentes</p>
-              <h2>Regularização de imóvel</h2>
-            </div>
-            <button id="newRegularizationButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo processo</button>
-          </div>
-
-          <div class="toolbar regularization-toolbar">
-            <label class="search-field">
-              <i data-lucide="search"></i>
-              <input id="regularizationSearchInput" type="search" placeholder="Buscar cliente, imóvel, matrícula ou status" />
-            </label>
-          </div>
-
-          <div id="regularizationList" class="regularization-grid"></div>
         </section>
 
         <section id="tasksSection" class="app-section" hidden>
@@ -172,6 +150,8 @@
             <button id="markAllUpdatesReadButton" class="secondary-button" type="button"><i data-lucide="check-check"></i> Marcar todas como lidas</button>
           </div>
 
+          <div id="updatesSummary" class="updates-summary" aria-live="polite"></div>
+
           <div class="toolbar updates-toolbar">
             <label class="search-field">
               <i data-lucide="search"></i>
@@ -180,11 +160,6 @@
             <select id="updatesReadFilter" aria-label="Filtrar atualizações lidas">
               <option value="">Todas</option>
               <option value="unread">Não lidas</option>
-            </select>
-            <select id="updatesPeriodFilter" aria-label="Filtrar atualizações por período">
-              <option value="">Todo período</option>
-              <option value="today">Hoje</option>
-              <option value="week">Esta semana</option>
             </select>
             <select id="updatesUserFilter" aria-label="Filtrar atualizações por usuário"></select>
             <select id="updatesTypeFilter" aria-label="Filtrar atualizações por tipo">
@@ -196,83 +171,12 @@
               <option value="meeting">Reunião</option>
               <option value="deadline">Prazo</option>
               <option value="monthly">Mensal</option>
-              <option value="guidance">Orientação</option>
               <option value="finance">Financeiro</option>
               <option value="history">Histórico</option>
             </select>
           </div>
 
           <div id="updatesList" class="updates-list"></div>
-        </section>
-
-        <section id="guidanceSection" class="app-section" hidden>
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Base interna</p>
-              <h2>Orientações</h2>
-            </div>
-            <button id="addGuidanceButton" class="primary-button" type="button"><i data-lucide="plus"></i> Nova orientação</button>
-          </div>
-
-          <div class="guidance-question-panel">
-            <label>O que você precisa decidir?
-              <div class="guidance-question-row">
-                <input id="guidanceQuestionInput" type="text" placeholder="Digite a dúvida e pressione Enter" />
-                <button id="searchGuidanceButton" class="primary-button" type="button"><i data-lucide="search"></i> Buscar</button>
-              </div>
-            </label>
-            <div id="guidanceAnswer" class="guidance-answer"></div>
-          </div>
-
-          <div id="guidancePendingPanel" class="guidance-pending-panel"></div>
-
-          <div class="toolbar guidance-toolbar">
-            <label class="search-field">
-              <i data-lucide="search"></i>
-              <input id="guidanceSearchInput" type="search" placeholder="Buscar orientação, etapa ou palavra-chave" />
-            </label>
-            <select id="guidanceStageFilter" aria-label="Filtrar orientações por etapa"></select>
-            <select id="guidanceStatusFilter" aria-label="Filtrar orientações por status"></select>
-          </div>
-
-          <div id="guidanceLibrary" class="guidance-library"></div>
-        </section>
-
-        <section id="dataSection" class="app-section" hidden>
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">INSS de obras</p>
-              <h2>Dados</h2>
-            </div>
-          </div>
-
-          <div class="toolbar data-toolbar">
-            <select id="dataPeriodFilter" aria-label="Filtrar dados por período">
-              <option value="">Todo período</option>
-              <option value="month">Este mês</option>
-              <option value="year">Este ano</option>
-              <option value="last12">Últimos 12 meses</option>
-            </select>
-            <select id="dataWorkStatusFilter" aria-label="Filtrar dados por situação da obra">
-              <option value="">Ativas e finalizadas</option>
-              <option value="active">Somente ativas</option>
-              <option value="finished">Somente finalizadas</option>
-            </select>
-            <select id="dataStateFilter" aria-label="Filtrar dados por estado"></select>
-            <select id="dataDestinationFilter" aria-label="Filtrar dados por destinação"></select>
-            <select id="dataDocumentFilter" aria-label="Filtrar dados por PF ou PJ">
-              <option value="">PF e PJ</option>
-              <option value="PF">PF</option>
-              <option value="PJ">PJ</option>
-            </select>
-            <select id="dataOriginFilter" aria-label="Filtrar dados por origem"></select>
-            <button id="exportDataButton" class="secondary-button" type="button"><i data-lucide="download"></i> Exportar CSV</button>
-          </div>
-
-          <div id="dataSummary" class="data-summary-grid"></div>
-          <div id="dataQualityPanel" class="data-quality-panel"></div>
-          <div id="dataPanels" class="data-panels"></div>
-          <div id="dataDrilldown" class="data-drilldown"></div>
         </section>
 
         <section id="statusSection" class="app-section" hidden>
@@ -347,6 +251,7 @@
           <div class="summary-layout">
             <div class="field-stack">
               <label>Nome do cliente<input data-field="clientName" type="text" /></label>
+              <label>Responsável interno<select data-field="internalOwner"></select></label>
               <label>Próxima ação<textarea data-field="nextAction" rows="3"></textarea></label>
             </div>
             <div>
@@ -386,16 +291,18 @@
               </select>
             </label>
             <label>Responsável da obra<input data-field="workResponsible" type="text" /></label>
-            <fieldset class="checkbox-field destination-field">
-              <legend>Destinação</legend>
-              <label><input type="checkbox" data-destination-option value="Residencial unifamiliar" /> Residencial unifamiliar</label>
-              <label><input type="checkbox" data-destination-option value="Residencial multifamiliar" /> Residencial multifamiliar</label>
-              <label><input type="checkbox" data-destination-option value="Comercial salas e lojas" /> Comercial salas e lojas</label>
-              <label><input type="checkbox" data-destination-option value="Galpão industrial" /> Galpão industrial</label>
-              <label><input type="checkbox" data-destination-option value="Casa popular" /> Casa popular</label>
-              <label><input type="checkbox" data-destination-option value="Conjunto habitacional popular" /> Conjunto habitacional popular</label>
-              <label><input type="checkbox" data-destination-option value="Edifício de garagens" /> Edifício de garagens</label>
-            </fieldset>
+            <label>Destinação
+              <select data-field="destination">
+                <option value="">-- Selecione --</option>
+                <option value="Residencial unifamiliar">Residencial unifamiliar</option>
+                <option value="Residencial multifamiliar">Residencial multifamiliar</option>
+                <option value="Comercial salas e lojas">Comercial salas e lojas</option>
+                <option value="Galpão industrial">Galpão industrial</option>
+                <option value="Casa popular">Casa popular</option>
+                <option value="Conjunto habitacional popular">Conjunto habitacional popular</option>
+                <option value="Edifício de garagens">Edifício de garagens</option>
+              </select>
+            </label>
             <label>Tipo de obra
               <select data-field="workType">
                 <option value="">-- Selecione --</option>
@@ -631,6 +538,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=73"></script>
+    <script src="./app.js?v=62"></script>
   </body>
 </html>
