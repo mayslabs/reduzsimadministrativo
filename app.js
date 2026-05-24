@@ -238,8 +238,11 @@ let activeTaskCalendarMode = "week";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
 let updatesImportantOnly = false;
+let taskMineOnly = false;
 const expandedUpdateIds = new Set();
 const collapsedUpdateDays = new Set();
+const expandedTaskCardIds = new Set();
+const expandedCompletedTaskGroups = new Set();
 let firebaseApp = null;
 let firebaseAuth = null;
 let firebaseDb = null;
@@ -262,6 +265,7 @@ const el = {
   newClientButton: document.getElementById("newClientButton"),
   newRegularizationButton: document.getElementById("newRegularizationButton"),
   metricsGrid: document.getElementById("metricsGrid"),
+  quickInternalTaskButton: document.getElementById("quickInternalTaskButton"),
   addInternalTaskButton: document.getElementById("addInternalTaskButton"),
   addMeetingButton: document.getElementById("addMeetingButton"),
   taskOverview: document.getElementById("taskOverview"),
@@ -269,11 +273,13 @@ const el = {
   nextTaskPeriodButton: document.getElementById("nextTaskPeriodButton"),
   todayTaskButton: document.getElementById("todayTaskButton"),
   taskPeriodLabel: document.getElementById("taskPeriodLabel"),
+  taskDayModeButton: document.getElementById("taskDayModeButton"),
   taskWeekModeButton: document.getElementById("taskWeekModeButton"),
   taskMonthModeButton: document.getElementById("taskMonthModeButton"),
   taskSearchInput: document.getElementById("taskSearchInput"),
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
   taskStatusFilter: document.getElementById("taskStatusFilter"),
+  taskMineFilterButton: document.getElementById("taskMineFilterButton"),
   taskCenterList: document.getElementById("taskCenterList"),
   tasksTodayBadge: document.getElementById("tasksTodayBadge"),
   tasksNewBadge: document.getElementById("tasksNewBadge"),
@@ -597,6 +603,7 @@ function normalizeInternalTask(task) {
     ownerId: task.ownerId || "",
     dueDate: task.dueDate || "",
     status: localizeLabel(task.status || "Pendente"),
+    priority: normalizeTaskPriority(task.priority),
     visibility: task.visibility === "admin" ? "admin" : "team",
     createdBy: task.createdBy || "",
     createdAt: task.createdAt || new Date().toISOString(),
@@ -728,6 +735,7 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
     ownerId: task.ownerId || client.internalOwner || fallbackUserId,
     dueDate: task.dueDate || "",
     status: localizeLabel(task.status || "Pendente"),
+    priority: normalizeTaskPriority(task.priority),
     createdBy: task.createdBy || client.internalOwner || task.ownerId || fallbackUserId,
     createdAt: task.createdAt || client.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
@@ -986,6 +994,7 @@ function bindEvents() {
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.newRegularizationButton.addEventListener("click", () => openRegularizationDialog());
+  el.quickInternalTaskButton.addEventListener("click", openQuickInternalTaskDialog);
   el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
   el.addMeetingButton.addEventListener("click", () => openMeetingDialog());
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
@@ -994,6 +1003,7 @@ function bindEvents() {
     activeTaskDate = new Date();
     renderTaskCenter();
   });
+  el.taskDayModeButton.addEventListener("click", () => setTaskCalendarMode("day"));
   el.taskWeekModeButton.addEventListener("click", () => setTaskCalendarMode("week"));
   el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
   el.searchInput.addEventListener("input", renderClients);
@@ -1003,6 +1013,10 @@ function bindEvents() {
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
+  el.taskMineFilterButton.addEventListener("click", () => {
+    taskMineOnly = !taskMineOnly;
+    renderTaskCenter();
+  });
   el.updatesSearchInput.addEventListener("input", renderUpdates);
   el.updatesReadFilter.addEventListener("change", renderUpdates);
   el.updatesPeriodFilter.addEventListener("change", renderUpdates);
@@ -1774,9 +1788,10 @@ function csvCell(value) {
 
 function renderTaskCenter() {
   renderTaskOwnerFilter();
+  renderTaskQuickFilters();
   const items = taskCenterItems();
-  renderTaskOverview(items);
   const filtered = filterTaskCenterItems(items);
+  renderTaskOverview(filtered);
   renderTaskPeriodControls();
 
   renderTaskCalendar(filtered);
@@ -2643,8 +2658,14 @@ function activityIcon(type) {
 }
 
 function renderTaskPeriodControls() {
+  el.taskDayModeButton.classList.toggle("active", activeTaskCalendarMode === "day");
   el.taskWeekModeButton.classList.toggle("active", activeTaskCalendarMode === "week");
   el.taskMonthModeButton.classList.toggle("active", activeTaskCalendarMode === "month");
+
+  if (activeTaskCalendarMode === "day") {
+    el.taskPeriodLabel.textContent = `Meu dia - ${formatShortDate(activeTaskDate)}`;
+    return;
+  }
 
   if (activeTaskCalendarMode === "week") {
     const days = weekDays(activeTaskDate);
@@ -2659,13 +2680,68 @@ function renderTaskPeriodControls() {
 }
 
 function renderTaskCalendar(items) {
-  const datedItems = items.filter((item) => item.date);
+  if (activeTaskCalendarMode === "day") {
+    el.taskCenterList.innerHTML = renderTaskDayBoard(items);
+    return;
+  }
+
+  const overdueItems = items.filter((item) => item.urgency === "overdue");
+  const datedItems = items.filter((item) => item.date && item.urgency !== "overdue");
   const noDateItems = items.filter((item) => !item.date);
   const calendarMarkup = activeTaskCalendarMode === "week" ? renderTaskWeekBoard(datedItems) : renderTaskMonthBoard(datedItems);
 
   el.taskCenterList.innerHTML = `
+    ${renderOverdueTasks(overdueItems)}
     ${calendarMarkup}
     ${renderNoDateTasks(noDateItems)}
+  `;
+}
+
+function renderTaskDayBoard(items) {
+  const selectedDay = localDateKey(activeTaskDate);
+  const openItems = items.filter((item) => item.urgency !== "done");
+  const overdueItems = openItems.filter((item) => item.urgency === "overdue");
+  const todayItems = openItems.filter((item) => item.date === selectedDay);
+  const noDateImportant = openItems.filter((item) => !item.date && taskPriorityRank(item.priority) < 2);
+  const waitingItems = openItems.filter((item) => ["Aguardando cliente", "Aguardando terceiro"].includes(localizeLabel(item.status || "")));
+  const dayTitle = selectedDay === localDateKey() ? "Hoje" : "Dia selecionado";
+
+  return `
+    <div class="my-day-board">
+      ${renderTaskFocusPanel("Atrasadas", overdueItems, "overdue", "alert-triangle")}
+      ${renderTaskFocusPanel(dayTitle, todayItems, "today", "sun")}
+      ${renderTaskFocusPanel("Sem prazo importante", noDateImportant, "no-date", "star")}
+      ${renderTaskFocusPanel("Aguardando retorno", waitingItems, "waiting", "hourglass")}
+    </div>
+  `;
+}
+
+function renderTaskFocusPanel(title, items, key, icon) {
+  return `
+    <section class="task-focus-panel ${key}">
+      <header>
+        <span><i data-lucide="${icon}"></i>${title}</span>
+        <strong>${items.length}</strong>
+      </header>
+      <div class="task-focus-items">
+        ${items.length ? renderTaskGroupItems(items, `focus-${key}`, { showDate: true }) : `<p class="empty-state compact">Sem tarefas.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderOverdueTasks(items) {
+  if (!items.length) return "";
+  return `
+    <section class="overdue-panel">
+      <header>
+        <span><i data-lucide="alert-triangle"></i>Atrasadas</span>
+        <strong>${items.length}</strong>
+      </header>
+      <div class="overdue-grid">
+        ${renderTaskGroupItems(items, "overdue-fixed", { showDate: true })}
+      </div>
+    </section>
   `;
 }
 
@@ -2677,15 +2753,17 @@ function renderTaskWeekBoard(items) {
         .map((day) => {
           const key = localDateKey(day);
           const dayItems = items.filter((item) => item.date === key);
+          const openCount = dayItems.filter((item) => item.urgency !== "done").length;
+          const doneCount = dayItems.filter((item) => item.urgency === "done").length;
           return `
             <section class="task-day-column ${key === today ? "today" : ""}">
               <header>
                 <span>${weekdayLabel(day)}</span>
                 <strong>${formatShortDate(day)}</strong>
-                <small>${dayItems.length}</small>
+                <small>${openCount} abertas · ${doneCount} concluídas</small>
               </header>
               <div class="task-day-items">
-                ${dayItems.map((item) => renderTaskCalendarCard(item)).join("") || `<p class="empty-state">Sem tarefas.</p>`}
+                ${renderTaskGroupItems(dayItems, key, { showDate: false }) || `<p class="empty-state compact">Sem tarefas.</p>`}
               </div>
             </section>
           `;
@@ -2708,15 +2786,18 @@ function renderTaskMonthBoard(items) {
           const key = localDateKey(day);
           const inMonth = day.getMonth() === activeTaskDate.getMonth();
           const dayItems = items.filter((item) => item.date === key);
+          const openDayItems = dayItems.filter((item) => item.urgency !== "done").sort(taskItemSorter);
+          const doneCount = dayItems.length - openDayItems.length;
           return `
             <section class="task-month-day ${inMonth ? "" : "outside"} ${key === today ? "today" : ""}">
               <header>
                 <strong>${day.getDate()}</strong>
-                <span>${dayItems.length}</span>
+                <span>${openDayItems.length}</span>
               </header>
               <div class="task-month-items">
-                ${dayItems.slice(0, 4).map((item) => renderTaskCalendarCard(item, true)).join("") || ""}
-                ${dayItems.length > 4 ? `<small>+${dayItems.length - 4} tarefa(s)</small>` : ""}
+                ${openDayItems.slice(0, 4).map((item) => renderTaskCalendarCard(item, true)).join("") || ""}
+                ${openDayItems.length > 4 ? `<small>+${openDayItems.length - 4} tarefa(s)</small>` : ""}
+                ${doneCount ? `<small>${doneCount} concluída${doneCount > 1 ? "s" : ""}</small>` : ""}
               </div>
             </section>
           `;
@@ -2736,13 +2817,60 @@ function renderNoDateTasks(items) {
         <span>${items.length}</span>
       </header>
       <div class="no-date-grid">
-        ${items.map((item) => renderTaskCalendarCard(item)).join("")}
+        ${renderTaskGroupItems(items, "no-date", { showDate: true })}
       </div>
     </section>
   `;
 }
 
+function renderTaskGroupItems(items, groupKey, options = {}) {
+  if (!items.length) return "";
+  const ordered = [...items].sort(taskItemSorter);
+  const openItems = ordered.filter((item) => item.urgency !== "done");
+  const doneItems = ordered.filter((item) => item.urgency === "done");
+  return `
+    ${openItems.map((item) => renderTaskCalendarCard(item, false, options)).join("")}
+    ${renderCompletedTaskGroup(groupKey, doneItems, options)}
+  `;
+}
+
+function renderCompletedTaskGroup(groupKey, items, options = {}) {
+  if (!items.length) return "";
+  const key = `done-${groupKey}`;
+  const expanded = expandedCompletedTaskGroups.has(key);
+  return `
+    <div class="completed-task-group ${expanded ? "expanded" : ""}">
+      <button class="completed-toggle" type="button" data-toggle-completed-group="${escapeAttr(key)}" aria-expanded="${expanded}">
+        <i data-lucide="${expanded ? "chevron-up" : "chevron-down"}"></i>
+        ${items.length} concluída${items.length > 1 ? "s" : ""}
+      </button>
+      <div class="completed-items" ${expanded ? "" : "hidden"}>
+        ${items.map((item) => renderTaskCalendarCard(item, false, options)).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function bindTaskCenterActions() {
+  document.querySelectorAll("[data-toggle-task-card]").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("button, select, input, textarea, a")) return;
+      const key = card.dataset.toggleTaskCard;
+      if (expandedTaskCardIds.has(key)) expandedTaskCardIds.delete(key);
+      else expandedTaskCardIds.add(key);
+      renderTaskCenter();
+    });
+  });
+
+  document.querySelectorAll("[data-toggle-completed-group]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.toggleCompletedGroup;
+      if (expandedCompletedTaskGroups.has(key)) expandedCompletedTaskGroups.delete(key);
+      else expandedCompletedTaskGroups.add(key);
+      renderTaskCenter();
+    });
+  });
+
   document.querySelectorAll("[data-open-task-client]").forEach((button) => {
     button.addEventListener("click", () => openClientById(button.dataset.openTaskClient));
   });
@@ -2839,6 +2967,7 @@ function renderTaskOverview(items) {
   const stats = [
     ["Atrasadas", openItems.filter((item) => item.urgency === "overdue").length, "overdue"],
     ["Hoje", openItems.filter((item) => item.urgency === "today").length, "today"],
+    ["Urgentes", openItems.filter((item) => normalizeTaskPriority(item.priority) === "Urgente").length, "urgent"],
     ["Próximas", openItems.filter((item) => item.urgency === "upcoming").length, "upcoming"],
     ["Sem prazo", openItems.filter((item) => item.urgency === "no-date").length, "no-date"],
   ];
@@ -2868,6 +2997,7 @@ function taskCenterItems() {
         createdBy: task.createdBy || "",
         date: task.dueDate || "",
         status: localizeLabel(task.status || "Pendente"),
+        priority: normalizeTaskPriority(task.priority),
         clientId: client.id,
         clientName: client.clientName || "Cliente sem nome",
       };
@@ -2884,6 +3014,7 @@ function taskCenterItems() {
         ownerId: deadline.ownerId,
         date: deadline.date || "",
         status: deadline.type || "Prazo",
+        priority: "Importante",
         clientId: client.id,
         clientName: client.clientName || "Cliente sem nome",
       };
@@ -2902,9 +3033,12 @@ function taskCenterItems() {
         source: "Interno",
         kind: "Tarefa interna",
         title: task.title || "Tarefa interna sem título",
+        description: task.description || "",
         ownerId: task.ownerId,
+        createdBy: task.createdBy || "",
         date: task.dueDate || "",
         status: localizeLabel(task.status || "Pendente"),
+        priority: normalizeTaskPriority(task.priority),
         visibility: task.visibility || "team",
         internalTaskId: task.id,
         clientName: task.visibility === "admin" ? "Somente admin" : "Equipe interna",
@@ -2924,6 +3058,7 @@ function taskCenterItems() {
       createdBy: meeting.createdBy || "",
       date: meeting.date || "",
       status: "Reunião",
+      priority: "Normal",
       internalMeetingId: meeting.id,
       clientName: "Reunião",
     };
@@ -2953,63 +3088,108 @@ function filterTaskCenterItems(items) {
         item.visibility,
       ].join(" "));
       const matchesQuery = !query || haystack.includes(query);
-      const matchesOwner = !ownerId || item.ownerId === ownerId;
+      const matchesOwner = (!ownerId || item.ownerId === ownerId) && (!taskMineOnly || item.ownerId === currentUser.id);
+      const statusLabel = localizeLabel(item.status || "");
       const matchesStatus =
         !status ||
         item.urgency === status ||
+        statusLabel === status ||
         (status === "open" && item.urgency !== "done") ||
         (status === "done" && item.urgency === "done");
       return matchesQuery && matchesOwner && matchesStatus;
     })
-    .sort((a, b) => {
-      const order = { overdue: 0, today: 1, upcoming: 2, "no-date": 3, done: 4 };
-      const orderDiff = order[a.urgency] - order[b.urgency];
-      if (orderDiff) return orderDiff;
-      if (!a.date && !b.date) return a.clientName.localeCompare(b.clientName);
-      if (!a.date) return 1;
-      if (!b.date) return -1;
-      return a.date.localeCompare(b.date);
-    });
+    .sort(taskItemSorter);
 }
 
-function renderTaskCalendarCard(item, compact = false) {
+function taskPriorityRank(priority) {
+  return { Urgente: 0, Importante: 1, Normal: 2 }[normalizeTaskPriority(priority)] ?? 2;
+}
+
+function taskItemSorter(a, b) {
+  const order = { overdue: 0, today: 1, upcoming: 2, "no-date": 3, done: 4 };
+  const orderDiff = order[a.urgency] - order[b.urgency];
+  if (orderDiff) return orderDiff;
+  const priorityDiff = taskPriorityRank(a.priority) - taskPriorityRank(b.priority);
+  if (priorityDiff) return priorityDiff;
+  if (!a.date && !b.date) return a.clientName.localeCompare(b.clientName);
+  if (!a.date) return 1;
+  if (!b.date) return -1;
+  const dateDiff = a.date.localeCompare(b.date);
+  if (dateDiff) return dateDiff;
+  return (a.title || "").localeCompare(b.title || "");
+}
+
+function renderTaskCalendarCard(item, compact = false, options = {}) {
   const ownerClass = taskOwnerClass(item.ownerId);
-  const statusControl =
-    item.kind.includes("Tarefa")
-      ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-task-id="${item.id}">${taskStatusOptions(item.status)}</select>`
-      : `<span class="task-type-pill">${escapeHtml(item.status)}</span>`;
+  const key = taskItemKey(item);
+  const expanded = expandedTaskCardIds.has(key) && !compact;
+  const showDate = options.showDate === true;
+  const statusLabel = localizeLabel(item.status || (item.kind.includes("Tarefa") ? "Pendente" : item.kind));
+  const statusControl = item.kind.includes("Tarefa")
+    ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-task-id="${item.id}">${taskStatusOptions(statusLabel)}</select>`
+    : `<span class="task-type-pill">${escapeHtml(statusLabel)}</span>`;
   const sourceClass = item.visibility === "admin" ? " admin-only" : "";
+  const priority = normalizeTaskPriority(item.priority);
   const actionControl = item.internalTaskId
     ? `<div class="inline-actions task-row-actions">
-        <button class="small-button" type="button" data-edit-internal-task="${item.internalTaskId}"><i data-lucide="pencil"></i> Editar</button>
-        <button class="icon-button" type="button" data-remove-internal-task="${item.internalTaskId}" aria-label="Remover tarefa interna"><i data-lucide="trash-2"></i></button>
+        <button class="icon-button" type="button" data-edit-internal-task="${item.internalTaskId}" title="Editar tarefa" aria-label="Editar tarefa"><i data-lucide="pencil"></i></button>
+        <button class="icon-button" type="button" data-remove-internal-task="${item.internalTaskId}" title="Remover tarefa" aria-label="Remover tarefa interna"><i data-lucide="trash-2"></i></button>
       </div>`
     : item.internalMeetingId
       ? `<div class="inline-actions task-row-actions">
-          <button class="small-button" type="button" data-edit-meeting="${item.internalMeetingId}"><i data-lucide="pencil"></i> Editar</button>
-          <button class="icon-button" type="button" data-remove-meeting="${item.internalMeetingId}" aria-label="Remover reunião"><i data-lucide="trash-2"></i></button>
+          <button class="icon-button" type="button" data-edit-meeting="${item.internalMeetingId}" title="Editar reunião" aria-label="Editar reunião"><i data-lucide="pencil"></i></button>
+          <button class="icon-button" type="button" data-remove-meeting="${item.internalMeetingId}" title="Remover reunião" aria-label="Remover reunião"><i data-lucide="trash-2"></i></button>
         </div>`
-    : `<button class="small-button" type="button" data-open-task-client="${item.clientId}"><i data-lucide="external-link"></i> Abrir card</button>`;
+    : `<button class="icon-button" type="button" data-open-task-client="${item.clientId}" title="Abrir card do cliente" aria-label="Abrir card do cliente"><i data-lucide="external-link"></i></button>`;
 
   return `
-    <article class="task-calendar-card ${item.urgency} ${ownerClass} ${compact ? "compact" : ""}">
+    <article class="task-calendar-card ${taskTypeClass(item)} priority-${normalize(priority)} status-${taskStatusClass(statusLabel)} ${item.urgency} ${ownerClass} ${compact ? "compact" : ""} ${expanded ? "expanded" : ""}" data-toggle-task-card="${escapeAttr(key)}">
       <div class="task-main">
         <div class="task-badges">
           <span class="task-kind">${item.kind}</span>
           <span class="task-source${sourceClass}">${item.visibility === "admin" ? "Somente admin" : escapeHtml(item.source)}</span>
-          <span class="urgency-pill">${urgencyLabel(item.urgency)}</span>
+          <span class="priority-pill">${escapeHtml(priority)}</span>
         </div>
         <h3>${escapeHtml(item.title)}</h3>
-        ${item.description && !compact ? `<p class="task-description">${escapeHtml(item.description)}</p>` : ""}
         <p>${escapeHtml(item.clientName)}</p>
       </div>
-      ${item.createdBy ? `<div class="task-detail"><i data-lucide="user-plus"></i>Criada por ${escapeHtml(ownerName(item.createdBy))}</div>` : ""}
-      <div class="task-detail task-owner-detail"><i data-lucide="user-check"></i><span>Responsável:</span><strong>${escapeHtml(ownerName(item.ownerId))}</strong></div>
-      ${compact ? "" : `<div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>`}
-      ${compact ? "" : `<div class="task-detail">${statusControl}</div>`}
-      ${actionControl}
+      <div class="task-card-summary">
+        <span class="task-owner-chip"><i data-lucide="user-check"></i>${escapeHtml(ownerName(item.ownerId))}</span>
+        <span class="task-status-pill">${escapeHtml(statusLabel)}</span>
+        <span class="urgency-pill">${urgencyLabel(item.urgency)}</span>
+        ${showDate && item.date ? `<span class="task-date-chip"><i data-lucide="calendar"></i>${formatDate(item.date)}</span>` : ""}
+      </div>
+      ${
+        compact
+          ? ""
+          : `<div class="task-card-details" ${expanded ? "" : "hidden"}>
+              ${item.description ? `<p class="task-description">${escapeHtml(item.description)}</p>` : ""}
+              ${item.createdBy ? `<div class="task-detail"><i data-lucide="user-plus"></i>Criada por ${escapeHtml(ownerName(item.createdBy))}</div>` : ""}
+              <div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>
+              <div class="task-detail">${statusControl}</div>
+              ${actionControl}
+            </div>`
+      }
     </article>
   `;
+}
+
+function taskItemKey(item = {}) {
+  if (item.internalTaskId) return `internal-task:${item.internalTaskId}`;
+  if (item.internalMeetingId) return `meeting:${item.internalMeetingId}`;
+  return `client:${item.clientId || "none"}:${item.kind}:${item.id}`;
+}
+
+function taskTypeClass(item = {}) {
+  if (item.visibility === "admin") return "task-type-admin";
+  if (item.internalTaskId) return "task-type-internal";
+  if (item.internalMeetingId) return "task-type-meeting";
+  if (item.kind === "Prazo") return "task-type-deadline";
+  return "task-type-client";
+}
+
+function taskStatusClass(status) {
+  return normalize(status || "pendente").replace(/[^a-z0-9]+/g, "-");
 }
 
 function taskOwnerClass(userId) {
@@ -3469,7 +3649,9 @@ function setTaskCalendarMode(mode) {
 
 function moveTaskPeriod(direction) {
   const nextDate = new Date(activeTaskDate);
-  if (activeTaskCalendarMode === "week") {
+  if (activeTaskCalendarMode === "day") {
+    nextDate.setDate(nextDate.getDate() + direction);
+  } else if (activeTaskCalendarMode === "week") {
     nextDate.setDate(nextDate.getDate() + direction * 7);
   } else {
     nextDate.setDate(1);
@@ -3738,6 +3920,7 @@ function renderTasks() {
                   <span>Cadastrada por ${escapeHtml(ownerName(task.createdBy))}</span>
                   <span>Responsável: ${escapeHtml(ownerName(task.ownerId))}</span>
                   <span>${task.dueDate ? `Prazo: ${formatDate(task.dueDate)}` : "Sem prazo"}</span>
+                  <span>Prioridade: ${escapeHtml(normalizeTaskPriority(task.priority))}</span>
                   <span>Status: ${escapeHtml(localizeLabel(task.status || "Pendente"))}</span>
                 </div>
               </div>
@@ -4519,6 +4702,7 @@ function openClientTaskDialog(taskId = null) {
     { label: "Descrição", name: "description", type: "textarea", rows: 4, value: draft.description || "" },
     { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
     { label: "Prazo", name: "dueDate", type: "date", value: draft.dueDate || "" },
+    { label: "Prioridade", name: "priority", type: "select", value: normalizeTaskPriority(draft.priority), options: taskPriorityValues().map((value) => ({ value, label: value })) },
     { label: "Status", name: "status", type: "select", value: draft.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
   ], (values) => {
     if (!values.title) {
@@ -4531,6 +4715,7 @@ function openClientTaskDialog(taskId = null) {
       description: values.description || "",
       ownerId: values.ownerId || currentUser.id,
       dueDate: values.dueDate,
+      priority: normalizeTaskPriority(values.priority),
       status: values.status || "Pendente",
       updatedAt: new Date().toISOString(),
     };
@@ -4586,6 +4771,53 @@ function openClientDeadlineDialog(deadlineId = null) {
   });
 }
 
+function openQuickInternalTaskDialog() {
+  const visibilityOptions = currentUser.role === "admin"
+    ? [
+        { value: "team", label: "Equipe" },
+        { value: "admin", label: "Somente admin" },
+      ]
+    : [{ value: "team", label: "Equipe" }];
+
+  openSimpleDialog("Tarefa rápida", [
+    { label: "Tarefa", name: "title", type: "text", value: "" },
+    { label: "Responsável", name: "ownerId", type: "select", value: currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "Prazo", name: "dueDate", type: "date", value: localDateKey() },
+    { label: "Prioridade", name: "priority", type: "select", value: "Normal", options: taskPriorityValues().map((value) => ({ value, label: value })) },
+    { label: "Visibilidade", name: "visibility", type: "select", value: "team", options: visibilityOptions },
+  ], (values) => {
+    if (!values.title) {
+      alert("Informe o nome da tarefa.");
+      return false;
+    }
+
+    const newTask = {
+      id: id(),
+      title: values.title,
+      description: "",
+      ownerId: values.ownerId || currentUser.id,
+      dueDate: values.dueDate,
+      priority: normalizeTaskPriority(values.priority),
+      status: "Pendente",
+      visibility: currentUser.role === "admin" ? values.visibility || "team" : "team",
+      createdBy: currentUser.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    state.internalTasks.unshift(newTask);
+    recordActivity("task", `Criou tarefa interna: ${newTask.title}.`, "", {
+      internalTaskId: newTask.id,
+      ownerId: newTask.ownerId,
+      visibility: newTask.visibility,
+    });
+    saveState();
+    renderMetrics();
+    renderTaskCenter();
+    renderUpdates();
+    return true;
+  });
+}
+
 function openInternalTaskDialog(taskId = null) {
   const task = state.internalTasks.find((item) => item.id === taskId) || null;
   const visibilityOptions = currentUser.role === "admin"
@@ -4601,6 +4833,7 @@ function openInternalTaskDialog(taskId = null) {
     { label: "Criada por", name: "createdByLabel", type: "readonly", value: ownerName(task?.createdBy || currentUser.id) },
     { label: "Responsável", name: "ownerId", type: "select", value: task?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
     { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
+    { label: "Prioridade", name: "priority", type: "select", value: normalizeTaskPriority(task?.priority), options: taskPriorityValues().map((value) => ({ value, label: value })) },
     { label: "Status", name: "status", type: "select", value: task?.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
     { label: "Visibilidade", name: "visibility", type: "select", value: task?.visibility || "team", options: visibilityOptions },
   ], (values) => {
@@ -4614,6 +4847,7 @@ function openInternalTaskDialog(taskId = null) {
       description: values.description || "",
       ownerId: values.ownerId || currentUser.id,
       dueDate: values.dueDate,
+      priority: normalizeTaskPriority(values.priority),
       status: values.status || "Pendente",
       visibility: currentUser.role === "admin" ? values.visibility || "team" : "team",
       updatedAt: new Date().toISOString(),
@@ -4885,6 +5119,7 @@ function emptyTask() {
     ownerId: currentUser.id,
     dueDate: "",
     status: "Pendente",
+    priority: "Normal",
     createdBy: currentUser.id,
     createdAt: new Date().toISOString(),
     updatedAt: null,
@@ -4934,7 +5169,21 @@ function taskStatusOptions(selected = "Pendente") {
 }
 
 function taskStatusValues() {
-  return ["Pendente", "Em andamento", "Concluída"];
+  return ["Pendente", "Em andamento", "Aguardando cliente", "Aguardando terceiro", "Concluída"];
+}
+
+function renderTaskQuickFilters() {
+  if (!el.taskMineFilterButton) return;
+  el.taskMineFilterButton.classList.toggle("active", taskMineOnly);
+  el.taskMineFilterButton.setAttribute("aria-pressed", String(taskMineOnly));
+}
+
+function taskPriorityValues() {
+  return ["Normal", "Importante", "Urgente"];
+}
+
+function normalizeTaskPriority(value) {
+  return normalizeSelectValue(value, taskPriorityValues()) || "Normal";
 }
 
 function deadlineTypeOptions(selected = "Interno") {

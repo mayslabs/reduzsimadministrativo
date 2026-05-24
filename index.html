@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=75" />
+    <link rel="stylesheet" href="./styles.css?v=76" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -123,6 +123,7 @@
               <h2>Central de tarefas</h2>
             </div>
             <div class="inline-actions">
+              <button id="quickInternalTaskButton" class="secondary-button" type="button"><i data-lucide="zap"></i> Tarefa rápida</button>
               <button id="addMeetingButton" class="secondary-button" type="button"><i data-lucide="users-round"></i> Nova reunião</button>
               <button id="addInternalTaskButton" class="secondary-button" type="button"><i data-lucide="plus"></i> Nova tarefa interna</button>
             </div>
@@ -138,6 +139,7 @@
             </div>
             <button id="nextTaskPeriodButton" class="icon-button" type="button" aria-label="Próximo período"><i data-lucide="chevron-right"></i></button>
             <div class="segmented-control calendar-mode" role="group" aria-label="Modo do calendário">
+              <button id="taskDayModeButton" type="button"><i data-lucide="sun"></i> Meu dia</button>
               <button id="taskWeekModeButton" class="active" type="button"><i data-lucide="columns-3"></i> Semana</button>
               <button id="taskMonthModeButton" type="button"><i data-lucide="calendar-days"></i> Mês</button>
             </div>
@@ -157,7 +159,10 @@
               <option value="upcoming">Próximas</option>
               <option value="no-date">Sem prazo</option>
               <option value="done">Concluídas</option>
+              <option value="Aguardando cliente">Aguardando cliente</option>
+              <option value="Aguardando terceiro">Aguardando terceiro</option>
             </select>
+            <button id="taskMineFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="user-check"></i> Minhas tarefas</button>
           </div>
 
           <div id="taskCenterList" class="task-center-list"></div>
@@ -634,6 +639,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=75"></script>
+    <script src="./app.js?v=76"></script>
   </body>
 </html>
