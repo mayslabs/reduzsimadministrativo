@@ -327,12 +327,12 @@ h3 {
   background: #fff;
   color: var(--charcoal);
   padding: 0 14px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .small-button {
   min-height: 32px;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .ghost-button {
@@ -913,23 +913,24 @@ h3 {
 
 .task-stat {
   border: 1px solid var(--line);
-  border-left: 5px solid var(--line);
+  border-left: 4px solid var(--line);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 15px 16px;
   background: #fff;
 }
 
 .task-stat span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .task-stat strong {
   display: block;
   color: var(--charcoal);
-  font-size: 24px;
-  margin-top: 3px;
+  font-size: 26px;
+  font-weight: 700;
+  margin-top: 4px;
 }
 
 .task-stat.overdue {
@@ -976,6 +977,17 @@ h3 {
   border-color: var(--green);
   background: var(--green-soft);
   color: var(--green-dark);
+}
+
+#tasksSection .secondary-button,
+#tasksSection .segmented-control button {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#tasksSection .toolbar select,
+#tasksSection .toolbar input {
+  font-weight: 400;
 }
 
 .updates-summary {
@@ -1352,7 +1364,7 @@ h3 {
   border-radius: var(--radius);
   background: #fff;
   color: var(--charcoal);
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .calendar-mode {
@@ -1757,8 +1769,8 @@ h3 {
   align-items: center;
   gap: 6px;
   color: var(--charcoal);
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 13.5px;
+  font-weight: 700;
 }
 
 .task-focus-panel > header svg,
@@ -1775,6 +1787,7 @@ h3 {
   color: var(--green-dark);
   padding: 3px 8px;
   font-size: 12px;
+  font-weight: 700;
 }
 
 .task-focus-panel.overdue,
@@ -1802,7 +1815,7 @@ h3 {
 
 .task-week-board {
   display: grid;
-  grid-template-columns: repeat(7, minmax(158px, 1fr));
+  grid-template-columns: repeat(7, minmax(166px, 1fr));
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -1817,9 +1830,9 @@ h3 {
 }
 
 .task-day-column {
-  min-width: 158px;
+  min-width: 166px;
   background: var(--soft);
-  padding: 8px;
+  padding: 9px;
 }
 
 .task-day-column.today,
@@ -1840,13 +1853,14 @@ h3 {
 .task-day-column > header span {
   color: var(--green-dark);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
 .task-day-column > header strong {
   color: var(--charcoal);
-  font-size: 16px;
+  font-size: 17px;
+  font-weight: 700;
 }
 
 .task-day-column > header small,
@@ -1858,7 +1872,7 @@ h3 {
   color: var(--green-dark);
   padding: 3px 8px;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .task-day-items,
@@ -1874,12 +1888,12 @@ h3 {
   --task-type-color: #009f7f;
   --task-type-soft: #e7f7f2;
   display: grid;
-  gap: 4px;
+  gap: 5px;
   border: 1px solid var(--line);
-  border-left: 4px solid var(--task-type-color);
+  border-left: 3px solid var(--task-type-color);
   border-radius: var(--radius);
   background: #fff;
-  padding: 7px 8px;
+  padding: 9px 10px;
   cursor: pointer;
 }
 
@@ -1957,8 +1971,8 @@ h3 {
 }
 
 .task-calendar-card.compact {
-  padding: 6px;
-  gap: 4px;
+  padding: 8px 9px;
+  gap: 5px;
 }
 
 .task-calendar-card.compact .task-card-summary .urgency-pill,
@@ -1982,7 +1996,7 @@ h3 {
 .month-weekdays span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 600;
   text-align: center;
   text-transform: uppercase;
 }
@@ -2016,8 +2030,8 @@ h3 {
 
 .task-month-items small {
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 11.5px;
+  font-weight: 500;
 }
 
 .no-date-panel {
@@ -2031,7 +2045,7 @@ h3 {
 
 .task-main {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -2041,8 +2055,9 @@ h3 {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-size: 12px;
-  line-height: 1.24;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.28;
   overflow-wrap: anywhere;
 }
 
@@ -2053,22 +2068,23 @@ h3 {
 .task-main p {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
-  line-height: 1.26;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.35;
 }
 
 .task-main .task-description {
   color: var(--charcoal);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.42;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
   white-space: pre-wrap;
 }
 
 .task-badges {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
@@ -2083,10 +2099,10 @@ h3 {
   align-items: center;
   gap: 4px;
   border-radius: 999px;
-  padding: 2px 6px;
-  font-size: 9px;
-  font-weight: 900;
-  line-height: 1.2;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
 }
 
 .task-kind {
@@ -2098,10 +2114,10 @@ h3 {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 2px 6px;
-  font-size: 9px;
-  font-weight: 900;
-  line-height: 1.2;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
   background: #eef4ff;
   color: #2563eb;
 }
@@ -2136,7 +2152,7 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .task-owner-chip {
@@ -2147,8 +2163,8 @@ h3 {
 
 .task-owner-chip svg,
 .task-date-chip svg {
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
 }
 
 .task-status-pill {
@@ -2179,10 +2195,10 @@ h3 {
 
 .task-card-details {
   display: grid;
-  gap: 6px;
+  gap: 7px;
   border-top: 1px solid var(--line);
-  margin-top: 4px;
-  padding-top: 6px;
+  margin-top: 5px;
+  padding-top: 8px;
   cursor: default;
 }
 
@@ -2200,10 +2216,10 @@ h3 {
   border-radius: 999px;
   background: #edf5f0;
   color: #166534;
-  min-height: 26px;
-  padding: 3px 8px;
-  font-size: 10px;
-  font-weight: 900;
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -2223,9 +2239,9 @@ h3 {
   gap: 5px;
   min-width: 0;
   color: var(--charcoal);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .task-detail svg {
@@ -2246,7 +2262,8 @@ h3 {
   background: var(--task-owner-soft);
   color: var(--task-owner-text);
   padding: 1px 6px;
-  font-size: 9px;
+  font-size: 10.5px;
+  font-weight: 600;
   line-height: 1.25;
 }
 
@@ -2255,17 +2272,17 @@ h3 {
 }
 
 .task-status-select {
-  min-height: 26px;
-  padding: 3px 7px;
-  font-size: 10px;
-  font-weight: 800;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
 }
 
 .task-calendar-card .small-button {
   justify-self: start;
-  min-height: 25px;
-  padding: 3px 7px;
-  font-size: 10px;
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
 .task-row-actions {
