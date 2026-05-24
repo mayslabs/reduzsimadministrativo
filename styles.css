@@ -966,13 +966,62 @@ h3 {
   grid-template-columns: minmax(240px, 1fr) 150px 160px 190px 190px;
 }
 
+.updates-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.updates-summary-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.updates-summary-card span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.updates-summary-card strong {
+  color: var(--charcoal);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.updates-summary-card.unread {
+  border-left-color: #d14343;
+}
+
+.updates-summary-card.today {
+  border-left-color: #c78000;
+}
+
+.updates-summary-card.task {
+  border-left-color: #2f80ed;
+}
+
+.updates-summary-card.note {
+  border-left-color: #009f7f;
+}
+
+.updates-summary-card.monthly {
+  border-left-color: #7c3aed;
+}
+
 .regularization-toolbar {
   grid-template-columns: minmax(240px, 1fr);
 }
 
 .updates-list {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .update-day-group {
@@ -1003,14 +1052,14 @@ h3 {
 .update-day-timeline {
   position: relative;
   display: grid;
-  gap: 9px;
-  padding-left: 12px;
+  gap: 7px;
+  padding-left: 8px;
 }
 
 .update-day-timeline::before {
   content: "";
   position: absolute;
-  left: 35px;
+  left: 30px;
   top: 8px;
   bottom: 8px;
   width: 2px;
@@ -1019,14 +1068,14 @@ h3 {
 
 .update-item {
   display: grid;
-  grid-template-columns: 58px 38px minmax(240px, 1fr) auto;
-  gap: 12px;
+  grid-template-columns: 50px 34px minmax(220px, 1fr) auto;
+  gap: 10px;
   align-items: start;
   border: 1px solid var(--line);
   border-left: 5px solid var(--update-color, var(--line));
   border-radius: var(--radius);
   background: #fff;
-  padding: 12px;
+  padding: 9px 10px;
 }
 
 .update-item.unread {
@@ -1035,9 +1084,9 @@ h3 {
 
 .update-item.update-priority {
   border-width: 2px;
-  border-left-width: 7px;
+  border-left-width: 6px;
   background: linear-gradient(90deg, var(--update-soft, #fff) 0%, #fff 42%);
-  box-shadow: 0 12px 28px rgba(31, 41, 51, 0.08);
+  box-shadow: 0 8px 20px rgba(31, 41, 51, 0.06);
 }
 
 .update-time {
@@ -1063,7 +1112,7 @@ h3 {
 
 .update-priority .update-time strong {
   color: var(--update-color, var(--charcoal));
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .update-icon {
@@ -1071,22 +1120,22 @@ h3 {
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 7px;
   background: var(--update-soft, var(--green-soft));
   color: var(--update-color, var(--green-dark));
 }
 
 .update-priority .update-icon {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--update-color) 25%, transparent);
 }
 
 .update-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
 }
 
 .update-content {
@@ -1099,22 +1148,22 @@ h3 {
 }
 
 .update-content h3 {
-  margin-top: 6px;
-  font-size: 14px;
-  line-height: 1.35;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 .update-content p {
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .update-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .update-meta span {
@@ -1124,14 +1173,26 @@ h3 {
   border-radius: 999px;
   background: var(--soft);
   color: var(--muted);
-  padding: 3px 8px;
+  padding: 2px 7px;
   font-size: 11px;
   font-weight: 800;
+}
+
+.update-meta .update-responsible {
+  background: #e6f6f2;
+  color: var(--green-dark);
 }
 
 .update-meta svg {
   width: 13px;
   height: 13px;
+}
+
+.update-detail-line {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .update-type-pill {
@@ -2571,7 +2632,8 @@ h3 {
   .data-quality-card,
   .data-quality-list,
   .data-panels,
-  .task-overview {
+  .task-overview,
+  .updates-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2626,6 +2688,7 @@ h3 {
   .data-quality-list,
   .data-panels,
   .task-overview,
+  .updates-summary,
   .no-date-grid,
   .reduction-summary-grid {
     grid-template-columns: 1fr;
