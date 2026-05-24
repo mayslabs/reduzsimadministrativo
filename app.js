@@ -237,6 +237,9 @@ let activeViewMode = "list";
 let activeTaskCalendarMode = "week";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
+let updatesImportantOnly = false;
+const expandedUpdateIds = new Set();
+const collapsedUpdateDays = new Set();
 let firebaseApp = null;
 let firebaseAuth = null;
 let firebaseDb = null;
@@ -282,6 +285,7 @@ const el = {
   updatesPeriodFilter: document.getElementById("updatesPeriodFilter"),
   updatesUserFilter: document.getElementById("updatesUserFilter"),
   updatesTypeFilter: document.getElementById("updatesTypeFilter"),
+  updatesImportantFilterButton: document.getElementById("updatesImportantFilterButton"),
   updatesList: document.getElementById("updatesList"),
   addGuidanceButton: document.getElementById("addGuidanceButton"),
   guidanceQuestionInput: document.getElementById("guidanceQuestionInput"),
@@ -1004,6 +1008,10 @@ function bindEvents() {
   el.updatesPeriodFilter.addEventListener("change", renderUpdates);
   el.updatesUserFilter.addEventListener("change", renderUpdates);
   el.updatesTypeFilter.addEventListener("change", renderUpdates);
+  el.updatesImportantFilterButton.addEventListener("click", () => {
+    updatesImportantOnly = !updatesImportantOnly;
+    renderUpdates();
+  });
   el.markAllUpdatesReadButton.addEventListener("click", markAllActivitiesRead);
   el.addGuidanceButton.addEventListener("click", () => openGuidanceDialog());
   el.searchGuidanceButton.addEventListener("click", answerGuidanceQuestion);
@@ -1809,6 +1817,7 @@ function isNewTaskActivity(activity) {
 function renderUpdates() {
   if (!currentUser || !el.updatesList) return;
   renderUpdatesUserFilter();
+  renderUpdatesImportantFilter();
   const visibleActivities = visibleActivitiesForCurrentUser();
   const unreadCount = visibleActivities.filter((activity) => !activityIsRead(activity)).length;
   el.updatesUnreadBadge.hidden = !unreadCount;
@@ -1836,7 +1845,8 @@ function renderUpdates() {
         (!readFilter || !activityIsRead(activity)) &&
         matchesActivityPeriod(activity, periodFilter) &&
         (!actorId || activity.actorId === actorId) &&
-        (!type || displayType === type)
+        (!type || displayType === type) &&
+        (!updatesImportantOnly || priorityActivityTypes().includes(displayType))
       );
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -1856,6 +1866,22 @@ function renderUpdates() {
   });
   document.querySelectorAll("[data-mark-activity-read]").forEach((button) => {
     button.addEventListener("click", () => markActivityRead(button.dataset.markActivityRead));
+  });
+  document.querySelectorAll("[data-toggle-update-details]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const activityId = button.dataset.toggleUpdateDetails;
+      if (expandedUpdateIds.has(activityId)) expandedUpdateIds.delete(activityId);
+      else expandedUpdateIds.add(activityId);
+      renderUpdates();
+    });
+  });
+  document.querySelectorAll("[data-toggle-update-day]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const day = button.dataset.toggleUpdateDay;
+      if (collapsedUpdateDays.has(day)) collapsedUpdateDays.delete(day);
+      else collapsedUpdateDays.add(day);
+      renderUpdates();
+    });
   });
   refreshIcons();
 }
@@ -1892,6 +1918,12 @@ function renderUpdatesUserFilter() {
     .map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`)
     .join("")}`;
   el.updatesUserFilter.value = selected;
+}
+
+function renderUpdatesImportantFilter() {
+  if (!el.updatesImportantFilterButton) return;
+  el.updatesImportantFilterButton.classList.toggle("active", updatesImportantOnly);
+  el.updatesImportantFilterButton.setAttribute("aria-pressed", String(updatesImportantOnly));
 }
 
 function visibleActivitiesForCurrentUser() {
@@ -3020,13 +3052,17 @@ function groupedActivitiesByDay(activities) {
 }
 
 function updateDayGroup(day, activities) {
+  const collapsed = collapsedUpdateDays.has(day);
   return `
-    <section class="update-day-group">
+    <section class="update-day-group ${collapsed ? "collapsed" : ""}">
       <div class="update-day-heading">
-        <h3>${escapeHtml(activityDayLabel(day))}</h3>
+        <button class="update-day-toggle" type="button" data-toggle-update-day="${escapeAttr(day)}" aria-expanded="${!collapsed}">
+          <i data-lucide="${collapsed ? "chevron-right" : "chevron-down"}"></i>
+          <span>${escapeHtml(activityDayLabel(day))}</span>
+        </button>
         <span>${activities.length} atualização${activities.length > 1 ? "ões" : ""}</span>
       </div>
-      <div class="update-day-timeline">
+      <div class="update-day-timeline" ${collapsed ? "hidden" : ""}>
         ${activities.map(updateTimelineItem).join("")}
       </div>
     </section>
@@ -3037,8 +3073,11 @@ function updateTimelineItem(activity) {
   const unread = !activityIsRead(activity);
   const displayType = activityDisplayType(activity);
   const priorityClass = priorityActivityTypes().includes(displayType) ? "update-priority" : "";
+  const expanded = expandedUpdateIds.has(activity.id);
+  const detailHtml = renderUpdateDetail(activity);
+  const hasDetails = activityDetailLines(activity).length > 0;
   return `
-    <article class="update-item ${unread ? "unread" : ""} ${priorityClass} update-type-${displayType}" data-activity="${activity.id}">
+    <article class="update-item ${unread ? "unread" : ""} ${expanded ? "expanded" : ""} ${priorityClass} update-type-${displayType}" data-activity="${activity.id}">
       <div class="update-time">
         <strong>${activityTimeLabel(activity.createdAt)}</strong>
         ${unread ? `<span>Nova</span>` : ""}
@@ -3052,10 +3091,15 @@ function updateTimelineItem(activity) {
           ${activity.clientName ? `<span><i data-lucide="folder-open"></i>${escapeHtml(activity.clientName)}</span>` : ""}
         </div>
         <h3>${escapeHtml(activity.title)}</h3>
-        ${activity.detail ? `<p class="update-detail-line">${escapeHtml(activity.detail)}</p>` : ""}
+        ${detailHtml}
       </div>
       <div class="inline-actions update-actions">
         ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}" data-activity-id="${activity.id}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
+        ${
+          hasDetails
+            ? `<button class="small-button" type="button" data-toggle-update-details="${activity.id}" aria-expanded="${expanded}"><i data-lucide="${expanded ? "chevron-up" : "chevron-down"}"></i> ${expanded ? "Recolher" : "Ver detalhes"}</button>`
+            : ""
+        }
         ${
           unread
             ? `<button class="small-button" type="button" data-mark-activity-read="${activity.id}"><i data-lucide="check"></i> Marcar lida</button>`
@@ -3064,6 +3108,46 @@ function updateTimelineItem(activity) {
       </div>
     </article>
   `;
+}
+
+function renderUpdateDetail(activity) {
+  const lines = activityDetailLines(activity);
+  if (!lines.length) return "";
+  if (lines.length === 1 && !isChangeLine(lines[0])) {
+    return `<p class="update-detail-line">${escapeHtml(formatActivityDetailLine(lines[0]))}</p>`;
+  }
+  return `
+    <ul class="update-change-list">
+      ${lines.map((line) => `<li>${formatChangeLineHtml(line)}</li>`).join("")}
+    </ul>
+  `;
+}
+
+function activityDetailLines(activity = {}) {
+  const raw = String(activity.detail || "").trim();
+  if (!raw) return [];
+  const withLineBreaks = raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\.\s+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][^:.\n]{1,90}:)/g, ".\n$1");
+  return withLineBreaks
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function formatActivityDetailLine(line) {
+  return line.replace(/\s+->\s+/g, " → ");
+}
+
+function isChangeLine(line) {
+  return /:\s+.+\s+(?:->|→)\s+.+/u.test(line);
+}
+
+function formatChangeLineHtml(line) {
+  const formatted = formatActivityDetailLine(line);
+  const match = formatted.match(/^([^:]{1,90}):\s*(.+?)\s+→\s+(.+?)(\.)?$/u);
+  if (!match) return escapeHtml(formatted);
+  return `<span class="update-change-field">${escapeHtml(match[1])}</span><span class="update-change-before">${escapeHtml(match[2])}</span><i data-lucide="arrow-right"></i><span class="update-change-after">${escapeHtml(match[3])}</span>`;
 }
 
 function activityDisplayType(activity = {}) {
@@ -4137,7 +4221,7 @@ function recordClientChangeActivities(previousClient, nextClient, changes) {
     !sameIds(previousClient.statusIds, nextClient.statusIds);
   if (!hasSpecificActivity && changes.length) {
     const type = changes.some((change) => /Honor|INSS|redução|pagamento|financeiro|Comiss/i.test(change)) ? "finance" : "client";
-    recordActivity(type, `Atualizou ${context.clientName}.`, changes.slice(0, 3).join(" "), context);
+    recordActivity(type, `Atualizou ${context.clientName}.`, changes.slice(0, 5).join("\n"), context);
   }
 }
 
@@ -4202,12 +4286,12 @@ function summarizeClientChanges(previousClient, nextClient) {
   Object.entries(fieldLabels).forEach(([field, label]) => {
     const before = historyFieldValue(previousClient[field], field);
     const after = historyFieldValue(nextClient[field], field);
-    if (before !== after) changes.push(`${label}: ${before} -> ${after}.`);
+    if (before !== after) changes.push(`${label}: ${before} → ${after}.`);
   });
 
   const previousStatuses = statusNames(previousClient.statusIds);
   const nextStatuses = statusNames(nextClient.statusIds);
-  if (previousStatuses !== nextStatuses) changes.push(`Status do processo: ${previousStatuses} -> ${nextStatuses}.`);
+  if (previousStatuses !== nextStatuses) changes.push(`Status do processo: ${previousStatuses} → ${nextStatuses}.`);
 
   collectionChangeSummary(changes, "Controle mensal", previousClient.monthly, nextClient.monthly, (item) => item.month || "mês sem competência");
   collectionChangeSummary(changes, "Tarefas", previousClient.tasks, nextClient.tasks, (item) => item.title || "tarefa sem título");
