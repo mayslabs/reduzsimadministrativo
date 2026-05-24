@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=76" />
+    <link rel="stylesheet" href="./styles.css?v=77" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -36,10 +36,7 @@
     <main id="appView" class="app-shell" hidden>
       <aside class="sidebar">
         <div class="brand-block">
-          <img src="./assets/reduzsim-icon.png" alt="" class="brand-icon" />
-          <div>
-            <strong>ReduzSim</strong>
-          </div>
+          <img src="./assets/reduzsim-sidebar-logo.png?v=77" alt="ReduzSim" class="brand-logo" />
         </div>
         <nav class="side-nav" aria-label="Navegação principal">
           <button class="nav-item active" data-section="clientsSection"><i data-lucide="building-2"></i> INSS de obras</button>
@@ -60,6 +57,7 @@
         </nav>
         <div class="sidebar-footer">
           <span id="currentUserLabel"></span>
+          <span id="systemVersionLabel" class="system-version"></span>
           <button id="logoutButton" class="ghost-button" type="button"><i data-lucide="log-out"></i> Sair</button>
         </div>
       </aside>
@@ -639,6 +637,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=76"></script>
+    <script src="./app.js?v=77"></script>
   </body>
 </html>

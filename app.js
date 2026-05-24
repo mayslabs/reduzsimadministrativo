@@ -3,6 +3,7 @@ const LEGACY_STORAGE_KEYS = ["reduzsim_client_flow_v1"];
 const SESSION_KEY = "reduzsim_current_user_v2";
 const FIRESTORE_COLLECTION = "reduzsim_admin";
 const FIRESTORE_STATE_DOC = "shared_state";
+const APP_VERSION = currentAppVersion();
 
 const firebaseConfig = {
   apiKey: "AIzaSyAwgOrvq2QGUEPObgkAPXyG_KyJ3l-305w",
@@ -261,6 +262,7 @@ const el = {
   loginStatus: document.getElementById("loginStatus"),
   repairAccessButton: document.getElementById("repairAccessButton"),
   currentUserLabel: document.getElementById("currentUserLabel"),
+  systemVersionLabel: document.getElementById("systemVersionLabel"),
   logoutButton: document.getElementById("logoutButton"),
   newClientButton: document.getElementById("newClientButton"),
   newRegularizationButton: document.getElementById("newRegularizationButton"),
@@ -1230,6 +1232,17 @@ function showApp() {
 
 function updateCurrentUserDisplay() {
   el.currentUserLabel.textContent = `${currentUser.name} | ${currentUser.role === "admin" ? "Administrador" : "Usuário"}`;
+  if (el.systemVersionLabel) el.systemVersionLabel.textContent = `Versão ${APP_VERSION}`;
+}
+
+function currentAppVersion() {
+  try {
+    const script = document.currentScript || document.querySelector('script[src*="app.js"]');
+    const version = new URL(script?.src || "", window.location.href).searchParams.get("v");
+    return version ? `v${String(version).replace(/^v/i, "")}` : "local";
+  } catch {
+    return "local";
+  }
 }
 
 function configureNavigationForRole() {
