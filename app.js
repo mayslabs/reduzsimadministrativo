@@ -66,6 +66,7 @@ const workFields = [
   "workType",
   "concrete",
   "state",
+  "contractClosedDate",
   "startDate",
   "endDate",
   "area",
@@ -122,6 +123,7 @@ const defaultClient = () => {
     workType: "Construção",
     concrete: "Sim",
     state: "TO",
+    contractClosedDate: "2026-01-10",
     startDate: "2026-01-01",
     endDate: "2026-03-31",
     area: "180 m2",
@@ -508,6 +510,7 @@ function migrateState(savedState = {}, persist = true) {
     workType: "",
     concrete: "",
     state: "",
+    contractClosedDate: "",
     startDate: "",
     endDate: "",
     area: "",
@@ -780,6 +783,7 @@ function normalizeClientWorks(client = {}, fallbackUserId = "") {
     workType: localizeLabel(work.workType || ""),
     concrete: localizeLabel(work.concrete || ""),
     state: work.state || "",
+    contractClosedDate: work.contractClosedDate || client.contractClosedDate || "",
     startDate: work.startDate || "",
     endDate: work.endDate || "",
     area: formatFieldValue("area", work.area || ""),
@@ -1301,14 +1305,14 @@ function legacyRenderDataDashboard() {
   el.dataSummary.innerHTML = [
     ["Metragem total", formatAreaTotal(data.totalArea)],
     ["Economia bruta total", calculatedCurrency(data.grossEconomyTotal)],
-    ["Obras cadastradas", data.totalWorks],
+    ["Contratos fechados", data.totalWorks],
     ["Honorários totais", calculatedCurrency(data.totalFees)],
   ]
     .map(([label, value]) => `<article class="data-total"><span>${label}</span><strong>${value}</strong></article>`)
     .join("");
 
   el.dataPanels.innerHTML = [
-    dataPanel("Obras cadastradas por mês", data.monthlyWorks, (row) => `${row.count} obra(s)`),
+    dataPanel("Contratos fechados por mês", data.monthlyWorks, (row) => `${row.count} contrato(s)`),
     dataPanel("Obras por estado", data.byState, (row) => `${row.count} obra(s)`),
     dataPanel("Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`),
     dataPanel("PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`),
@@ -1338,7 +1342,7 @@ function legacyInssDataSummary() {
     const reduced = currencyAmount(client.inssReducedValue);
     if (original !== null && reduced !== null) summary.grossEconomyTotal += original - reduced;
 
-    incrementDataMap(summary.monthlyWorks, monthLabel(client.createdAt || client.updatedAt));
+    incrementDataMap(summary.monthlyWorks, contractClosedMonthLabel(client));
     incrementDataMap(summary.byState, client.state || "Sem estado");
     const destinations = destinationList(client.destination);
     (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination));
@@ -1393,13 +1397,22 @@ function legacyMapToSortedRows(map, mode = "count") {
   const max = Math.max(...values.map((row) => row.count), 1);
   return values
     .map((row) => ({ ...row, percent: Math.max(8, Math.round((row.count / max) * 100)) }))
-    .sort((a, b) => (mode === "date" ? a.label.localeCompare(b.label, "pt-BR") : b.count - a.count || a.label.localeCompare(b.label, "pt-BR")));
+    .sort((a, b) => {
+      const aMissing = normalize(a.label).startsWith("sem ");
+      const bMissing = normalize(b.label).startsWith("sem ");
+      if (aMissing !== bMissing) return Number(aMissing) - Number(bMissing);
+      return mode === "date" ? a.label.localeCompare(b.label, "pt-BR") : b.count - a.count || a.label.localeCompare(b.label, "pt-BR");
+    });
 }
 
 function monthLabel(dateValue) {
   const date = dateValue ? new Date(dateValue) : new Date();
   if (Number.isNaN(date.getTime())) return "Sem data";
   return date.toLocaleDateString("pt-BR", { month: "2-digit", year: "numeric" });
+}
+
+function contractClosedMonthLabel(client = {}) {
+  return client.contractClosedDate ? monthLabel(client.contractClosedDate) : "Sem fechamento informado";
 }
 
 function areaAmount(value) {
@@ -1417,13 +1430,13 @@ function renderDataDashboard() {
   const totals = [
     { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area" },
     { label: "Economia bruta total", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy" },
-    { label: "Obras cadastradas", value: data.totalWorks, hint: `${data.finishedWorks} finalizada(s)`, tone: "works" },
+    { label: "Contratos fechados", value: data.totalWorks, hint: `${data.withContractDate} com data informada`, tone: "works" },
     { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees" },
   ];
   el.dataSummary.innerHTML = totals.map(renderDataTotal).join("");
   el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
   el.dataPanels.innerHTML = [
-    dataPanel("Volume", "Obras cadastradas por mês", data.monthlyWorks, (row) => `${row.count} obra(s)`, "monthlyWorks"),
+    dataPanel("Volume", "Contratos fechados por mês", data.monthlyWorks, (row) => `${row.count} contrato(s)`, "monthlyWorks"),
     dataPanel("Localização", "Obras por estado", data.byState, (row) => `${row.count} obra(s)`, "byState"),
     dataPanel("Perfil da obra", "Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`, "byDestination"),
     dataPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`, "byDocumentType"),
@@ -1520,6 +1533,7 @@ function inssDataSummary() {
     grossEconomyTotal: 0,
     totalWorks: clients.length,
     finishedWorks: clients.filter(isClientFinished).length,
+    withContractDate: clients.filter((client) => Boolean(client.contractClosedDate)).length,
     totalFees: 0,
     monthlyWorks: new Map(),
     byState: new Map(),
@@ -1535,7 +1549,7 @@ function inssDataSummary() {
     const grossEconomy = clientGrossEconomy(client);
     if (grossEconomy !== null) summary.grossEconomyTotal += grossEconomy;
 
-    incrementDataMap(summary.monthlyWorks, monthLabel(client.createdAt || client.updatedAt), client.id);
+    incrementDataMap(summary.monthlyWorks, contractClosedMonthLabel(client), client.id);
     incrementDataMap(summary.byState, client.state || "Sem estado", client.id);
     const destinations = destinationList(client.destination);
     (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, client.id));
@@ -1583,7 +1597,7 @@ function filteredDataClients() {
 
 function matchesDataPeriod(client, period) {
   if (!period) return true;
-  const date = new Date(client.createdAt || client.updatedAt || "");
+  const date = new Date(client.contractClosedDate || "");
   if (Number.isNaN(date.getTime())) return false;
   const now = new Date();
   if (period === "month") return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
@@ -1598,6 +1612,7 @@ function matchesDataPeriod(client, period) {
 
 function dataQualityItems(clients) {
   return [
+    { key: "contract", label: "Sem fechamento", hint: "Afeta contratos por mês", count: dataQualityClients("contract", clients).length },
     { key: "area", label: "Sem área", hint: "Afeta a metragem total", count: dataQualityClients("area", clients).length },
     { key: "economy", label: "Sem economia", hint: "Afeta a economia bruta", count: dataQualityClients("economy", clients).length },
     { key: "fees", label: "Sem honorários", hint: "Afeta os honorários totais", count: dataQualityClients("fees", clients).length },
@@ -1608,6 +1623,7 @@ function dataQualityItems(clients) {
 
 function dataQualityClients(key, clients = filteredDataClients()) {
   return clients.filter((client) => {
+    if (key === "contract") return !client.contractClosedDate;
     if (key === "area") return !areaAmount(client.area);
     if (key === "economy") return currencyAmount(client.inssOriginalValue) === null || currencyAmount(client.inssReducedValue) === null;
     if (key === "fees") return currencyAmount(client.feeValue) === null;
@@ -1679,7 +1695,7 @@ function dataClientsForDrilldown(drilldown) {
 }
 
 function dataClientMatchesGroup(client, group, label) {
-  if (group === "monthlyWorks") return monthLabel(client.createdAt || client.updatedAt) === label;
+  if (group === "monthlyWorks") return contractClosedMonthLabel(client) === label;
   if (group === "byState") return (client.state || "Sem estado") === label;
   if (group === "byDestination") {
     const destinations = destinationList(client.destination);
@@ -1699,7 +1715,7 @@ function dataDrilldownTitle(drilldown) {
 
 function dataGroupTitle(group) {
   return {
-    monthlyWorks: "Obras cadastradas por mês",
+    monthlyWorks: "Contratos fechados por mês",
     byState: "Obras por estado",
     byDestination: "Obras por destinação",
     byDocumentType: "PF ou PJ",
@@ -1755,6 +1771,7 @@ function exportDataDashboardCsv() {
     [
       "Cliente",
       "Título da obra",
+      "Fechamento do contrato",
       "Estado",
       "Destinação",
       "PF/PJ",
@@ -1770,6 +1787,7 @@ function exportDataDashboardCsv() {
     ...clients.map((client) => [
       client.clientName || "",
       client.workTitle || "",
+      client.contractClosedDate ? formatDate(client.contractClosedDate) : "",
       client.state || "",
       client.destination || "",
       documentTypeForClient(client) === "cnpj" ? "PJ" : "PF",
@@ -4462,6 +4480,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     workType: "Tipo de obra",
     concrete: "Concreto usinado",
     state: "Estado",
+    contractClosedDate: "Fechamento do contrato",
     startDate: "Início da obra",
     endDate: "Fim da obra",
     area: "Área",
@@ -4508,7 +4527,7 @@ function summarizeClientChanges(previousClient, nextClient) {
 
 function historyFieldValue(value, field) {
   if (field === "internalOwner") return ownerName(value);
-  if (field === "startDate" || field === "endDate") return value ? formatDate(value) : "vazio";
+  if (field === "contractClosedDate" || field === "startDate" || field === "endDate") return value ? formatDate(value) : "vazio";
   if (value === undefined || value === null || value === "") return "vazio";
   return truncateHistoryValue(String(value));
 }
@@ -5039,6 +5058,7 @@ function createEmptyClient() {
     workType: "",
     concrete: "",
     state: "",
+    contractClosedDate: "",
     startDate: "",
     endDate: "",
     area: "",
