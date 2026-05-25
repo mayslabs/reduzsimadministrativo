@@ -1,6 +1,7 @@
 const STORAGE_KEY = "reduzsim_client_flow_v2";
 const LEGACY_STORAGE_KEYS = ["reduzsim_client_flow_v1"];
 const SESSION_KEY = "reduzsim_current_user_v2";
+const GUIDANCE_COLLAPSE_KEY = "reduzsim_collapsed_guidance_v1";
 const FIRESTORE_COLLECTION = "reduzsim_admin";
 const FIRESTORE_STATE_DOC = "shared_state";
 const APP_VERSION = currentAppVersion();
@@ -240,6 +241,7 @@ let activeViewMode = "list";
 let activeTaskCalendarMode = "week";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
+let collapsedGuidanceIds = new Set(loadCollapsedGuidanceIds());
 let updatesImportantOnly = false;
 let taskMineOnly = false;
 const expandedUpdateIds = new Set();
@@ -2166,31 +2168,64 @@ function guidanceLibraryBaseItems(statusFilter = "") {
   return items.filter((item) => item.status !== "Arquivada");
 }
 
-function renderGuidanceCard(item) {
+function loadCollapsedGuidanceIds() {
+  try {
+    const storedIds = JSON.parse(localStorage.getItem(GUIDANCE_COLLAPSE_KEY) || "[]");
+    return Array.isArray(storedIds) ? storedIds.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCollapsedGuidanceIds() {
+  localStorage.setItem(GUIDANCE_COLLAPSE_KEY, JSON.stringify([...collapsedGuidanceIds]));
+}
+
+function toggleGuidanceCollapse(guidanceId) {
+  if (!guidanceId) return;
+  if (collapsedGuidanceIds.has(guidanceId)) {
+    collapsedGuidanceIds.delete(guidanceId);
+  } else {
+    collapsedGuidanceIds.add(guidanceId);
+  }
+  saveCollapsedGuidanceIds();
+  renderGuidanceLibrary();
+}
+
+function renderGuidanceCard(item, options = {}) {
   const canManage = currentUser.role === "admin";
+  const collapsible = options.collapsible !== false;
+  const collapsed = collapsible && collapsedGuidanceIds.has(item.id);
+  const headerActions = [
+    collapsible
+      ? `<button class="small-button guidance-collapse-button" type="button" data-toggle-guidance="${item.id}"><i data-lucide="${collapsed ? "chevron-down" : "chevron-up"}"></i> ${collapsed ? "Expandir" : "Minimizar"}</button>`
+      : "",
+    canManage && !collapsed
+      ? `<button class="small-button" type="button" data-edit-guidance="${item.id}"><i data-lucide="pencil"></i> Editar</button>`
+      : "",
+    canManage && !collapsed
+      ? item.status === "Arquivada"
+        ? `<button class="small-button" type="button" data-restore-guidance="${item.id}"><i data-lucide="rotate-ccw"></i> Restaurar</button>`
+        : `<button class="small-button" type="button" data-archive-guidance="${item.id}"><i data-lucide="archive"></i> Arquivar</button>`
+      : "",
+  ].filter(Boolean).join("");
+
   return `
-    <article class="guidance-card ${item.important ? "important" : ""} status-${normalize(item.status)}">
+    <article class="guidance-card ${item.important ? "important" : ""} ${collapsed ? "collapsed" : ""} status-${normalize(item.status)}">
       <header>
         <div>
-          <div class="guidance-meta">
-            <span>${escapeHtml(item.stage || "Sem etapa")}</span>
-            <span class="guidance-status-chip status-${normalize(item.status)}">${escapeHtml(item.status)}</span>
-            ${item.important ? `<span>Importante</span>` : ""}
-          </div>
+          ${
+            collapsed
+              ? ""
+              : `<div class="guidance-meta">
+                  <span>${escapeHtml(item.stage || "Sem etapa")}</span>
+                  <span class="guidance-status-chip status-${normalize(item.status)}">${escapeHtml(item.status)}</span>
+                  ${item.important ? `<span>Importante</span>` : ""}
+                </div>`
+          }
           <h3>${escapeHtml(item.title || "Orientação sem título")}</h3>
         </div>
-        ${
-          canManage
-            ? `<div class="inline-actions">
-                <button class="small-button" type="button" data-edit-guidance="${item.id}"><i data-lucide="pencil"></i> Editar</button>
-                ${
-                  item.status === "Arquivada"
-                    ? `<button class="small-button" type="button" data-restore-guidance="${item.id}"><i data-lucide="rotate-ccw"></i> Restaurar</button>`
-                    : `<button class="small-button" type="button" data-archive-guidance="${item.id}"><i data-lucide="archive"></i> Arquivar</button>`
-                }
-              </div>`
-            : ""
-        }
+        ${headerActions ? `<div class="inline-actions guidance-card-actions">${headerActions}</div>` : ""}
       </header>
       <div class="guidance-card-body">
         <section>
@@ -2266,7 +2301,7 @@ function renderGuidanceMatch(match, index) {
         <strong>${guidanceConfidenceLabel(match.score)}</strong>
       </div>
       ${confidenceClass === "confidence-low" ? `<p class="guidance-match-note">Correspondência baixa. Confira com cuidado; se não for isso, registre como pendência.</p>` : ""}
-      ${renderGuidanceCard(item)}
+      ${renderGuidanceCard(item, { collapsible: false })}
       <div class="guidance-result-actions">
         <button class="small-button" type="button" data-register-guidance-mismatch="${item.id}"><i data-lucide="message-circle-question"></i> Não era isso</button>
       </div>
@@ -2298,6 +2333,9 @@ function bindGuidanceNoAnswerButton(question) {
 }
 
 function bindGuidanceActions(scope = document) {
+  scope.querySelectorAll("[data-toggle-guidance]").forEach((button) => {
+    bindGuidanceButton(button, () => toggleGuidanceCollapse(button.dataset.toggleGuidance));
+  });
   scope.querySelectorAll("[data-edit-guidance]").forEach((button) => {
     bindGuidanceButton(button, () => openGuidanceDialog(button.dataset.editGuidance));
   });

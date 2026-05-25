@@ -699,6 +699,25 @@ h3 {
   padding: 16px;
 }
 
+.guidance-card.collapsed {
+  gap: 0;
+  padding-block: 14px;
+}
+
+.guidance-card.collapsed header {
+  align-items: center;
+}
+
+.guidance-card.collapsed h3 {
+  margin: 0;
+}
+
+.guidance-card.collapsed .guidance-card-body,
+.guidance-card.collapsed .guidance-keywords,
+.guidance-card.collapsed .guidance-card-footer {
+  display: none;
+}
+
 .guidance-card.important {
   border-color: rgba(0, 159, 127, 0.35);
   background: #f5fcfa;
@@ -728,6 +747,14 @@ h3 {
 .guidance-pending-item h4,
 .guidance-panel-heading h3 {
   margin: 4px 0 0;
+}
+
+.guidance-card-actions {
+  justify-content: flex-end;
+}
+
+.guidance-collapse-button {
+  min-width: 116px;
 }
 
 .guidance-meta {
