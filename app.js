@@ -238,7 +238,7 @@ state = loadState();
 let currentUser = null;
 let activeClient = null;
 let activeViewMode = "list";
-let activeTaskCalendarMode = "week";
+let activeTaskCalendarMode = "day";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
 let collapsedGuidanceIds = new Set(loadCollapsedGuidanceIds());
@@ -5168,7 +5168,12 @@ function switchSection(sectionId) {
     button.classList.toggle("active", button.dataset.section === sectionId);
   });
   el.newClientButton.hidden = sectionId !== "clientsSection";
-  if (sectionId === "tasksSection") markNewTaskActivitiesRead();
+  if (sectionId === "tasksSection") {
+    activeTaskCalendarMode = "day";
+    activeTaskDate = new Date();
+    markNewTaskActivitiesRead();
+    renderTaskCenter();
+  }
 }
 
 function markNewTaskActivitiesRead() {

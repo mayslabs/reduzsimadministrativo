@@ -1395,7 +1395,13 @@ h3 {
 }
 
 .calendar-mode {
-  min-width: 210px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 300px;
+  border-radius: 999px;
+  background: #f8fbfa;
+  padding: 4px;
+  overflow: visible;
 }
 
 .search-field {
@@ -1425,16 +1431,34 @@ h3 {
 }
 
 .segmented-control button {
-  border-radius: 0;
-  background: #fff;
-  color: var(--charcoal);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
   padding: 0 12px;
-  font-weight: 850;
+  font-size: 13px;
+  font-weight: 750;
+  min-height: 34px;
 }
 
 .segmented-control button.active {
   background: var(--green);
   color: #fff;
+  box-shadow: 0 6px 16px rgba(0, 159, 127, 0.18);
+}
+
+.segmented-control.calendar-mode {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-radius: 999px;
+}
+
+.calendar-mode button {
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.calendar-mode button:not(.active):hover {
+  background: #eef7f4;
+  color: var(--green-dark);
 }
 
 .client-grid {
@@ -3171,6 +3195,7 @@ h3 {
 
   .calendar-mode {
     min-width: 0;
+    width: 100%;
   }
 
   .guidance-insights {
