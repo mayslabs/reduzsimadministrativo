@@ -4651,7 +4651,7 @@ function renderStatusManager() {
   refreshIcons();
 }
 
-function renderUserManager() {
+function legacyRenderUserManager() {
   if (currentUser.role !== "admin") {
     el.userManager.innerHTML = "";
     return;
@@ -4692,6 +4692,121 @@ function renderUserManager() {
     });
   });
   refreshIcons();
+}
+
+function renderUserManager() {
+  if (currentUser.role !== "admin") {
+    el.userManager.innerHTML = "";
+    return;
+  }
+
+  const adminCount = state.users.filter((user) => user.role === "admin").length;
+  el.userManager.innerHTML = `
+    <article class="user-access-notice">
+      <i data-lucide="shield-check"></i>
+      <div>
+        <strong>Controle de acesso</strong>
+        <p>Os acessos oficiais são Mayssa e Camilli. As senhas ficam no Firebase e podem ser redefinidas por e-mail, sem aparecer dentro do sistema.</p>
+      </div>
+      <span>${adminCount} administradora(s)</span>
+    </article>
+    <div class="user-access-grid">
+      ${state.users.map(renderUserAccessCard).join("")}
+    </div>
+  `;
+
+  el.userManager.querySelectorAll("[data-reset-user-password]").forEach((button) => {
+    button.addEventListener("click", () => sendUserPasswordReset(button.dataset.resetUserPassword));
+  });
+  refreshIcons();
+}
+
+function renderUserAccessCard(user) {
+  const stats = userAccessStats(user.id);
+  const roleLabel = user.role === "admin" ? "Administradora" : "Usuária";
+  const roleIcon = user.role === "admin" ? "crown" : "user-check";
+  const lastAction = lastUserActivity(user.id);
+
+  return `
+    <article class="user-access-card">
+      <header>
+        <div class="user-avatar">${escapeHtml(userInitials(user.name || user.email))}</div>
+        <div class="user-identity">
+          <h3>${escapeHtml(user.name || "Usuário sem nome")}</h3>
+          <p>${escapeHtml(user.email || "E-mail não informado")}</p>
+        </div>
+        <div class="user-badges">
+          <span class="user-role-badge ${user.role === "admin" ? "admin" : "user"}"><i data-lucide="${roleIcon}"></i>${roleLabel}</span>
+          <span class="user-status-badge">Ativo</span>
+        </div>
+      </header>
+
+      <div class="user-stat-grid">
+        <div>
+          <span>Tarefas abertas</span>
+          <strong>${stats.openTasks}</strong>
+        </div>
+        <div>
+          <span>Prazos</span>
+          <strong>${stats.deadlines}</strong>
+        </div>
+        <div>
+          <span>Para hoje</span>
+          <strong>${stats.todayItems}</strong>
+        </div>
+      </div>
+
+      <div class="user-access-meta">
+        <span><i data-lucide="history"></i>${escapeHtml(lastAction)}</span>
+        <span><i data-lucide="key-round"></i>Senha pelo Firebase</span>
+        <span><i data-lucide="lock"></i>Usuário fixo</span>
+      </div>
+
+      <div class="user-access-actions">
+        <button class="small-button" type="button" data-reset-user-password="${escapeAttr(user.email || "")}">
+          <i data-lucide="mail"></i> Enviar redefinição de senha
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+function userAccessStats(userId) {
+  const items = taskCenterItems().filter((item) => item.ownerId === userId);
+  return {
+    openTasks: items.filter((item) => item.kind.includes("Tarefa") && item.urgency !== "done").length,
+    deadlines: items.filter((item) => item.kind === "Prazo").length,
+    todayItems: items.filter((item) => item.urgency === "today").length,
+  };
+}
+
+function lastUserActivity(userId) {
+  const activity = (state.activities || []).find((item) => item.actorId === userId);
+  return activity?.createdAt ? `Última ação: ${formatDateTime(activity.createdAt)}` : "Última ação: sem registro";
+}
+
+function userInitials(value = "") {
+  const parts = String(value).trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "US";
+  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+}
+
+async function sendUserPasswordReset(email) {
+  if (!email) return;
+  if (!firebaseAuth?.sendPasswordResetEmail) {
+    alert("A redefinição de senha depende do Firebase ativo.");
+    return;
+  }
+  const confirmed = confirm(`Enviar e-mail de redefinição de senha para ${email}?`);
+  if (!confirmed) return;
+
+  try {
+    await firebaseAuth.sendPasswordResetEmail(email);
+    alert("E-mail de redefinição enviado.");
+  } catch (error) {
+    console.error(error);
+    alert("Não foi possível enviar a redefinição. Confira o usuário no Firebase Authentication.");
+  }
 }
 
 function syncCurrentUser(user) {
