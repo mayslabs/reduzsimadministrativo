@@ -4911,6 +4911,7 @@ function openClientTaskDialog(taskId = null) {
       return false;
     }
 
+    const now = new Date().toISOString();
     const payload = {
       title: values.title,
       description: values.description || "",
@@ -4919,7 +4920,7 @@ function openClientTaskDialog(taskId = null) {
       dueDate: values.dueDate,
       priority: normalizeTaskPriority(values.priority),
       status: values.status || "Pendente",
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
     if (task) {
@@ -4929,7 +4930,7 @@ function openClientTaskDialog(taskId = null) {
         ...draft,
         ...payload,
         createdBy: currentUser.id,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
       });
     }
 
@@ -4993,6 +4994,7 @@ function openQuickInternalTaskDialog() {
       return false;
     }
 
+    const now = new Date().toISOString();
     const newTask = {
       id: id(),
       title: values.title,
@@ -5003,8 +5005,8 @@ function openQuickInternalTaskDialog() {
       status: "Pendente",
       visibility: currentUser.role === "admin" ? values.visibility || "team" : "team",
       createdBy: currentUser.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
     state.internalTasks.unshift(newTask);
     recordActivity("task", `Criou tarefa interna: ${newTask.title}.`, "", {
@@ -5014,6 +5016,7 @@ function openQuickInternalTaskDialog() {
     });
     saveState();
     renderMetrics();
+    renderClients();
     renderTaskCenter();
     renderUpdates();
     return true;
@@ -5028,8 +5031,16 @@ function openInternalTaskDialog(taskId = null) {
         { value: "admin", label: "Somente admin" },
       ]
     : [{ value: "team", label: "Equipe" }];
+  const clientOptions = [
+    { value: "", label: "Sem cliente vinculado" },
+    ...state.clients
+      .slice()
+      .sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""))
+      .map((client) => ({ value: client.id, label: client.clientName || "Cliente sem nome" })),
+  ];
 
-  openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa interna", [
+  openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa", [
+    ...(task ? [] : [{ label: "Cliente vinculado", name: "clientId", type: "select", value: "", options: clientOptions }]),
     { label: "Tarefa", name: "title", type: "text", value: task?.title || "" },
     { label: "Texto", name: "description", type: "textarea", rows: 5, value: task?.description || "" },
     { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 4, value: task?.followUpNotes || "" },
@@ -5045,6 +5056,7 @@ function openInternalTaskDialog(taskId = null) {
       return false;
     }
 
+    const now = new Date().toISOString();
     const payload = {
       title: values.title,
       description: values.description || "",
@@ -5054,7 +5066,7 @@ function openInternalTaskDialog(taskId = null) {
       priority: normalizeTaskPriority(values.priority),
       status: values.status || "Pendente",
       visibility: currentUser.role === "admin" ? values.visibility || "team" : "team",
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
 
     if (task) {
@@ -5064,12 +5076,44 @@ function openInternalTaskDialog(taskId = null) {
         ownerId: task.ownerId,
         visibility: task.visibility,
       });
+    } else if (values.clientId) {
+      const client = state.clients.find((item) => item.id === values.clientId);
+      if (!client) {
+        alert("Cliente vinculado não encontrado.");
+        return false;
+      }
+      const newTask = {
+        id: id(),
+        title: payload.title,
+        description: payload.description,
+        followUpNotes: payload.followUpNotes,
+        ownerId: payload.ownerId,
+        dueDate: payload.dueDate,
+        priority: payload.priority,
+        status: payload.status,
+        createdBy: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+      };
+      client.tasks = Array.isArray(client.tasks) ? client.tasks : [];
+      client.tasks.push(newTask);
+      client.updatedAt = now;
+      addHistoryEntry(client, "Tarefa criada", [
+        `${newTask.title || "Tarefa sem título"} vinculada pela central de tarefas.`,
+        `Responsável: ${ownerName(newTask.ownerId)}.`,
+        newTask.dueDate ? `Prazo: ${formatDate(newTask.dueDate)}.` : "Sem prazo informado.",
+      ]);
+      recordActivity("task", `Criou tarefa em ${client.clientName || "cliente"}.`, newTask.title || "Tarefa sem título", {
+        clientId: client.id,
+        clientName: client.clientName,
+        ownerId: newTask.ownerId,
+      });
     } else {
       const newTask = {
         id: id(),
         ...payload,
         createdBy: currentUser.id,
-        createdAt: new Date().toISOString(),
+        createdAt: now,
       };
       state.internalTasks.unshift(newTask);
       recordActivity("task", `Criou tarefa interna: ${newTask.title}.`, newTask.description || "", {
@@ -5081,6 +5125,7 @@ function openInternalTaskDialog(taskId = null) {
 
     saveState();
     renderMetrics();
+    renderClients();
     renderTaskCenter();
     renderUpdates();
     return true;
@@ -5326,6 +5371,7 @@ function emptyTask() {
     id: id(),
     title: "",
     description: "",
+    followUpNotes: "",
     ownerId: currentUser.id,
     dueDate: "",
     status: "Pendente",
@@ -5589,9 +5635,9 @@ function brazilianStates() {
 
 function taskUrgency(item) {
   if (item.kind.includes("Tarefa") && localizeLabel(item.status) === "Concluída") return "done";
-  if (item.kind.includes("Tarefa") && isWaitingTaskStatus(item.status)) return "waiting";
   if (!item.date) return "no-date";
   const today = localDateKey();
+  if (item.date < today && item.kind.includes("Tarefa") && isWaitingTaskStatus(item.status)) return "waiting";
   if (item.date < today) return "overdue";
   if (item.date === today) return "today";
   return "upcoming";
