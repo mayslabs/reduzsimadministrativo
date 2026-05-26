@@ -607,6 +607,7 @@ function normalizeInternalTask(task) {
     id: task.id || id(),
     title: task.title || "",
     description: task.description || task.text || task.notes || "",
+    followUpNotes: task.followUpNotes || "",
     ownerId: task.ownerId || "",
     dueDate: task.dueDate || "",
     status: localizeLabel(task.status || "Pendente"),
@@ -739,6 +740,7 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
     id: task.id || id(),
     title: task.title || "",
     description: task.description || task.text || task.notes || "",
+    followUpNotes: task.followUpNotes || "",
     ownerId: task.ownerId || client.internalOwner || fallbackUserId,
     dueDate: task.dueDate || "",
     status: localizeLabel(task.status || "Pendente"),
@@ -2755,12 +2757,14 @@ function renderTaskCalendar(items) {
   }
 
   const overdueItems = items.filter((item) => item.urgency === "overdue");
-  const datedItems = items.filter((item) => item.date && item.urgency !== "overdue");
+  const waitingItems = items.filter((item) => item.urgency === "waiting");
+  const datedItems = items.filter((item) => item.date && !["overdue", "waiting"].includes(item.urgency));
   const noDateItems = items.filter((item) => !item.date);
   const calendarMarkup = activeTaskCalendarMode === "week" ? renderTaskWeekBoard(datedItems) : renderTaskMonthBoard(datedItems);
 
   el.taskCenterList.innerHTML = `
     ${renderOverdueTasks(overdueItems)}
+    ${renderWaitingTasks(waitingItems)}
     ${calendarMarkup}
     ${renderNoDateTasks(noDateItems)}
   `;
@@ -2770,9 +2774,9 @@ function renderTaskDayBoard(items) {
   const selectedDay = localDateKey(activeTaskDate);
   const openItems = items.filter((item) => item.urgency !== "done");
   const overdueItems = openItems.filter((item) => item.urgency === "overdue");
-  const todayItems = openItems.filter((item) => item.date === selectedDay);
-  const noDateImportant = openItems.filter((item) => !item.date && taskPriorityRank(item.priority) < 2);
-  const waitingItems = openItems.filter((item) => ["Aguardando cliente", "Aguardando terceiro"].includes(localizeLabel(item.status || "")));
+  const todayItems = openItems.filter((item) => item.urgency === "today" && item.date === selectedDay);
+  const noDateImportant = openItems.filter((item) => item.urgency === "no-date" && taskPriorityRank(item.priority) < 2);
+  const waitingItems = openItems.filter((item) => item.urgency === "waiting");
   const dayTitle = selectedDay === localDateKey() ? "Hoje" : "Dia selecionado";
 
   return `
@@ -3036,6 +3040,7 @@ function renderTaskOverview(items) {
   const stats = [
     ["Atrasadas", openItems.filter((item) => item.urgency === "overdue").length, "overdue"],
     ["Hoje", openItems.filter((item) => item.urgency === "today").length, "today"],
+    ["Aguardando retorno", openItems.filter((item) => item.urgency === "waiting").length, "waiting"],
     ["Urgentes", openItems.filter((item) => normalizeTaskPriority(item.priority) === "Urgente").length, "urgent"],
     ["Próximas", openItems.filter((item) => item.urgency === "upcoming").length, "upcoming"],
     ["Sem prazo", openItems.filter((item) => item.urgency === "no-date").length, "no-date"],
@@ -3062,6 +3067,7 @@ function taskCenterItems() {
         kind: "Tarefa",
         title: task.title || "Tarefa sem título",
         description: task.description || "",
+        followUpNotes: task.followUpNotes || "",
         ownerId: task.ownerId,
         createdBy: task.createdBy || "",
         date: task.dueDate || "",
@@ -3103,6 +3109,7 @@ function taskCenterItems() {
         kind: "Tarefa interna",
         title: task.title || "Tarefa interna sem título",
         description: task.description || "",
+        followUpNotes: task.followUpNotes || "",
         ownerId: task.ownerId,
         createdBy: task.createdBy || "",
         date: task.dueDate || "",
@@ -3148,6 +3155,7 @@ function filterTaskCenterItems(items) {
       const haystack = normalize([
         item.title,
         item.description,
+        item.followUpNotes,
         item.clientName,
         item.kind,
         item.status,
@@ -3175,7 +3183,7 @@ function taskPriorityRank(priority) {
 }
 
 function taskItemSorter(a, b) {
-  const order = { overdue: 0, today: 1, upcoming: 2, "no-date": 3, done: 4 };
+  const order = { overdue: 0, waiting: 1, today: 2, upcoming: 3, "no-date": 4, done: 5 };
   const orderDiff = order[a.urgency] - order[b.urgency];
   if (orderDiff) return orderDiff;
   const priorityDiff = taskPriorityRank(a.priority) - taskPriorityRank(b.priority);
@@ -3233,6 +3241,7 @@ function renderTaskCalendarCard(item, compact = false, options = {}) {
           ? ""
           : `<div class="task-card-details" ${expanded ? "" : "hidden"}>
               ${item.description ? `<p class="task-description">${escapeHtml(item.description)}</p>` : ""}
+              ${item.followUpNotes ? `<p class="task-follow-up"><strong>Anotação:</strong> ${escapeHtml(item.followUpNotes)}</p>` : ""}
               ${item.createdBy ? `<div class="task-detail"><i data-lucide="user-plus"></i>Criada por ${escapeHtml(ownerName(item.createdBy))}</div>` : ""}
               <div class="task-detail"><i data-lucide="calendar"></i>${item.date ? formatDate(item.date) : "Sem prazo"}</div>
               <div class="task-detail">${statusControl}</div>
@@ -3985,6 +3994,7 @@ function renderTasks() {
               <div class="task-message-body">
                 <p class="task-message-title">${escapeHtml(task.title || "Tarefa sem descrição")}</p>
                 ${task.description ? `<p class="task-message-description">${escapeHtml(task.description)}</p>` : ""}
+                ${task.followUpNotes ? `<p class="task-message-description"><strong>Anotação:</strong> ${escapeHtml(task.followUpNotes)}</p>` : ""}
                 <div class="task-message-meta">
                   <span>Cadastrada por ${escapeHtml(ownerName(task.createdBy))}</span>
                   <span>Responsável: ${escapeHtml(ownerName(task.ownerId))}</span>
@@ -4771,6 +4781,11 @@ function renderUserAccessCard(user) {
   `;
 }
 
+function renderWaitingTasks(items) {
+  if (!items.length) return "";
+  return renderTaskFocusPanel("Aguardando retorno", items, "waiting", "hourglass");
+}
+
 function userAccessStats(userId) {
   const items = taskCenterItems().filter((item) => item.ownerId === userId);
   return {
@@ -4885,6 +4900,7 @@ function openClientTaskDialog(taskId = null) {
   openSimpleDialog(task ? "Editar tarefa" : "Nova tarefa", [
     { label: "Tarefa", name: "title", type: "text", value: draft.title || "" },
     { label: "Descrição", name: "description", type: "textarea", rows: 4, value: draft.description || "" },
+    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 4, value: draft.followUpNotes || "" },
     { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
     { label: "Prazo", name: "dueDate", type: "date", value: draft.dueDate || "" },
     { label: "Prioridade", name: "priority", type: "select", value: normalizeTaskPriority(draft.priority), options: taskPriorityValues().map((value) => ({ value, label: value })) },
@@ -4898,6 +4914,7 @@ function openClientTaskDialog(taskId = null) {
     const payload = {
       title: values.title,
       description: values.description || "",
+      followUpNotes: values.followUpNotes || "",
       ownerId: values.ownerId || currentUser.id,
       dueDate: values.dueDate,
       priority: normalizeTaskPriority(values.priority),
@@ -5015,6 +5032,7 @@ function openInternalTaskDialog(taskId = null) {
   openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa interna", [
     { label: "Tarefa", name: "title", type: "text", value: task?.title || "" },
     { label: "Texto", name: "description", type: "textarea", rows: 5, value: task?.description || "" },
+    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 4, value: task?.followUpNotes || "" },
     { label: "Criada por", name: "createdByLabel", type: "readonly", value: ownerName(task?.createdBy || currentUser.id) },
     { label: "Responsável", name: "ownerId", type: "select", value: task?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
     { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
@@ -5030,6 +5048,7 @@ function openInternalTaskDialog(taskId = null) {
     const payload = {
       title: values.title,
       description: values.description || "",
+      followUpNotes: values.followUpNotes || "",
       ownerId: values.ownerId || currentUser.id,
       dueDate: values.dueDate,
       priority: normalizeTaskPriority(values.priority),
@@ -5570,6 +5589,7 @@ function brazilianStates() {
 
 function taskUrgency(item) {
   if (item.kind.includes("Tarefa") && localizeLabel(item.status) === "Concluída") return "done";
+  if (item.kind.includes("Tarefa") && isWaitingTaskStatus(item.status)) return "waiting";
   if (!item.date) return "no-date";
   const today = localDateKey();
   if (item.date < today) return "overdue";
@@ -5580,11 +5600,16 @@ function taskUrgency(item) {
 function urgencyLabel(urgency) {
   return {
     overdue: "Atrasada",
+    waiting: "Aguardando retorno",
     today: "Hoje",
     upcoming: "Próxima",
     "no-date": "Sem prazo",
     done: "Concluída",
   }[urgency] || "Aberta";
+}
+
+function isWaitingTaskStatus(status) {
+  return ["Aguardando cliente", "Aguardando terceiro"].includes(localizeLabel(status || ""));
 }
 
 function weekDays(date) {

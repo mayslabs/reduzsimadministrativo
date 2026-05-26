@@ -933,7 +933,7 @@ h3 {
 
 .task-overview {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -970,6 +970,10 @@ h3 {
 
 .task-stat.urgent {
   border-left-color: var(--red);
+}
+
+.task-stat.waiting {
+  border-left-color: #8b5cf6;
 }
 
 .task-stat.upcoming {
@@ -2130,6 +2134,22 @@ h3 {
   font-weight: 400;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+
+.task-follow-up {
+  margin: 0;
+  border-radius: 8px;
+  background: #f7f3ff;
+  color: #4c1d95;
+  padding: 8px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.task-follow-up strong {
+  font-weight: 700;
 }
 
 .task-badges {
