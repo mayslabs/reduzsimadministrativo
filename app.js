@@ -15,6 +15,12 @@ const firebaseConfig = {
   appId: "1:350622536875:web:ed0f9bf3f11b32c894d3ee",
 };
 
+const DEFAULT_GOAL_SETTINGS = {
+  floor: "R$ 15.000,00",
+  target: "R$ 20.000,00",
+  stretch: "R$ 25.000,00",
+};
+
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -241,9 +247,12 @@ let activeViewMode = "list";
 let activeTaskCalendarMode = "day";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
+let activeGoalsYear = "2026";
+let activeGoalsMonth = "2026-06";
 let collapsedGuidanceIds = new Set(loadCollapsedGuidanceIds());
 let updatesImportantOnly = false;
 let taskMineOnly = false;
+let advancedClientFiltersOpen = false;
 const expandedUpdateIds = new Set();
 const collapsedUpdateDays = new Set();
 const expandedTaskCardIds = new Set();
@@ -271,6 +280,7 @@ const el = {
   newClientButton: document.getElementById("newClientButton"),
   newRegularizationButton: document.getElementById("newRegularizationButton"),
   metricsGrid: document.getElementById("metricsGrid"),
+  attentionPanel: document.getElementById("attentionPanel"),
   quickInternalTaskButton: document.getElementById("quickInternalTaskButton"),
   addInternalTaskButton: document.getElementById("addInternalTaskButton"),
   addMeetingButton: document.getElementById("addMeetingButton"),
@@ -319,11 +329,28 @@ const el = {
   dataQualityPanel: document.getElementById("dataQualityPanel"),
   dataPanels: document.getElementById("dataPanels"),
   dataDrilldown: document.getElementById("dataDrilldown"),
+  goalsYearSelect: document.getElementById("goalsYearSelect"),
+  editGoalsButton: document.getElementById("editGoalsButton"),
+  goalsSummary: document.getElementById("goalsSummary"),
+  goalsMonthlyGrid: document.getElementById("goalsMonthlyGrid"),
+  goalsContractsTitle: document.getElementById("goalsContractsTitle"),
+  goalsContractsList: document.getElementById("goalsContractsList"),
+  goalsMissingData: document.getElementById("goalsMissingData"),
   searchInput: document.getElementById("searchInput"),
   regularizationSearchInput: document.getElementById("regularizationSearchInput"),
   regularizationList: document.getElementById("regularizationList"),
   statusFilter: document.getElementById("statusFilter"),
+  ownerFilter: document.getElementById("ownerFilter"),
+  stateFilter: document.getElementById("stateFilter"),
   clientSort: document.getElementById("clientSort"),
+  moreFiltersButton: document.getElementById("moreFiltersButton"),
+  advancedClientFilters: document.getElementById("advancedClientFilters"),
+  workStateFilter: document.getElementById("workStateFilter"),
+  taskAlertFilter: document.getElementById("taskAlertFilter"),
+  deadlineAlertFilter: document.getElementById("deadlineAlertFilter"),
+  financeFilter: document.getElementById("financeFilter"),
+  monthlyPendingFilter: document.getElementById("monthlyPendingFilter"),
+  nextActionFilter: document.getElementById("nextActionFilter"),
   listModeButton: document.getElementById("listModeButton"),
   compactModeButton: document.getElementById("compactModeButton"),
   listView: document.getElementById("listView"),
@@ -336,14 +363,18 @@ const el = {
   activeStatusList: document.getElementById("activeStatusList"),
   inssReductionSummary: document.getElementById("inssReductionSummary"),
   inssReductionResults: document.getElementById("inssReductionResults"),
+  operationalChecklist: document.getElementById("operationalChecklist"),
   statusPicker: document.getElementById("statusPicker"),
   generateMonthsButton: document.getElementById("generateMonthsButton"),
   addMonthButton: document.getElementById("addMonthButton"),
+  monthlyProgressList: document.getElementById("monthlyProgressList"),
   monthlyTable: document.querySelector("#monthlyTable tbody"),
   addTaskButton: document.getElementById("addTaskButton"),
   tasksList: document.getElementById("tasksList"),
   addDeadlineButton: document.getElementById("addDeadlineButton"),
   deadlinesList: document.getElementById("deadlinesList"),
+  addDocumentButton: document.getElementById("addDocumentButton"),
+  documentsList: document.getElementById("documentsList"),
   newNoteText: document.getElementById("newNoteText"),
   addNoteButton: document.getElementById("addNoteButton"),
   notesList: document.getElementById("notesList"),
@@ -452,6 +483,7 @@ function loadState() {
     internalTasks: [],
     meetings: [],
     activities: [],
+    goals: normalizeGoalSettings(),
   };
   state = initial;
   initial.clients = [defaultClient()];
@@ -484,6 +516,7 @@ function migrateState(savedState = {}, persist = true) {
     internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
     meetings: Array.isArray(savedState.meetings) ? savedState.meetings.map(normalizeMeeting) : [],
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
+    goals: normalizeGoalSettings(savedState.goals),
   };
   migrated.statuses = migrated.statuses.map((status) => ({
     ...status,
@@ -633,6 +666,14 @@ function normalizeMeeting(meeting) {
   };
 }
 
+function normalizeGoalSettings(goals = {}) {
+  return {
+    floor: formatFlexibleCurrencyValue(goals.floor || DEFAULT_GOAL_SETTINGS.floor),
+    target: formatFlexibleCurrencyValue(goals.target || DEFAULT_GOAL_SETTINGS.target),
+    stretch: formatFlexibleCurrencyValue(goals.stretch || DEFAULT_GOAL_SETTINGS.stretch),
+  };
+}
+
 function normalizeRegularizationClient(process = {}) {
   return {
     id: process.id || id(),
@@ -642,6 +683,8 @@ function normalizeRegularizationClient(process = {}) {
     address: process.address || "",
     registryNumber: process.registryNumber || process.registration || "",
     status: process.status || "Em análise",
+    contractClosedDate: process.contractClosedDate || "",
+    feeValue: formatFlexibleCurrencyValue(process.feeValue || ""),
     nextAction: process.nextAction || "",
     notes: process.notes || "",
     createdAt: process.createdAt || new Date().toISOString(),
@@ -1019,7 +1062,18 @@ function bindEvents() {
   el.searchInput.addEventListener("input", renderClients);
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
   el.statusFilter.addEventListener("change", renderClients);
+  el.ownerFilter.addEventListener("change", renderClients);
+  el.stateFilter.addEventListener("change", renderClients);
   el.clientSort.addEventListener("change", renderClients);
+  [el.workStateFilter, el.taskAlertFilter, el.deadlineAlertFilter, el.financeFilter, el.monthlyPendingFilter, el.nextActionFilter].forEach((input) => {
+    input.addEventListener("change", renderClients);
+  });
+  el.moreFiltersButton.addEventListener("click", () => {
+    advancedClientFiltersOpen = !advancedClientFiltersOpen;
+    el.advancedClientFilters.hidden = !advancedClientFiltersOpen;
+    el.moreFiltersButton.setAttribute("aria-expanded", String(advancedClientFiltersOpen));
+    el.moreFiltersButton.classList.toggle("active", advancedClientFiltersOpen);
+  });
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
@@ -1054,6 +1108,12 @@ function bindEvents() {
     });
   });
   el.exportDataButton.addEventListener("click", exportDataDashboardCsv);
+  el.goalsYearSelect.addEventListener("change", () => {
+    activeGoalsYear = el.goalsYearSelect.value || "2026";
+    activeGoalsMonth = `${activeGoalsYear}-01`;
+    renderGoalsDashboard();
+  });
+  el.editGoalsButton.addEventListener("click", openGoalsDialog);
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
@@ -1071,6 +1131,12 @@ function bindEvents() {
   });
   el.addDeadlineButton.addEventListener("click", () => {
     openClientDeadlineDialog();
+  });
+  el.addDocumentButton.addEventListener("click", () => {
+    activeClient.documents = Array.isArray(activeClient.documents) ? activeClient.documents : [];
+    activeClient.documents.push(emptyDocument());
+    renderDocuments();
+    renderOperationalChecklist();
   });
   el.addNoteButton.addEventListener("click", addNote);
   el.addWorkerMessageButton.addEventListener("click", addWorkerMessage);
@@ -1107,6 +1173,10 @@ function bindEvents() {
       }
       if (input.dataset.field === "clientOrigin" || input.dataset.field === "hasReferralCommission") syncReferralCommissionFields();
       if (["feeValue", "inssOriginalValue", "inssReducedValue"].includes(input.dataset.field)) renderInssReduction();
+      if (["contractClosedDate", "startDate", "endDate", "area", "state", "internalOwner", "feeValue", "inssOriginalValue", "inssReducedValue"].includes(input.dataset.field)) {
+        renderOperationalChecklist();
+        renderMonthlyProgressList();
+      }
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -1255,20 +1325,24 @@ function currentAppVersion() {
 
 function configureNavigationForRole() {
   const isAdmin = currentUser.role === "admin";
+  document.querySelector('[data-section="statusSection"]').style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="usersSection"]').style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="accountSection"]').style.display = isAdmin ? "none" : "";
   el.addUserButton.style.display = "none";
   el.addGuidanceButton.style.display = isAdmin ? "" : "none";
+  el.editGoalsButton.style.display = isAdmin ? "" : "none";
 
   const activeSection = document.querySelector(".nav-item.active")?.dataset.section;
-  if ((!isAdmin && activeSection === "usersSection") || (isAdmin && activeSection === "accountSection")) {
+  if ((!isAdmin && ["usersSection", "statusSection"].includes(activeSection)) || (isAdmin && activeSection === "accountSection")) {
     switchSection("clientsSection");
   }
 }
 
 function renderAll() {
   renderStatusFilter();
+  renderClientFilterOptions();
   renderMetrics();
+  renderAttentionPanel();
   renderClients();
   renderRegularizationClients();
   renderTaskCenter();
@@ -1276,6 +1350,7 @@ function renderAll() {
   renderUpdates();
   renderGuidance();
   renderDataDashboard();
+  renderGoalsDashboard();
   renderStatusManager();
   renderUserManager();
   renderAccount();
@@ -1290,6 +1365,19 @@ function renderStatusFilter() {
   el.statusFilter.value = selected;
 }
 
+function renderClientFilterOptions() {
+  const selectedOwner = el.ownerFilter.value;
+  const selectedState = el.stateFilter.value;
+  el.ownerFilter.innerHTML = `<option value="">Todos os responsáveis</option>${state.users
+    .map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`)
+    .join("")}<option value="missing">Sem responsável</option>`;
+  el.ownerFilter.value = selectedOwner;
+  el.stateFilter.innerHTML = `<option value="">Todos os estados</option>${brazilianStates()
+    .map((stateValue) => `<option value="${stateValue}">${stateValue}</option>`)
+    .join("")}<option value="missing">Sem estado</option>`;
+  el.stateFilter.value = selectedState;
+}
+
 function renderMetrics() {
   const openTasks = taskCenterItems().filter((item) => item.kind.includes("Tarefa") && item.urgency !== "done").length;
   const deadlines = state.clients.flatMap((client) => client.deadlines || []).length;
@@ -1302,6 +1390,42 @@ function renderMetrics() {
   ]
     .map(([label, value]) => `<article class="metric"><span>${label}</span><strong>${value}</strong></article>`)
     .join("");
+}
+
+function renderAttentionPanel() {
+  const items = state.clients
+    .filter((client) => !isClientFinished(client))
+    .map((client) => ({ client, reasons: clientAttentionReasons(client), score: clientUrgencyScore(client) }))
+    .filter((item) => item.reasons.length)
+    .sort((a, b) => b.score - a.score || clientCreatedTime(b.client) - clientCreatedTime(a.client))
+    .slice(0, 8);
+
+  el.attentionPanel.innerHTML = `
+    <div class="attention-heading">
+      <div>
+        <p class="eyebrow">Atenção de hoje</p>
+        <h2>Prioridades do INSS de obras</h2>
+      </div>
+      <span>${items.length ? `${items.length} cliente(s)` : "Tudo certo"}</span>
+    </div>
+    <div class="attention-list">
+      ${
+        items.length
+          ? items
+              .map(
+                ({ client, reasons }) => `
+                  <button class="attention-item" type="button" data-open-client="${client.id}">
+                    <strong>${escapeHtml(client.clientName || "Cliente sem nome")}</strong>
+                    <span>${reasons.slice(0, 3).map((reason) => `<mark class="${reason.tone}">${escapeHtml(reason.label)}</mark>`).join("")}</span>
+                  </button>
+                `
+              )
+              .join("")
+          : `<p class="empty-state compact">Nenhuma urgência automática encontrada.</p>`
+      }
+    </div>
+  `;
+  refreshIcons();
 }
 
 function legacyRenderDataDashboard() {
@@ -1815,6 +1939,255 @@ function exportDataDashboardCsv() {
   link.click();
   link.remove();
   URL.revokeObjectURL(link.href);
+}
+
+function renderGoalsDashboard() {
+  if (!el.goalsSummary) return;
+  state.goals = normalizeGoalSettings(state.goals);
+  activeGoalsYear = activeGoalsYear || "2026";
+  el.goalsYearSelect.value = activeGoalsYear;
+  if (!activeGoalsMonth || !activeGoalsMonth.startsWith(activeGoalsYear)) {
+    const current = currentMonthKey();
+    activeGoalsMonth = current.startsWith(activeGoalsYear) ? current : `${activeGoalsYear}-01`;
+  }
+
+  const data = companyGoalsData(activeGoalsYear);
+  const settings = goalNumericSettings();
+  const annualTarget = settings.target * 12;
+  const annualStretch = settings.stretch * 12;
+  const remainingTarget = Math.max(annualTarget - data.total, 0);
+  const percent = annualTarget ? (data.total / annualTarget) * 100 : 0;
+  const averageTicket = data.contracts.length ? data.total / data.contracts.length : 0;
+
+  el.goalsSummary.innerHTML = [
+    { label: "Meta anual", value: calculatedCurrency(annualTarget), hint: `Supermeta: ${calculatedCurrency(annualStretch)}` },
+    { label: "Fechado no ano", value: calculatedCurrency(data.total), hint: `${data.contracts.length} contrato(s)` },
+    { label: "Falta para meta", value: calculatedCurrency(remainingTarget), hint: remainingTarget ? "Para bater a meta anual" : "Meta anual batida" },
+    { label: "Percentual atingido", value: calculatedPercent(percent), hint: goalLevelLabel(data.total, annualTarget, annualStretch) },
+    { label: "Ticket médio", value: calculatedCurrency(averageTicket), hint: "Honorários por contrato" },
+    { label: "Contratos", value: data.contracts.length, hint: "INSS de obras + Regularização" },
+  ]
+    .map(renderGoalSummaryCard)
+    .join("");
+
+  el.goalsMonthlyGrid.innerHTML = data.months.map((month) => renderGoalMonthCard(month, settings)).join("");
+  renderGoalContracts(data);
+  renderGoalMissingData(data.missingRegularization);
+  bindGoalActions();
+  refreshIcons();
+}
+
+function renderGoalSummaryCard(item) {
+  return `
+    <article class="goal-summary-card">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${escapeHtml(item.value)}</strong>
+      <small>${escapeHtml(item.hint)}</small>
+    </article>
+  `;
+}
+
+function renderGoalMonthCard(month, settings) {
+  const percent = settings.stretch ? Math.min(100, Math.round((month.total / settings.stretch) * 100)) : 0;
+  const level = monthlyGoalLevel(month.total, settings);
+  return `
+    <button class="goal-month-card ${level.className} ${month.key === activeGoalsMonth ? "active" : ""}" type="button" data-goal-month="${month.key}">
+      <header>
+        <strong>${escapeHtml(month.label)}</strong>
+        <span>${month.contracts.length} contrato(s)</span>
+      </header>
+      <div class="goal-month-total">${escapeHtml(calculatedCurrency(month.total))}</div>
+      <div class="goal-progress-track">
+        <span style="width:${percent}%"></span>
+        <i style="left:${Math.min(100, Math.round((settings.floor / settings.stretch) * 100))}%"></i>
+        <i style="left:${Math.min(100, Math.round((settings.target / settings.stretch) * 100))}%"></i>
+      </div>
+      <div class="goal-month-marks">
+        <span>Piso ${escapeHtml(calculatedCurrency(settings.floor))}</span>
+        <span>Meta ${escapeHtml(calculatedCurrency(settings.target))}</span>
+        <span>Supermeta ${escapeHtml(calculatedCurrency(settings.stretch))}</span>
+      </div>
+      <p>${escapeHtml(goalMonthMessage(month.total, settings))}</p>
+    </button>
+  `;
+}
+
+function renderGoalContracts(data) {
+  const month = data.months.find((item) => item.key === activeGoalsMonth) || data.months[0];
+  if (!month) return;
+  el.goalsContractsTitle.textContent = `Contratos de ${month.label}`;
+  el.goalsContractsList.innerHTML = month.contracts.length
+    ? month.contracts
+        .map(
+          (contract) => `
+            <article class="goal-contract-row">
+              <div>
+                <strong>${escapeHtml(contract.clientName || "Cliente sem nome")}</strong>
+                <span>${escapeHtml(contract.source)} | ${formatDate(contract.contractClosedDate)} | ${escapeHtml(ownerName(contract.ownerId))}</span>
+              </div>
+              <div>
+                <strong>${escapeHtml(calculatedCurrency(contract.amount))}</strong>
+                <span>${escapeHtml([contract.origin, contract.financeStatus].filter(Boolean).join(" | ") || "Sem detalhe")}</span>
+              </div>
+              ${
+                contract.sourceType === "client"
+                  ? `<button class="small-button" type="button" data-open-goal-client="${contract.id}"><i data-lucide="external-link"></i> Abrir</button>`
+                  : `<button class="small-button" type="button" data-edit-regularization="${contract.id}"><i data-lucide="pencil"></i> Editar</button>`
+              }
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state compact">Nenhum contrato fechado neste mês.</p>`;
+}
+
+function renderGoalMissingData(items) {
+  el.goalsMissingData.innerHTML = items.length
+    ? items
+        .map(
+          (process) => `
+            <article class="goal-contract-row missing">
+              <div>
+                <strong>${escapeHtml(process.clientName || "Cliente sem nome")}</strong>
+                <span>${escapeHtml(goalMissingRegularizationLabel(process))}</span>
+              </div>
+              <button class="small-button" type="button" data-edit-regularization="${process.id}"><i data-lucide="pencil"></i> Preencher</button>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state compact">Todas as regularizações têm data e valor quando aplicável.</p>`;
+}
+
+function bindGoalActions() {
+  document.querySelectorAll("[data-goal-month]").forEach((button) => {
+    button.onclick = () => {
+      activeGoalsMonth = button.dataset.goalMonth;
+      renderGoalsDashboard();
+    };
+  });
+  document.querySelectorAll("[data-open-goal-client]").forEach((button) => {
+    button.onclick = () => openClientById(button.dataset.openGoalClient);
+  });
+  document.querySelectorAll("#goalsSection [data-edit-regularization]").forEach((button) => {
+    button.onclick = () => openRegularizationDialog(button.dataset.editRegularization);
+  });
+}
+
+function openGoalsDialog() {
+  if (currentUser.role !== "admin") return;
+  state.goals = normalizeGoalSettings(state.goals);
+  openSimpleDialog("Editar metas", [
+    { label: "Piso mensal", name: "floor", type: "text", value: state.goals.floor },
+    { label: "Meta mensal", name: "target", type: "text", value: state.goals.target },
+    { label: "Supermeta mensal", name: "stretch", type: "text", value: state.goals.stretch },
+  ], (values) => {
+    const next = normalizeGoalSettings(values);
+    if (currencyAmount(next.floor) <= 0 || currencyAmount(next.target) <= 0 || currencyAmount(next.stretch) <= 0) {
+      alert("Informe valores maiores que zero para as metas.");
+      return false;
+    }
+    if (currencyAmount(next.floor) > currencyAmount(next.target) || currencyAmount(next.target) > currencyAmount(next.stretch)) {
+      alert("Use a ordem Piso menor que Meta menor que Supermeta.");
+      return false;
+    }
+    state.goals = next;
+    saveState();
+    renderGoalsDashboard();
+  });
+}
+
+function companyGoalsData(year) {
+  const contracts = goalContracts().filter((contract) => contract.contractClosedDate?.startsWith(`${year}-`));
+  const months = Array.from({ length: 12 }, (_, index) => {
+    const key = `${year}-${String(index + 1).padStart(2, "0")}`;
+    const monthContracts = contracts.filter((contract) => contract.contractClosedDate?.startsWith(key));
+    return {
+      key,
+      label: monthName(key),
+      contracts: monthContracts,
+      total: monthContracts.reduce((sum, contract) => sum + contract.amount, 0),
+    };
+  });
+  return {
+    contracts,
+    months,
+    total: contracts.reduce((sum, contract) => sum + contract.amount, 0),
+    missingRegularization: state.regularizationClients.filter((process) => !process.contractClosedDate || currencyAmount(process.feeValue) === null),
+  };
+}
+
+function goalContracts() {
+  const clientContracts = state.clients
+    .map((client) => ({
+      id: client.id,
+      source: "INSS de obras",
+      sourceType: "client",
+      clientName: client.clientName,
+      contractClosedDate: client.contractClosedDate,
+      amount: currencyAmount(client.feeValue),
+      origin: client.clientOrigin,
+      ownerId: client.internalOwner,
+      financeStatus: client.financeStatus,
+    }))
+    .filter((contract) => contract.contractClosedDate && contract.amount !== null);
+
+  const regularizationContracts = state.regularizationClients
+    .map((process) => ({
+      id: process.id,
+      source: "Regularização",
+      sourceType: "regularization",
+      clientName: process.clientName,
+      contractClosedDate: process.contractClosedDate,
+      amount: currencyAmount(process.feeValue),
+      origin: "",
+      ownerId: "",
+      financeStatus: process.status,
+    }))
+    .filter((contract) => contract.contractClosedDate && contract.amount !== null);
+
+  return [...clientContracts, ...regularizationContracts].sort((a, b) => a.contractClosedDate.localeCompare(b.contractClosedDate));
+}
+
+function goalNumericSettings() {
+  state.goals = normalizeGoalSettings(state.goals);
+  return {
+    floor: currencyAmount(state.goals.floor) || 15000,
+    target: currencyAmount(state.goals.target) || 20000,
+    stretch: currencyAmount(state.goals.stretch) || 25000,
+  };
+}
+
+function monthlyGoalLevel(total, settings) {
+  if (total >= settings.stretch) return { label: "Supermeta batida", className: "super" };
+  if (total >= settings.target) return { label: "Meta batida", className: "target" };
+  if (total >= settings.floor) return { label: "Piso batido", className: "floor" };
+  return { label: "Abaixo do piso", className: "below" };
+}
+
+function goalMonthMessage(total, settings) {
+  if (total >= settings.stretch) return "Supermeta batida";
+  if (total >= settings.target) return `Meta batida | faltam ${calculatedCurrency(settings.stretch - total)} para a supermeta`;
+  if (total >= settings.floor) return `Piso batido | faltam ${calculatedCurrency(settings.target - total)} para a meta`;
+  return `Faltam ${calculatedCurrency(settings.floor - total)} para o piso`;
+}
+
+function goalLevelLabel(total, target, stretch) {
+  if (total >= stretch) return "Supermeta anual batida";
+  if (total >= target) return "Meta anual batida";
+  return "Em andamento";
+}
+
+function monthName(monthKey) {
+  const date = new Date(`${monthKey}-01T00:00:00`);
+  return date.toLocaleDateString("pt-BR", { month: "long" }).replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function goalMissingRegularizationLabel(process = {}) {
+  const missing = [];
+  if (!process.contractClosedDate) missing.push("mês de fechamento");
+  if (currencyAmount(process.feeValue) === null) missing.push("valor dos honorários");
+  return `Falta ${missing.join(" e ")}`;
 }
 
 function csvCell(value) {
@@ -3294,8 +3667,9 @@ function renderClients() {
   }
 
   document.querySelectorAll("[data-open-client]").forEach((card) => {
-    card.addEventListener("click", () => openClientById(card.dataset.openClient));
+    card.onclick = () => openClientById(card.dataset.openClient);
   });
+  bindClientQuickActions();
   refreshIcons();
 }
 
@@ -3536,6 +3910,8 @@ function renderRegularizationCard(process) {
       <div class="card-meta">
         <span><i data-lucide="map-pin"></i>${escapeHtml(process.address || "Endereço não informado")}</span>
         <span><i data-lucide="file-text"></i>${escapeHtml(process.registryNumber || "Matrícula não informada")}</span>
+        <span><i data-lucide="calendar-check"></i>${escapeHtml(process.contractClosedDate ? `Fechado em ${formatDate(process.contractClosedDate)}` : "Sem fechamento")}</span>
+        <span><i data-lucide="circle-dollar-sign"></i>${escapeHtml(process.feeValue || "Honorários não informados")}</span>
       </div>
       <p>${escapeHtml(process.nextAction || "Sem próxima ação registrada.")}</p>
       ${process.notes ? `<p class="regularization-note">${escapeHtml(process.notes)}</p>` : ""}
@@ -3559,6 +3935,8 @@ function openRegularizationDialog(processId = null) {
     { label: "Cidade/Estado", name: "cityState", type: "text", value: current.cityState },
     { label: "Endereço", name: "address", type: "text", value: current.address },
     { label: "Matrícula", name: "registryNumber", type: "text", value: current.registryNumber },
+    { label: "Fechamento do contrato", name: "contractClosedDate", type: "date", value: current.contractClosedDate },
+    { label: "Valor dos honorários", name: "feeValue", type: "text", value: current.feeValue },
     {
       label: "Status",
       name: "status",
@@ -3577,6 +3955,7 @@ function openRegularizationDialog(processId = null) {
     const payload = normalizeRegularizationClient({
       ...current,
       ...values,
+      feeValue: formatFlexibleCurrencyValue(values.feeValue || ""),
       updatedAt: now,
       createdAt: current.createdAt || now,
     });
@@ -3589,6 +3968,7 @@ function openRegularizationDialog(processId = null) {
     }
     saveState();
     renderRegularizationClients();
+    renderGoalsDashboard();
     renderUpdates();
   });
 }
@@ -3602,12 +3982,153 @@ function deleteRegularizationProcess(processId) {
   recordActivity("client", `Removeu regularização: ${process.clientName || "Cliente sem nome"}.`, "");
   saveState();
   renderRegularizationClients();
+  renderGoalsDashboard();
   renderUpdates();
+}
+
+function openClientTasks(client = {}) {
+  return (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
+}
+
+function isPastDate(dateValue) {
+  return Boolean(dateValue) && dateValue < localDateKey();
+}
+
+function isTodayDate(dateValue) {
+  return Boolean(dateValue) && dateValue === localDateKey();
+}
+
+function isUpcomingDate(dateValue, days = 7) {
+  if (!dateValue) return false;
+  const today = localDateKey();
+  const limit = localDateKey(addDays(new Date(), days));
+  return dateValue > today && dateValue <= limit;
+}
+
+function clientDeadlineSummary(client = {}) {
+  const all = client.deadlines || [];
+  return {
+    all,
+    overdue: all.filter((deadline) => isPastDate(deadline.date)),
+    today: all.filter((deadline) => isTodayDate(deadline.date)),
+    upcoming: all.filter((deadline) => isUpcomingDate(deadline.date)),
+  };
+}
+
+function currentMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function currentMonthRow(client = {}) {
+  const key = currentMonthKey();
+  return (client.monthly || []).find((row) => row.month === key) || null;
+}
+
+function monthlyStatusProgress(row = null) {
+  const fields = ["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"];
+  if (!row) return { done: false, doneCount: 0, total: fields.length, missing: fields };
+  const missing = fields.filter((field) => !row[field]);
+  return { done: missing.length === 0, doneCount: fields.length - missing.length, total: fields.length, missing };
+}
+
+function clientHasCurrentMonthInPeriod(client = {}) {
+  const month = currentMonthKey();
+  const start = client.startDate ? client.startDate.slice(0, 7) : "";
+  const end = client.endDate ? client.endDate.slice(0, 7) : "";
+  if (start && end) return month >= start && month <= end;
+  return Boolean((client.monthly || []).length && !isClientFinished(client));
+}
+
+function isCurrentMonthPending(client = {}) {
+  if (isClientFinished(client)) return false;
+  const row = currentMonthRow(client);
+  if (row) return !monthlyStatusProgress(row).done;
+  return clientHasCurrentMonthInPeriod(client);
+}
+
+function currentMonthStatusLabel(client = {}) {
+  const row = currentMonthRow(client);
+  if (!row) return clientHasCurrentMonthInPeriod(client) ? "Mês atual sem controle" : "Mensal sem alerta";
+  const progress = monthlyStatusProgress(row);
+  return progress.done ? "Mês atual em dia" : `Mês atual ${progress.doneCount}/${progress.total}`;
+}
+
+function clientHasStatusName(client = {}, patterns = []) {
+  const names = getClientStatuses(client).map((status) => normalize(status.name));
+  return patterns.some((pattern) => names.some((name) => name.includes(normalize(pattern))));
+}
+
+function guideAwaitingPayment(client = {}) {
+  const row = currentMonthRow(client);
+  return clientHasStatusName(client, ["Aguardando pagamento da guia"]) || Boolean(row && (row.guideIssued || row.guideSent) && !row.guidePaid);
+}
+
+function clientDataGaps(client = {}) {
+  const gaps = [];
+  if (!client.internalOwner) gaps.push("responsável");
+  if (!client.state) gaps.push("estado");
+  if (!client.area) gaps.push("área");
+  if (!client.startDate) gaps.push("início");
+  if (!client.endDate) gaps.push("fim");
+  if (!client.feeValue) gaps.push("honorários");
+  if (!client.inssOriginalValue) gaps.push("INSS sem redução");
+  if (!client.inssReducedValue) gaps.push("INSS com redução");
+  return gaps;
+}
+
+function clientAttentionReasons(client = {}) {
+  const reasons = [];
+  const tasks = openClientTasks(client);
+  const overdueTasks = tasks.filter((task) => isPastDate(task.dueDate));
+  const deadlines = clientDeadlineSummary(client);
+  if (overdueTasks.length) reasons.push({ label: `${overdueTasks.length} tarefa(s) atrasada(s)`, tone: "critical" });
+  if (deadlines.today.length) reasons.push({ label: `${deadlines.today.length} prazo(s) hoje`, tone: "critical" });
+  if (guideAwaitingPayment(client)) reasons.push({ label: "Guia aguardando pagamento", tone: "warning" });
+  if (clientHasStatusName(client, ["Pendência do cliente", "Aguardando cliente"])) reasons.push({ label: "Pendência do cliente", tone: "warning" });
+  if (!String(client.nextAction || "").trim()) reasons.push({ label: "Sem próxima ação", tone: "info" });
+  if (!client.internalOwner) reasons.push({ label: "Sem responsável", tone: "warning" });
+  if (isCurrentMonthPending(client)) reasons.push({ label: "Mês atual pendente", tone: "warning" });
+  return reasons;
+}
+
+function clientUrgencyScore(client = {}) {
+  if (isClientFinished(client)) return -100;
+  const tasks = openClientTasks(client);
+  const deadlines = clientDeadlineSummary(client);
+  let score = 0;
+  score += tasks.filter((task) => isPastDate(task.dueDate)).length * 100;
+  score += deadlines.today.length * 90;
+  score += deadlines.overdue.length * 80;
+  score += deadlines.upcoming.length * 45;
+  if (guideAwaitingPayment(client)) score += 55;
+  if (clientHasStatusName(client, ["Pendência do cliente", "Aguardando cliente"])) score += 45;
+  if (isCurrentMonthPending(client)) score += 35;
+  if (!client.internalOwner) score += 30;
+  if (!String(client.nextAction || "").trim()) score += 18;
+  score += Math.min(clientDataGaps(client).length * 4, 20);
+  return score;
+}
+
+function nextDeadlineLabel(client = {}) {
+  const dated = (client.deadlines || [])
+    .filter((deadline) => deadline.date)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!dated.length) return "";
+  const next = dated.find((deadline) => deadline.date >= localDateKey()) || dated[0];
+  return `${next.title || "Prazo"}: ${formatShortDate(next.date)}`;
 }
 
 function filteredClients() {
   const query = normalize(el.searchInput.value);
   const statusId = el.statusFilter.value;
+  const ownerId = el.ownerFilter.value;
+  const stateFilter = el.stateFilter.value;
+  const workState = el.workStateFilter.value;
+  const taskAlert = el.taskAlertFilter.value;
+  const deadlineAlert = el.deadlineAlertFilter.value;
+  const financeFilter = el.financeFilter.value;
+  const monthlyFilter = el.monthlyPendingFilter.value;
+  const nextActionFilter = el.nextActionFilter.value;
   const clients = state.clients.filter((client) => {
     const haystack = normalize([
       client.clientName,
@@ -3622,12 +4143,50 @@ function filteredClients() {
     ].join(" "));
     const matchesQuery = !query || haystack.includes(query);
     const matchesStatus = !statusId || (client.statusIds || []).includes(statusId);
-    return matchesQuery && matchesStatus;
+    const matchesOwner = !ownerId || (ownerId === "missing" ? !client.internalOwner : client.internalOwner === ownerId);
+    const matchesState = !stateFilter || (stateFilter === "missing" ? !client.state : client.state === stateFilter);
+    const matchesWorkState =
+      !workState || (workState === "finished" ? isClientFinished(client) : !isClientFinished(client));
+    const clientTasks = openClientTasks(client);
+    const overdueTasks = clientTasks.filter((task) => isPastDate(task.dueDate));
+    const matchesTask =
+      !taskAlert ||
+      (taskAlert === "overdue" && overdueTasks.length > 0) ||
+      (taskAlert === "open" && clientTasks.length > 0) ||
+      (taskAlert === "none" && clientTasks.length === 0);
+    const deadlineStatus = clientDeadlineSummary(client);
+    const matchesDeadline =
+      !deadlineAlert ||
+      (deadlineAlert === "today" && deadlineStatus.today.length > 0) ||
+      (deadlineAlert === "upcoming" && deadlineStatus.upcoming.length > 0) ||
+      (deadlineAlert === "none" && deadlineStatus.all.length === 0);
+    const matchesFinance = !financeFilter || normalizeFinanceStatus(client.financeStatus) === financeFilter;
+    const monthlyPending = isCurrentMonthPending(client);
+    const matchesMonthly =
+      !monthlyFilter || (monthlyFilter === "pending" ? monthlyPending : monthlyStatusProgress(currentMonthRow(client)).done);
+    const hasNextAction = Boolean(String(client.nextAction || "").trim());
+    const matchesNextAction =
+      !nextActionFilter || (nextActionFilter === "missing" ? !hasNextAction : hasNextAction);
+    return (
+      matchesQuery &&
+      matchesStatus &&
+      matchesOwner &&
+      matchesState &&
+      matchesWorkState &&
+      matchesTask &&
+      matchesDeadline &&
+      matchesFinance &&
+      matchesMonthly &&
+      matchesNextAction
+    );
   });
   return sortClients(clients, el.clientSort.value);
 }
 
 function sortClients(clients, sortMode) {
+  if (!sortMode || sortMode === "urgency") {
+    return clients.sort((a, b) => clientUrgencyScore(b) - clientUrgencyScore(a) || Number(isClientFinished(a)) - Number(isClientFinished(b)) || clientCreatedTime(b) - clientCreatedTime(a));
+  }
   if (sortMode === "recent") {
     return clients.sort((a, b) => clientCreatedTime(b) - clientCreatedTime(a));
   }
@@ -3647,38 +4206,65 @@ function clientCreatedTime(client) {
 function renderClientCard(client) {
   const clientStatuses = getClientStatuses(client);
   const statuses = clientStatuses
-    .slice(0, 5)
+    .slice(0, 4)
     .map((status) => chip(status))
     .join("");
   const completionClass = isClientFinished(client) ? "finished" : "active-work";
-  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
+  const openTasks = openClientTasks(client);
   const deadlines = client.deadlines || [];
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
   const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   const workSubtitle = `${workTitle}${destinationLabel(client)}`;
   const workDetails = [client.state, client.area].filter(Boolean).join(" | ");
+  const attention = clientAttentionReasons(client);
+  const gaps = clientDataGaps(client);
+  const nextDeadline = nextDeadlineLabel(client);
+  const hasNextAction = Boolean(String(client.nextAction || "").trim());
+  const urgencyClass = attention.some((reason) => reason.tone === "critical") ? "urgent" : attention.length ? "attention" : "";
   return `
-    <button class="client-card ${completionClass}" type="button" data-open-client="${client.id}">
-      <header>
-        <div>
-          <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
-          <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
+    <article class="client-card ${completionClass} ${urgencyClass}">
+      <button class="client-card-main" type="button" data-open-client="${client.id}">
+        <header>
+          <div>
+            <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
+            <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
+          </div>
+          <span class="owner-chip">${escapeHtml(ownerName(client.internalOwner))}</span>
+        </header>
+        <div class="chip-list">${statuses || `<span class="chip neutral">Sem status</span>`}</div>
+        <div class="card-facts">
+          <span><i data-lucide="calendar-clock"></i>${escapeHtml(nextDeadline || "Sem prazo")}</span>
+          <span><i data-lucide="calendar-check"></i>${escapeHtml(currentMonthStatusLabel(client))}</span>
+          <span><i data-lucide="clock-3"></i>${escapeHtml(client.updatedAt ? `Atualizado ${formatShortDateTime(client.updatedAt)}` : "Sem atualização")}</span>
         </div>
-      </header>
-      <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
-      <div class="card-alerts">
-        <span class="card-alert ${openTasks.length ? "active" : ""}">
-          <i data-lucide="list-checks"></i>
-          ${openTasks.length ? `${openTasks.length} tarefa(s): ${escapeHtml(taskOwners)}` : "Sem tarefas abertas"}
-        </span>
-        <span class="card-alert ${deadlines.length ? "active deadline" : ""}">
-          <i data-lucide="calendar-clock"></i>
-          ${deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"}
-        </span>
+        ${
+          attention.length
+            ? `<div class="card-attention">${attention
+                .slice(0, 3)
+                .map((reason) => `<mark class="${reason.tone}">${escapeHtml(reason.label)}</mark>`)
+                .join("")}</div>`
+            : ""
+        }
+        ${
+          openTasks.length || deadlines.length
+            ? `<div class="card-alert-line">${openTasks.length ? `${openTasks.length} tarefa(s): ${escapeHtml(taskOwners)}` : "Sem tarefas"} · ${
+                deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"
+              }</div>`
+            : `<div class="card-alert-line muted">Sem tarefas · Sem prazos</div>`
+        }
+        ${hasNextAction ? `<p class="next-action">${escapeHtml(client.nextAction)}</p>` : `<span class="missing-action-pill">Sem próxima ação</span>`}
+        ${gaps.length ? `<p class="data-gap-line">Faltando: ${escapeHtml(gaps.slice(0, 4).join(", "))}${gaps.length > 4 ? "..." : ""}</p>` : ""}
+      </button>
+      <div class="client-quick-actions" aria-label="Ações rápidas">
+        <button class="icon-button" type="button" data-quick-client-action="task" data-client-id="${client.id}" title="Nova tarefa" aria-label="Nova tarefa"><i data-lucide="list-plus"></i></button>
+        <button class="icon-button" type="button" data-quick-client-action="deadline" data-client-id="${client.id}" title="Novo prazo" aria-label="Novo prazo"><i data-lucide="calendar-plus"></i></button>
+        <button class="icon-button" type="button" data-quick-client-action="note" data-client-id="${client.id}" title="Registrar anotação" aria-label="Registrar anotação"><i data-lucide="message-square-plus"></i></button>
+        <button class="icon-button" type="button" data-quick-client-action="waiting" data-client-id="${client.id}" title="Marcar pendência do cliente" aria-label="Marcar pendência do cliente"><i data-lucide="hourglass"></i></button>
+        <button class="icon-button" type="button" data-quick-client-action="whatsapp" data-client-id="${client.id}" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i data-lucide="phone"></i></button>
+        <button class="icon-button" type="button" data-quick-client-action="folder" data-client-id="${client.id}" title="Copiar pasta" aria-label="Copiar pasta"><i data-lucide="folder-copy"></i></button>
       </div>
-      <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
-    </button>
+    </article>
   `;
 }
 
@@ -3697,10 +4283,11 @@ function renderCompactClients(clients) {
 
 function renderCompactClientRow(client) {
   const statuses = getClientStatuses(client).slice(0, 3).map((status) => chip(status)).join("");
-  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
+  const openTasks = openClientTasks(client);
   const deadlines = client.deadlines || [];
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   const workLine = [destinationLabel(client), client.state, client.area].filter(Boolean).join(" | ");
+  const attention = clientAttentionReasons(client);
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
       <span class="compact-client-main">
@@ -3708,9 +4295,86 @@ function renderCompactClientRow(client) {
         <small>${escapeHtml(`${workTitle}${workLine}`)}</small>
       </span>
       <span class="compact-client-status">${statuses || `<span class="chip neutral">Sem status</span>`}</span>
-      <span>${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)</span>
+      <span>${attention[0] ? escapeHtml(attention[0].label) : `${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)`}</span>
     </button>
   `;
+}
+
+function bindClientQuickActions() {
+  document.querySelectorAll("[data-quick-client-action]").forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      handleClientQuickAction(button.dataset.clientId, button.dataset.quickClientAction);
+    };
+  });
+}
+
+function handleClientQuickAction(clientId, action) {
+  const client = state.clients.find((item) => item.id === clientId);
+  if (!client) return;
+  if (action === "task") {
+    openClient(cloneData(client));
+    switchTab("tasksTab");
+    openClientTaskDialog();
+    return;
+  }
+  if (action === "deadline") {
+    openClient(cloneData(client));
+    switchTab("deadlinesTab");
+    openClientDeadlineDialog();
+    return;
+  }
+  if (action === "note") {
+    openClient(cloneData(client));
+    switchTab("notesTab");
+    window.setTimeout(() => el.newNoteText?.focus(), 80);
+    return;
+  }
+  if (action === "waiting") {
+    const status = ensureStatusByName("Pendência do cliente", "#b91c1c");
+    client.statusIds = [...new Set([...(client.statusIds || []), status.id])];
+    client.updatedAt = new Date().toISOString();
+    recordActivity("status", `Marcou pendência do cliente em ${client.clientName || "cliente"}.`, status.name, {
+      clientId: client.id,
+      clientName: client.clientName,
+    });
+    saveState();
+    renderAll();
+    return;
+  }
+  if (action === "whatsapp") {
+    let digits = onlyDigits(client.phone);
+    const ddd = onlyDigits(client.whatsappDdd);
+    if (digits.length <= 9 && ddd) digits = `${ddd}${digits}`;
+    if (!digits) {
+      alert("Este cliente ainda não tem telefone cadastrado.");
+      return;
+    }
+    window.open(`https://wa.me/55${digits}`, "_blank", "noopener");
+    return;
+  }
+  if (action === "folder") {
+    if (!client.folderPath) {
+      alert("Este cliente ainda não tem pasta cadastrada.");
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(client.folderPath).then(
+        () => alert("Caminho da pasta copiado."),
+        () => prompt("Copie o caminho da pasta:", client.folderPath)
+      );
+      return;
+    }
+    prompt("Copie o caminho da pasta:", client.folderPath);
+  }
+}
+
+function ensureStatusByName(name, color = "#009f7f") {
+  const existing = state.statuses.find((status) => normalize(status.name) === normalize(name));
+  if (existing) return existing;
+  const status = { id: id(), name, color };
+  state.statuses.push(status);
+  return status;
 }
 
 function setViewMode(mode) {
@@ -3757,9 +4421,11 @@ function openClient(client) {
   renderDestinationOptions();
   renderActiveStatuses();
   renderStatusPicker();
+  renderOperationalChecklist();
   renderMonthlyTable();
   renderTasks();
   renderDeadlines();
+  renderDocuments();
   renderNotes();
   renderHistory();
   renderWorkerMessages();
@@ -3838,6 +4504,96 @@ function inssReductionValues(client) {
   };
 }
 
+function renderOperationalChecklist() {
+  if (!activeClient || !el.operationalChecklist) return;
+  const items = operationalChecklistItems(activeClient);
+  el.operationalChecklist.innerHTML = items
+    .map(
+      (item) => `
+        <article class="checklist-item ${item.done ? "done" : "pending"}">
+          <i data-lucide="${item.done ? "check" : "circle"}"></i>
+          <div>
+            <strong>${escapeHtml(item.label)}</strong>
+            <span>${escapeHtml(item.hint)}</span>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+  refreshIcons();
+}
+
+function operationalChecklistItems(client = {}) {
+  const monthlyRow = currentMonthRow(client);
+  const monthly = monthlyStatusProgress(monthlyRow);
+  return [
+    {
+      label: "Contrato",
+      done: Boolean(client.contractClosedDate || clientHasStatusName(client, ["Contrato pago"])),
+      hint: client.contractClosedDate ? `Fechado em ${formatDate(client.contractClosedDate)}` : "Sem fechamento informado",
+    },
+    {
+      label: "Procuração",
+      done: documentIsReady(client, ["procuração", "e-cac"]) || !clientHasStatusName(client, ["Procuração e-CAC pendente"]),
+      hint: clientHasStatusName(client, ["Procuração e-CAC pendente"]) ? "Pendente no status" : "Sem pendência marcada",
+    },
+    {
+      label: "Docs da obra",
+      done: documentIsReady(client, ["alvará", "habite", "obra"]) || !clientHasStatusName(client, ["Documentos da obra pendentes"]),
+      hint: clientHasStatusName(client, ["Documentos da obra pendentes"]) ? "Documentos pendentes" : "Sem pendência marcada",
+    },
+    {
+      label: "CNO",
+      done: documentIsReady(client, ["cno"]) || !clientHasStatusName(client, ["CNO pendente"]),
+      hint: clientHasStatusName(client, ["CNO pendente"]) ? "CNO pendente" : "Sem pendência marcada",
+    },
+    {
+      label: "Trabalhadores",
+      done: Boolean(client.workersNotes || (client.workerMessages || []).length),
+      hint: client.workersNotes || (client.workerMessages || []).length ? "Informações registradas" : "Sem registro",
+    },
+    {
+      label: "Recibos",
+      done: Boolean(monthlyRow && monthlyRow.receiptSent && monthlyRow.receiptSigned),
+      hint: monthlyRow ? "Competência atual conferida" : "Sem mês atual",
+    },
+    {
+      label: "eSocial",
+      done: Boolean(monthlyRow && monthlyRow.remunerationSent),
+      hint: monthlyRow?.remunerationSent ? "Remuneração enviada" : "Remuneração pendente",
+    },
+    {
+      label: "Guia",
+      done: Boolean(monthlyRow && monthlyRow.guideIssued && monthlyRow.guideSent && monthlyRow.guidePaid),
+      hint: monthlyRow ? `${monthly.doneCount}/${monthly.total} etapas do mês` : "Sem competência atual",
+    },
+    {
+      label: "Receita",
+      done: clientHasStatusName(client, ["CND emitida"]) || clientHasStatusName(client, ["Aguardando decisão Receita"]),
+      hint: clientHasStatusName(client, ["CND emitida"]) ? "CND emitida" : "Acompanhar requerimento",
+    },
+    {
+      label: "CND",
+      done: clientHasStatusName(client, ["CND emitida"]),
+      hint: clientHasStatusName(client, ["CND emitida"]) ? "Emitida" : "Não emitida",
+    },
+    {
+      label: "NF",
+      done: !clientHasStatusName(client, ["NF pendente"]),
+      hint: clientHasStatusName(client, ["NF pendente"]) ? "NF pendente" : "Sem pendência marcada",
+    },
+  ];
+}
+
+function documentIsReady(client = {}, keywords = []) {
+  return (client.documents || []).some((doc) => {
+    const name = normalize(doc.name);
+    const matches = keywords.some((keyword) => name.includes(normalize(keyword)));
+    const status = normalize(doc.status);
+    return matches && ["recebido", "aprovado", "nao possui"].some((ready) => status.includes(ready));
+  });
+}
+
 function renderUserSelects() {
   document.querySelectorAll('select[data-field="internalOwner"]').forEach((select) => {
     select.innerHTML = state.users.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("");
@@ -3866,6 +4622,7 @@ function renderActiveStatuses() {
       activeClient.statusIds = activeClient.statusIds.filter((idValue) => idValue !== button.dataset.removeStatus);
       renderActiveStatuses();
       renderStatusPicker();
+      renderOperationalChecklist();
     });
   });
 }
@@ -3873,29 +4630,19 @@ function renderActiveStatuses() {
 function renderStatusPicker() {
   const active = new Set(activeClient.statusIds || []);
   el.statusPicker.innerHTML = `
-    <div class="status-editor-list">
+    <div class="status-check-list">
       ${state.statuses
         .map(
           (status) => `
-            <div class="status-editor-row" data-status-editor="${status.id}">
-              <label class="status-toggle">
-                <input type="checkbox" ${active.has(status.id) ? "checked" : ""} data-toggle-status="${status.id}" />
-                <span>Ativo</span>
-              </label>
-              <input value="${escapeAttr(status.name)}" data-status-editor-field="name" aria-label="Nome do status" />
-              <input class="color-input" type="color" value="${status.color}" data-status-editor-field="color" aria-label="Cor do status" />
-              <button class="icon-button" type="button" data-remove-global-status="${status.id}" aria-label="Remover status"><i data-lucide="trash-2"></i></button>
-            </div>
+            <label class="status-check-row">
+              <input type="checkbox" ${active.has(status.id) ? "checked" : ""} data-toggle-status="${status.id}" />
+              <span class="chip" style="background:${status.color}">${escapeHtml(status.name)}</span>
+            </label>
           `
         )
         .join("")}
-      <div class="status-editor-row new-status-row">
-        <span></span>
-        <input id="newStatusName" type="text" placeholder="Novo status" />
-        <input id="newStatusColor" class="color-input" type="color" value="#009f7f" />
-        <button id="createStatusFromCard" class="small-button" type="button"><i data-lucide="plus"></i> Criar</button>
-      </div>
     </div>
+    <p class="manager-note">A criação e edição global dos status ficam na área administrativa Status.</p>
   `;
 
   document.querySelectorAll("[data-toggle-status]").forEach((checkbox) => {
@@ -3906,55 +4653,14 @@ function renderStatusPicker() {
         activeClient.statusIds = (activeClient.statusIds || []).filter((idValue) => idValue !== checkbox.dataset.toggleStatus);
       }
       renderActiveStatuses();
+      renderOperationalChecklist();
     });
-  });
-
-  document.querySelectorAll("[data-status-editor]").forEach((row) => {
-    const status = state.statuses.find((item) => item.id === row.dataset.statusEditor);
-    row.querySelectorAll("[data-status-editor-field]").forEach((input) => {
-      input.addEventListener("input", () => {
-        status[input.dataset.statusEditorField] = input.value;
-        saveState();
-        renderStatusFilter();
-        renderClients();
-        renderActiveStatuses();
-      });
-    });
-  });
-
-  document.querySelectorAll("[data-remove-global-status]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.statuses = state.statuses.filter((status) => status.id !== button.dataset.removeGlobalStatus);
-      state.clients.forEach((client) => {
-        client.statusIds = (client.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
-      });
-      activeClient.statusIds = (activeClient.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
-      saveState();
-      renderStatusFilter();
-      renderClients();
-      renderActiveStatuses();
-      renderStatusPicker();
-    });
-  });
-
-  document.getElementById("createStatusFromCard")?.addEventListener("click", () => {
-    const nameInput = document.getElementById("newStatusName");
-    const colorInput = document.getElementById("newStatusColor");
-    const name = nameInput.value.trim();
-    if (!name) return;
-    const status = { id: id(), name, color: colorInput.value || "#009f7f" };
-    state.statuses.push(status);
-    activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), status.id])];
-    saveState();
-    renderStatusFilter();
-    renderClients();
-    renderActiveStatuses();
-    renderStatusPicker();
   });
   refreshIcons();
 }
 
 function renderMonthlyTable() {
+  renderMonthlyProgressList();
   el.monthlyTable.innerHTML = (activeClient.monthly || [])
     .sort((a, b) => a.month.localeCompare(b.month))
     .map(
@@ -3975,12 +4681,50 @@ function renderMonthlyTable() {
     tr.querySelectorAll("[data-month-field]").forEach((input) => {
       input.addEventListener("input", () => {
         row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
+        renderMonthlyProgressList();
+        renderOperationalChecklist();
       });
       input.addEventListener("change", () => {
         row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
+        renderMonthlyProgressList();
+        renderOperationalChecklist();
       });
     });
   });
+}
+
+function renderMonthlyProgressList() {
+  if (!el.monthlyProgressList || !activeClient) return;
+  const rows = [...(activeClient.monthly || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const current = currentMonthKey();
+  el.monthlyProgressList.innerHTML = rows.length
+    ? rows
+        .map((row) => {
+          const progress = monthlyStatusProgress(row);
+          return `
+            <article class="monthly-progress-card ${row.month === current ? "current" : ""} ${progress.done ? "done" : "pending"}">
+              <strong>${escapeHtml(row.month || "Sem competência")}</strong>
+              <span>${progress.doneCount}/${progress.total} etapas</span>
+              <div class="monthly-progress-bar"><span style="width:${Math.round((progress.doneCount / progress.total) * 100)}%"></span></div>
+              <small>${escapeHtml(monthlyMissingLabel(progress.missing))}</small>
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="empty-state compact">Nenhuma competência mensal cadastrada.</p>`;
+}
+
+function monthlyMissingLabel(missing = []) {
+  if (!missing.length) return "Tudo concluído";
+  const labels = {
+    receiptSent: "recibo enviado",
+    receiptSigned: "recibo assinado",
+    remunerationSent: "remuneração",
+    guideIssued: "guia emitida",
+    guideSent: "guia enviada",
+    guidePaid: "guia paga",
+  };
+  return `Pendente: ${missing.slice(0, 3).map((field) => labels[field]).join(", ")}${missing.length > 3 ? "..." : ""}`;
 }
 
 function renderTasks() {
@@ -4266,7 +5010,8 @@ function renderHistory() {
 }
 
 function renderDocuments() {
-  el.documentsList.innerHTML = (activeClient.documents || []).length
+  activeClient.documents = Array.isArray(activeClient.documents) ? activeClient.documents : [];
+  el.documentsList.innerHTML = activeClient.documents.length
     ? activeClient.documents
         .map(
           (doc) => `
@@ -4279,8 +5024,42 @@ function renderDocuments() {
           `
         )
         .join("")
-    : `<p class="empty-state">Nenhum documento cadastrado.</p>`;
+    : `
+      <div class="document-empty-state">
+        <p class="empty-state">Nenhum documento cadastrado.</p>
+        <button id="addDefaultDocumentsButton" class="secondary-button" type="button"><i data-lucide="list-plus"></i> Adicionar checklist padrão</button>
+      </div>
+    `;
   bindCollectionFields("doc", activeClient.documents, renderDocuments);
+  document.getElementById("addDefaultDocumentsButton")?.addEventListener("click", () => {
+    addDefaultDocuments();
+    renderDocuments();
+    renderOperationalChecklist();
+  });
+}
+
+function addDefaultDocuments() {
+  const existing = new Set((activeClient.documents || []).map((doc) => normalize(doc.name)));
+  defaultDocumentNames().forEach((name) => {
+    if (!existing.has(normalize(name))) {
+      activeClient.documents.push({ id: id(), name, status: "Pendente", path: "" });
+    }
+  });
+}
+
+function defaultDocumentNames() {
+  return [
+    "Procuração e-CAC",
+    "Documentos do cliente",
+    "Alvará",
+    "Habite-se",
+    "CNO",
+    "Matrícula",
+    "Documentos da obra",
+    "Comprovante de pagamento da guia",
+    "CND",
+    "Nota fiscal",
+  ];
 }
 
 function bindCollectionFields(type, collection, rerender) {
@@ -4289,9 +5068,11 @@ function bindCollectionFields(type, collection, rerender) {
     row.querySelectorAll(`[data-${type}-field]`).forEach((input) => {
       input.addEventListener("input", () => {
         item[input.dataset[`${type}Field`]] = input.value;
+        if (type === "doc") renderOperationalChecklist();
       });
       input.addEventListener("change", () => {
         item[input.dataset[`${type}Field`]] = input.value;
+        if (type === "doc") renderOperationalChecklist();
       });
     });
   });
@@ -4301,6 +5082,7 @@ function bindCollectionFields(type, collection, rerender) {
       const index = collection.findIndex((item) => item.id === idValue);
       if (index >= 0) collection.splice(index, 1);
       rerender();
+      if (type === "doc") renderOperationalChecklist();
     });
   });
   refreshIcons();
@@ -5223,6 +6005,7 @@ function simpleFieldControl(field) {
 
 function switchSection(sectionId) {
   if (sectionId === "usersSection" && currentUser.role !== "admin") return;
+  if (sectionId === "statusSection" && currentUser.role !== "admin") return;
   if (sectionId === "accountSection" && currentUser.role === "admin") return;
 
   document.querySelectorAll(".app-section").forEach((section) => {
@@ -5237,6 +6020,9 @@ function switchSection(sectionId) {
     activeTaskDate = new Date();
     markNewTaskActivitiesRead();
     renderTaskCenter();
+  }
+  if (sectionId === "goalsSection") {
+    renderGoalsDashboard();
   }
 }
 
@@ -5541,6 +6327,27 @@ function formatCurrencyValue(value) {
   return cents.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatFlexibleCurrencyValue(value) {
+  const amount = flexibleCurrencyAmount(value);
+  return amount === null ? "" : calculatedCurrency(amount);
+}
+
+function flexibleCurrencyAmount(value) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  if (/^\d+$/.test(text)) return Number(text);
+  const clean = text.replace(/[^\d,.-]/g, "");
+  if (!clean) return null;
+  if (clean.includes(",")) {
+    const normalized = clean.replace(/\./g, "").replace(",", ".");
+    const amount = Number(normalized);
+    return Number.isNaN(amount) ? null : amount;
+  }
+  const normalized = clean.replace(/\./g, "");
+  const amount = Number(normalized);
+  return Number.isNaN(amount) ? null : amount;
+}
+
 function currencyAmount(value) {
   const digits = onlyDigits(value);
   return digits ? Number(digits) / 100 : null;
@@ -5722,6 +6529,12 @@ function formatDate(dateValue) {
 
 function formatShortDate(dateValue) {
   const date = dateValue instanceof Date ? dateValue : new Date(`${dateValue}T00:00:00`);
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function formatShortDateTime(dateValue) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
