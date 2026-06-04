@@ -3731,6 +3731,133 @@ h3 {
   font-size: 12px;
 }
 
+.metrics-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.metric,
+.data-total {
+  display: block;
+  min-height: 0;
+  padding: 16px;
+}
+
+.metric strong,
+.data-total strong {
+  display: block;
+  font-size: 26px;
+  margin-top: 4px;
+}
+
+.client-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.client-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: #fff;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  min-height: 220px;
+}
+
+.client-card.active-work {
+  border-color: rgba(0, 159, 127, 0.22);
+  background: #eefaf5;
+}
+
+.client-card.finished {
+  border-color: #d8dde2;
+  background: #f2f4f5;
+}
+
+.client-card:hover {
+  border-color: rgba(0, 159, 127, 0.55);
+  box-shadow: 0 12px 28px rgba(31, 41, 51, 0.08);
+}
+
+.client-card.finished:hover {
+  border-color: #b8c0c8;
+}
+
+.client-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.client-card h3 {
+  margin-bottom: 4px;
+}
+
+.client-card p,
+.empty-state {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.card-alerts {
+  display: grid;
+  gap: 7px;
+}
+
+.card-alert {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8fbfa;
+  color: var(--muted);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.card-alert svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.card-alert.active {
+  border-color: rgba(209, 67, 67, 0.28);
+  background: #fff1f1;
+  color: var(--red);
+}
+
+.card-alert.active.deadline {
+  border-color: rgba(199, 128, 0, 0.3);
+  background: #fff8e8;
+  color: var(--amber);
+}
+
+.compact-client-row {
+  grid-template-columns: minmax(230px, 1.6fr) minmax(180px, 1fr) minmax(150px, 0.7fr);
+  min-height: 68px;
+  padding: 10px 14px;
+}
+
+.compact-client-row.active-work {
+  border-color: rgba(0, 159, 127, 0.22);
+  background: #eefaf5;
+}
+
+.compact-client-row.finished {
+  border-color: #d8dde2;
+  background: #f2f4f5;
+}
+
 @media (max-width: 1080px) {
   .app-shell {
     grid-template-columns: 1fr;
