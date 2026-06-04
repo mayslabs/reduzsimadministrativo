@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=90" />
+    <link rel="stylesheet" href="./styles.css?v=91" />
     <link rel="stylesheet" href="./goals-patch.css?v=1" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -75,62 +75,23 @@
         <section id="clientsSection" class="app-section">
           <div class="metrics-grid" id="metricsGrid"></div>
 
-          <div class="toolbar client-toolbar">
+          <div class="toolbar">
             <label class="search-field">
               <i data-lucide="search"></i>
               <input id="searchInput" type="search" placeholder="Buscar cliente, CPF, obra ou responsável" />
             </label>
             <select id="statusFilter" aria-label="Filtrar por status"></select>
-            <select id="ownerFilter" aria-label="Filtrar por responsável"></select>
-            <select id="stateFilter" aria-label="Filtrar por estado"></select>
             <select id="clientSort" aria-label="Ordenar clientes">
-              <option value="urgency">Prioridade</option>
+              <option value="">Ordem atual</option>
               <option value="recent">Mais recentes</option>
               <option value="active">Obras ativas</option>
               <option value="finished">Obras finalizadas</option>
             </select>
-            <button id="moreFiltersButton" class="secondary-button filter-toggle" type="button" aria-expanded="false"><i data-lucide="sliders-horizontal"></i> Mais filtros</button>
             <div class="segmented-control" role="group" aria-label="Modo de visualização">
               <button id="listModeButton" class="active" type="button"><i data-lucide="layout-grid"></i> Card</button>
               <button id="compactModeButton" type="button"><i data-lucide="rows-3"></i> Compacta</button>
             </div>
           </div>
-          <div id="advancedClientFilters" class="advanced-client-filters" hidden>
-            <select id="workStateFilter" aria-label="Filtrar por situação da obra">
-              <option value="">Ativas e finalizadas</option>
-              <option value="active">Somente ativas</option>
-              <option value="finished">Somente finalizadas</option>
-            </select>
-            <select id="taskAlertFilter" aria-label="Filtrar por tarefas">
-              <option value="">Todas as tarefas</option>
-              <option value="overdue">Tarefas atrasadas</option>
-              <option value="open">Com tarefas abertas</option>
-              <option value="none">Sem tarefas abertas</option>
-            </select>
-            <select id="deadlineAlertFilter" aria-label="Filtrar por prazos">
-              <option value="">Todos os prazos</option>
-              <option value="today">Prazos hoje</option>
-              <option value="upcoming">Prazos próximos</option>
-              <option value="none">Sem prazos</option>
-            </select>
-            <select id="financeFilter" aria-label="Filtrar por financeiro">
-              <option value="">Todos os financeiros</option>
-              <option value="Pago">Pago</option>
-              <option value="Em andamento">Em andamento</option>
-              <option value="Atrasado">Atrasado</option>
-            </select>
-            <select id="monthlyPendingFilter" aria-label="Filtrar mês atual">
-              <option value="">Mensal: todos</option>
-              <option value="pending">Mês atual pendente</option>
-              <option value="ok">Mês atual em dia</option>
-            </select>
-            <select id="nextActionFilter" aria-label="Filtrar próxima ação">
-              <option value="">Próxima ação: todos</option>
-              <option value="missing">Sem próxima ação</option>
-              <option value="filled">Com próxima ação</option>
-            </select>
-          </div>
-
           <div id="listView" class="client-grid"></div>
           <div id="compactView" class="compact-client-list" hidden></div>
         </section>
@@ -418,7 +379,6 @@
           <button class="tab-button" type="button" data-tab="monthlyTab">Mensal</button>
           <button class="tab-button" type="button" data-tab="tasksTab">Tarefas</button>
           <button class="tab-button" type="button" data-tab="deadlinesTab">Prazos</button>
-          <button class="tab-button" type="button" data-tab="documentsTab">Documentos</button>
           <button class="tab-button" type="button" data-tab="notesTab">Anotações</button>
           <button class="tab-button" type="button" data-tab="historyTab">Histórico</button>
           <button class="tab-button" type="button" data-tab="financeTab">Financeiro</button>
@@ -430,17 +390,11 @@
             <div class="field-stack">
               <label>Nome do cliente<input data-field="clientName" type="text" /></label>
               <label>Próxima ação<textarea data-field="nextAction" rows="3"></textarea></label>
-              <section class="operational-checklist-panel">
-                <div class="mini-heading">
-                  <h3>Checklist operacional</h3>
-                </div>
-                <div id="operationalChecklist" class="operational-checklist"></div>
-              </section>
             </div>
             <div>
               <div class="mini-heading">
                 <h3>Status ativos</h3>
-                <button id="openStatusPicker" class="small-button" type="button"><i data-lucide="list-checks"></i> Marcar status</button>
+                <button id="openStatusPicker" class="small-button" type="button"><i data-lucide="settings-2"></i> Gerenciar</button>
               </div>
               <div id="activeStatusList" class="chip-list"></div>
               <div id="statusPicker" class="status-picker" hidden></div>
@@ -530,7 +484,6 @@
                 <option value="TO">TO</option>
               </select>
             </label>
-            <label>Fechamento do contrato<input data-field="contractClosedDate" type="date" /></label>
             <label>Início da obra<input data-field="startDate" type="date" /></label>
             <label>Fim da obra<input data-field="endDate" type="date" /></label>
             <label>Área<input data-field="area" type="text" inputmode="decimal" placeholder="Ex.: 180,00 m²" /></label>
@@ -545,7 +498,6 @@
               <button id="addMonthButton" class="small-button" type="button"><i data-lucide="plus"></i> Adicionar mês</button>
             </div>
           </div>
-          <div id="monthlyProgressList" class="monthly-progress-list"></div>
           <div class="table-wrap">
             <table class="data-table" id="monthlyTable">
               <thead>
@@ -579,14 +531,6 @@
             <button id="addDeadlineButton" class="small-button" type="button"><i data-lucide="plus"></i> Novo prazo</button>
           </div>
           <div id="deadlinesList" class="item-list"></div>
-        </section>
-
-        <section id="documentsTab" class="tab-panel">
-          <div class="mini-heading">
-            <h3>Documentos</h3>
-            <button id="addDocumentButton" class="small-button" type="button"><i data-lucide="plus"></i> Novo documento</button>
-          </div>
-          <div id="documentsList" class="item-list document-list"></div>
         </section>
 
         <section id="notesTab" class="tab-panel">
@@ -729,7 +673,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=90"></script>
+    <script src="./app.js?v=91"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
