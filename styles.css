@@ -134,7 +134,7 @@ textarea:focus {
   border-right: 1px solid var(--line);
   padding: 18px 14px;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 24px;
   background: #fff;
   position: sticky;
@@ -163,6 +163,9 @@ textarea:focus {
   display: grid;
   align-content: start;
   gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .nav-item,
@@ -247,7 +250,7 @@ textarea:focus {
 }
 
 .content-shell {
-  padding: 28px;
+  padding: 22px 24px;
   min-width: 0;
 }
 
@@ -257,7 +260,7 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 .eyebrow {
@@ -279,7 +282,7 @@ p {
 h1 {
   margin-bottom: 0;
   color: var(--charcoal);
-  font-size: 30px;
+  font-size: 29px;
   line-height: 1.1;
 }
 
@@ -373,8 +376,8 @@ h3 {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .data-summary-grid {
@@ -394,8 +397,16 @@ h3 {
 .data-total {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 12px 14px;
   background: var(--surface);
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
 }
 
 .metric span,
@@ -409,8 +420,8 @@ h3 {
 .data-total strong {
   display: block;
   color: var(--charcoal);
-  font-size: 26px;
-  margin-top: 4px;
+  font-size: 24px;
+  margin-top: 0;
 }
 
 .data-total {
@@ -449,6 +460,190 @@ h3 {
 
 .data-total.tone-fees::before {
   background: #c78000;
+}
+
+.goals-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.goal-summary-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: var(--radius);
+  background: #fff;
+  display: grid;
+  gap: 4px;
+  min-height: 82px;
+  padding: 11px 12px;
+}
+
+.goal-summary-card span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.goal-summary-card strong {
+  color: var(--charcoal);
+  font-size: 19px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.goal-summary-card small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.goals-monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.goal-month-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid #94a3b8;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--charcoal);
+  display: grid;
+  gap: 9px;
+  min-height: 160px;
+  padding: 12px;
+  text-align: left;
+}
+
+.goal-month-card.active {
+  box-shadow: 0 0 0 3px rgba(0, 159, 127, 0.12);
+}
+
+.goal-month-card.below {
+  border-left-color: var(--red);
+}
+
+.goal-month-card.floor {
+  border-left-color: var(--amber);
+}
+
+.goal-month-card.target {
+  border-left-color: var(--green);
+}
+
+.goal-month-card.super {
+  border-left-color: var(--blue);
+}
+
+.goal-month-card header,
+.goal-month-marks,
+.goals-detail-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.goal-month-card header {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.goal-month-card header strong {
+  font-size: 15px;
+}
+
+.goal-month-card header span,
+.goal-month-card p,
+.goal-month-marks span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.goal-month-total {
+  color: var(--charcoal);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.goal-progress-track {
+  background: #edf2f0;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.goal-progress-track span {
+  background: linear-gradient(90deg, var(--amber), var(--green), var(--blue));
+  display: block;
+  height: 100%;
+}
+
+.goal-progress-track i {
+  background: #fff;
+  border-left: 2px solid var(--charcoal);
+  height: 100%;
+  position: absolute;
+  top: 0;
+  width: 1px;
+}
+
+.goal-month-marks {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.goals-detail-grid {
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+}
+
+.goals-contract-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 14px;
+}
+
+.goals-contract-list {
+  display: grid;
+  gap: 8px;
+}
+
+.goal-contract-row {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(160px, 0.6fr) auto;
+  gap: 10px;
+  padding: 10px;
+}
+
+.goal-contract-row.missing {
+  border-color: #eadfcb;
+  background: #fffaf0;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.goal-contract-row strong,
+.goal-contract-row span {
+  display: block;
+}
+
+.goal-contract-row strong {
+  color: var(--charcoal);
+  font-size: 13px;
+}
+
+.goal-contract-row span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .data-quality-panel {
@@ -992,6 +1187,103 @@ h3 {
   margin-bottom: 18px;
 }
 
+.client-toolbar {
+  grid-template-columns: minmax(240px, 1fr) 190px 180px 130px 160px auto auto;
+  margin-bottom: 10px;
+}
+
+.advanced-client-filters {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.attention-panel {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--amber);
+  border-radius: var(--radius);
+  background: #fffdf7;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.attention-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.attention-heading h2 {
+  font-size: 17px;
+}
+
+.attention-heading span {
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.attention-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.attention-item {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--charcoal);
+  display: grid;
+  gap: 6px;
+  min-height: 68px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.attention-item strong {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.attention-item span,
+.card-attention {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.attention-item mark,
+.card-attention mark {
+  border-radius: 999px;
+  color: var(--charcoal);
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.25;
+  padding: 3px 7px;
+}
+
+.attention-item mark.critical,
+.card-attention mark.critical {
+  background: #fff1f1;
+  color: var(--red);
+}
+
+.attention-item mark.warning,
+.card-attention mark.warning {
+  background: #fff8e8;
+  color: #9a6b00;
+}
+
+.attention-item mark.info,
+.card-attention mark.info {
+  background: #eef4ff;
+  color: #2563eb;
+}
+
 .task-toolbar {
   grid-template-columns: minmax(240px, 1fr) 230px 220px auto;
 }
@@ -1467,8 +1759,8 @@ h3 {
 
 .client-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(260px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 12px;
 }
 
 .regularization-grid {
@@ -1479,23 +1771,30 @@ h3 {
 
 .client-card {
   border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
   border-radius: var(--radius);
-  padding: 16px;
   background: #fff;
   display: grid;
-  gap: 12px;
   text-align: left;
-  min-height: 220px;
+  overflow: hidden;
 }
 
 .client-card.active-work {
-  border-color: rgba(0, 159, 127, 0.22);
-  background: #eefaf5;
+  border-left-color: var(--green);
+  background: #fff;
 }
 
 .client-card.finished {
-  border-color: #d8dde2;
-  background: #f2f4f5;
+  border-left-color: #7a838c;
+  background: #fbfcfc;
+}
+
+.client-card.attention {
+  border-left-color: var(--amber);
+}
+
+.client-card.urgent {
+  border-left-color: var(--red);
 }
 
 .client-card:hover {
@@ -1505,6 +1804,17 @@ h3 {
 
 .client-card.finished:hover {
   border-color: #b8c0c8;
+}
+
+.client-card-main {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  gap: 9px;
+  padding: 12px 13px 10px;
+  text-align: left;
+  width: 100%;
 }
 
 .regularization-card {
@@ -1580,11 +1890,14 @@ h3 {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .client-card h3 {
-  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 1.22;
+  margin-bottom: 3px;
+  overflow-wrap: anywhere;
 }
 
 .client-card p,
@@ -1644,6 +1957,88 @@ h3 {
   color: var(--amber);
 }
 
+.card-facts {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.card-facts span {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.card-facts svg {
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+
+.card-alert-line,
+.data-gap-line,
+.next-action {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.card-alert-line {
+  font-weight: 750;
+}
+
+.card-alert-line.muted {
+  color: #8a949f;
+  font-weight: 650;
+}
+
+.next-action {
+  border-top: 1px solid #edf2f0;
+  padding-top: 8px;
+}
+
+.data-gap-line {
+  color: #9a6b00;
+  font-weight: 750;
+}
+
+.missing-action-pill {
+  align-self: start;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 850;
+  padding: 4px 7px;
+}
+
+.client-quick-actions {
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.client-quick-actions .icon-button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--muted);
+  min-height: 32px;
+  width: auto;
+}
+
+.client-quick-actions .icon-button:last-child {
+  border-right: 0;
+}
+
+.client-quick-actions .icon-button:hover {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
 .chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -1692,6 +2087,7 @@ h3 {
   width: 100%;
   min-height: 68px;
   border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
   border-radius: var(--radius);
   padding: 10px 14px;
   color: var(--charcoal);
@@ -1701,13 +2097,13 @@ h3 {
 }
 
 .compact-client-row.active-work {
-  border-color: rgba(0, 159, 127, 0.22);
-  background: #eefaf5;
+  border-left-color: var(--green);
+  background: #fff;
 }
 
 .compact-client-row.finished {
-  border-color: #d8dde2;
-  background: #f2f4f5;
+  border-left-color: #7a838c;
+  background: #fbfcfc;
 }
 
 .compact-client-row:hover {
@@ -2568,6 +2964,154 @@ h3 {
   --reduction-number: var(--charcoal);
 }
 
+.operational-checklist-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfcfc;
+  padding: 12px;
+}
+
+.operational-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.checklist-item {
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  display: flex;
+  gap: 8px;
+  min-height: 58px;
+  padding: 8px;
+}
+
+.checklist-item.done {
+  border-color: #c9eadb;
+  background: #f1fbf6;
+}
+
+.checklist-item.pending {
+  border-color: #eadfcb;
+  background: #fffaf0;
+}
+
+.checklist-item svg {
+  color: var(--green-dark);
+  flex: 0 0 auto;
+  height: 16px;
+  margin-top: 2px;
+  width: 16px;
+}
+
+.checklist-item.pending svg {
+  color: var(--amber);
+}
+
+.checklist-item strong,
+.checklist-item span {
+  display: block;
+}
+
+.checklist-item strong {
+  color: var(--charcoal);
+  font-size: 12px;
+}
+
+.checklist-item span {
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.monthly-progress-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.monthly-progress-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--amber);
+  border-radius: 7px;
+  background: #fff;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.monthly-progress-card.current {
+  box-shadow: 0 0 0 3px rgba(0, 159, 127, 0.08);
+}
+
+.monthly-progress-card.done {
+  border-left-color: var(--green);
+}
+
+.monthly-progress-card strong {
+  color: var(--charcoal);
+  font-size: 13px;
+}
+
+.monthly-progress-card span,
+.monthly-progress-card small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.monthly-progress-bar {
+  background: #edf2f0;
+  border-radius: 999px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.monthly-progress-bar span {
+  background: var(--green);
+  display: block;
+  height: 100%;
+}
+
+.document-empty-state {
+  align-items: center;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.status-check-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.status-check-row {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+
+.status-check-row input {
+  width: auto;
+}
+
+.manager-note {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  margin: 10px 0 0;
+}
+
 .wide-field {
   grid-column: 1 / -1;
 }
@@ -2829,6 +3373,20 @@ h3 {
   font-size: 12.5px;
   line-height: 1.45;
   margin: 0;
+}
+
+.owner-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 850;
+  max-width: 96px;
+  overflow: hidden;
+  padding: 4px 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-access-notice > span {
@@ -3187,6 +3745,10 @@ h3 {
   .client-grid,
   .regularization-grid,
   .metrics-grid,
+  .attention-list,
+  .monthly-progress-list,
+  .goals-summary-grid,
+  .goals-monthly-grid,
   .data-summary-grid,
   .data-quality-card,
   .data-quality-list,
@@ -3198,6 +3760,7 @@ h3 {
   }
 
   .toolbar,
+  .advanced-client-filters,
   .data-toolbar,
   .task-toolbar,
   .updates-toolbar,
@@ -3208,7 +3771,12 @@ h3 {
   .guidance-mini-form,
   .calendar-controls,
   .summary-layout,
+  .goals-detail-grid,
+  .goal-contract-row,
+  .goal-contract-row.missing,
   .form-grid,
+  .operational-checklist,
+  .status-check-list,
   .reduction-results {
     grid-template-columns: 1fr;
   }
@@ -3244,6 +3812,10 @@ h3 {
   .client-grid,
   .regularization-grid,
   .metrics-grid,
+  .attention-list,
+  .monthly-progress-list,
+  .goals-summary-grid,
+  .goals-monthly-grid,
   .data-summary-grid,
   .data-quality-card,
   .data-quality-list,
@@ -3252,11 +3824,19 @@ h3 {
   .my-day-board,
   .updates-summary,
   .no-date-grid,
+  .operational-checklist,
+  .status-check-list,
   .reduction-summary-grid {
     grid-template-columns: 1fr;
   }
 
   .data-client-row {
+    grid-template-columns: 1fr;
+  }
+
+  .goals-detail-grid,
+  .goal-contract-row,
+  .goal-contract-row.missing {
     grid-template-columns: 1fr;
   }
 
