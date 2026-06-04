@@ -4262,7 +4262,7 @@ function renderClientCard(client) {
         <button class="icon-button" type="button" data-quick-client-action="note" data-client-id="${client.id}" title="Registrar anotação" aria-label="Registrar anotação"><i data-lucide="message-square-plus"></i></button>
         <button class="icon-button" type="button" data-quick-client-action="waiting" data-client-id="${client.id}" title="Marcar pendência do cliente" aria-label="Marcar pendência do cliente"><i data-lucide="hourglass"></i></button>
         <button class="icon-button" type="button" data-quick-client-action="whatsapp" data-client-id="${client.id}" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i data-lucide="phone"></i></button>
-        <button class="icon-button" type="button" data-quick-client-action="folder" data-client-id="${client.id}" title="Copiar pasta" aria-label="Copiar pasta"><i data-lucide="folder-copy"></i></button>
+        <button class="icon-button" type="button" data-quick-client-action="folder" data-client-id="${client.id}" title="Copiar pasta" aria-label="Copiar pasta"><i data-lucide="copy"></i></button>
       </div>
     </article>
   `;
