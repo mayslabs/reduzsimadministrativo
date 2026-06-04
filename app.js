@@ -1325,7 +1325,8 @@ function currentAppVersion() {
 
 function configureNavigationForRole() {
   const isAdmin = currentUser.role === "admin";
-  document.querySelector('[data-section="statusSection"]').style.display = isAdmin ? "" : "none";
+  const statusNavItem = document.querySelector('[data-section="statusSection"]');
+  if (statusNavItem) statusNavItem.style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="usersSection"]').style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="accountSection"]').style.display = isAdmin ? "none" : "";
   el.addUserButton.style.display = "none";
@@ -1393,6 +1394,7 @@ function renderMetrics() {
 }
 
 function renderAttentionPanel() {
+  if (!el.attentionPanel) return;
   const items = state.clients
     .filter((client) => !isClientFinished(client))
     .map((client) => ({ client, reasons: clientAttentionReasons(client), score: clientUrgencyScore(client) }))
