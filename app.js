@@ -1062,18 +1062,7 @@ function bindEvents() {
   el.searchInput.addEventListener("input", renderClients);
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
   el.statusFilter.addEventListener("change", renderClients);
-  el.ownerFilter.addEventListener("change", renderClients);
-  el.stateFilter.addEventListener("change", renderClients);
   el.clientSort.addEventListener("change", renderClients);
-  [el.workStateFilter, el.taskAlertFilter, el.deadlineAlertFilter, el.financeFilter, el.monthlyPendingFilter, el.nextActionFilter].forEach((input) => {
-    input.addEventListener("change", renderClients);
-  });
-  el.moreFiltersButton.addEventListener("click", () => {
-    advancedClientFiltersOpen = !advancedClientFiltersOpen;
-    el.advancedClientFilters.hidden = !advancedClientFiltersOpen;
-    el.moreFiltersButton.setAttribute("aria-expanded", String(advancedClientFiltersOpen));
-    el.moreFiltersButton.classList.toggle("active", advancedClientFiltersOpen);
-  });
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
@@ -1132,12 +1121,6 @@ function bindEvents() {
   el.addDeadlineButton.addEventListener("click", () => {
     openClientDeadlineDialog();
   });
-  el.addDocumentButton.addEventListener("click", () => {
-    activeClient.documents = Array.isArray(activeClient.documents) ? activeClient.documents : [];
-    activeClient.documents.push(emptyDocument());
-    renderDocuments();
-    renderOperationalChecklist();
-  });
   el.addNoteButton.addEventListener("click", addNote);
   el.addWorkerMessageButton.addEventListener("click", addWorkerMessage);
   el.addFinanceMessageButton.addEventListener("click", addFinanceMessage);
@@ -1173,10 +1156,6 @@ function bindEvents() {
       }
       if (input.dataset.field === "clientOrigin" || input.dataset.field === "hasReferralCommission") syncReferralCommissionFields();
       if (["feeValue", "inssOriginalValue", "inssReducedValue"].includes(input.dataset.field)) renderInssReduction();
-      if (["contractClosedDate", "startDate", "endDate", "area", "state", "internalOwner", "feeValue", "inssOriginalValue", "inssReducedValue"].includes(input.dataset.field)) {
-        renderOperationalChecklist();
-        renderMonthlyProgressList();
-      }
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -1341,9 +1320,7 @@ function configureNavigationForRole() {
 
 function renderAll() {
   renderStatusFilter();
-  renderClientFilterOptions();
   renderMetrics();
-  renderAttentionPanel();
   renderClients();
   renderRegularizationClients();
   renderTaskCenter();
@@ -3669,9 +3646,8 @@ function renderClients() {
   }
 
   document.querySelectorAll("[data-open-client]").forEach((card) => {
-    card.onclick = () => openClientById(card.dataset.openClient);
+    card.addEventListener("click", () => openClientById(card.dataset.openClient));
   });
-  bindClientQuickActions();
   refreshIcons();
 }
 
@@ -4123,14 +4099,6 @@ function nextDeadlineLabel(client = {}) {
 function filteredClients() {
   const query = normalize(el.searchInput.value);
   const statusId = el.statusFilter.value;
-  const ownerId = el.ownerFilter.value;
-  const stateFilter = el.stateFilter.value;
-  const workState = el.workStateFilter.value;
-  const taskAlert = el.taskAlertFilter.value;
-  const deadlineAlert = el.deadlineAlertFilter.value;
-  const financeFilter = el.financeFilter.value;
-  const monthlyFilter = el.monthlyPendingFilter.value;
-  const nextActionFilter = el.nextActionFilter.value;
   const clients = state.clients.filter((client) => {
     const haystack = normalize([
       client.clientName,
@@ -4145,50 +4113,12 @@ function filteredClients() {
     ].join(" "));
     const matchesQuery = !query || haystack.includes(query);
     const matchesStatus = !statusId || (client.statusIds || []).includes(statusId);
-    const matchesOwner = !ownerId || (ownerId === "missing" ? !client.internalOwner : client.internalOwner === ownerId);
-    const matchesState = !stateFilter || (stateFilter === "missing" ? !client.state : client.state === stateFilter);
-    const matchesWorkState =
-      !workState || (workState === "finished" ? isClientFinished(client) : !isClientFinished(client));
-    const clientTasks = openClientTasks(client);
-    const overdueTasks = clientTasks.filter((task) => isPastDate(task.dueDate));
-    const matchesTask =
-      !taskAlert ||
-      (taskAlert === "overdue" && overdueTasks.length > 0) ||
-      (taskAlert === "open" && clientTasks.length > 0) ||
-      (taskAlert === "none" && clientTasks.length === 0);
-    const deadlineStatus = clientDeadlineSummary(client);
-    const matchesDeadline =
-      !deadlineAlert ||
-      (deadlineAlert === "today" && deadlineStatus.today.length > 0) ||
-      (deadlineAlert === "upcoming" && deadlineStatus.upcoming.length > 0) ||
-      (deadlineAlert === "none" && deadlineStatus.all.length === 0);
-    const matchesFinance = !financeFilter || normalizeFinanceStatus(client.financeStatus) === financeFilter;
-    const monthlyPending = isCurrentMonthPending(client);
-    const matchesMonthly =
-      !monthlyFilter || (monthlyFilter === "pending" ? monthlyPending : monthlyStatusProgress(currentMonthRow(client)).done);
-    const hasNextAction = Boolean(String(client.nextAction || "").trim());
-    const matchesNextAction =
-      !nextActionFilter || (nextActionFilter === "missing" ? !hasNextAction : hasNextAction);
-    return (
-      matchesQuery &&
-      matchesStatus &&
-      matchesOwner &&
-      matchesState &&
-      matchesWorkState &&
-      matchesTask &&
-      matchesDeadline &&
-      matchesFinance &&
-      matchesMonthly &&
-      matchesNextAction
-    );
+    return matchesQuery && matchesStatus;
   });
   return sortClients(clients, el.clientSort.value);
 }
 
 function sortClients(clients, sortMode) {
-  if (!sortMode || sortMode === "urgency") {
-    return clients.sort((a, b) => clientUrgencyScore(b) - clientUrgencyScore(a) || Number(isClientFinished(a)) - Number(isClientFinished(b)) || clientCreatedTime(b) - clientCreatedTime(a));
-  }
   if (sortMode === "recent") {
     return clients.sort((a, b) => clientCreatedTime(b) - clientCreatedTime(a));
   }
@@ -4208,65 +4138,38 @@ function clientCreatedTime(client) {
 function renderClientCard(client) {
   const clientStatuses = getClientStatuses(client);
   const statuses = clientStatuses
-    .slice(0, 4)
+    .slice(0, 5)
     .map((status) => chip(status))
     .join("");
   const completionClass = isClientFinished(client) ? "finished" : "active-work";
-  const openTasks = openClientTasks(client);
+  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
   const deadlines = client.deadlines || [];
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
   const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   const workSubtitle = `${workTitle}${destinationLabel(client)}`;
   const workDetails = [client.state, client.area].filter(Boolean).join(" | ");
-  const attention = clientAttentionReasons(client);
-  const gaps = clientDataGaps(client);
-  const nextDeadline = nextDeadlineLabel(client);
-  const hasNextAction = Boolean(String(client.nextAction || "").trim());
-  const urgencyClass = attention.some((reason) => reason.tone === "critical") ? "urgent" : attention.length ? "attention" : "";
   return `
-    <article class="client-card ${completionClass} ${urgencyClass}">
-      <button class="client-card-main" type="button" data-open-client="${client.id}">
-        <header>
-          <div>
-            <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
-            <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
-          </div>
-          <span class="owner-chip">${escapeHtml(ownerName(client.internalOwner))}</span>
-        </header>
-        <div class="chip-list">${statuses || `<span class="chip neutral">Sem status</span>`}</div>
-        <div class="card-facts">
-          <span><i data-lucide="calendar-clock"></i>${escapeHtml(nextDeadline || "Sem prazo")}</span>
-          <span><i data-lucide="calendar-check"></i>${escapeHtml(currentMonthStatusLabel(client))}</span>
-          <span><i data-lucide="clock-3"></i>${escapeHtml(client.updatedAt ? `Atualizado ${formatShortDateTime(client.updatedAt)}` : "Sem atualização")}</span>
+    <button class="client-card ${completionClass}" type="button" data-open-client="${client.id}">
+      <header>
+        <div>
+          <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
+          <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
         </div>
-        ${
-          attention.length
-            ? `<div class="card-attention">${attention
-                .slice(0, 3)
-                .map((reason) => `<mark class="${reason.tone}">${escapeHtml(reason.label)}</mark>`)
-                .join("")}</div>`
-            : ""
-        }
-        ${
-          openTasks.length || deadlines.length
-            ? `<div class="card-alert-line">${openTasks.length ? `${openTasks.length} tarefa(s): ${escapeHtml(taskOwners)}` : "Sem tarefas"} · ${
-                deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"
-              }</div>`
-            : `<div class="card-alert-line muted">Sem tarefas · Sem prazos</div>`
-        }
-        ${hasNextAction ? `<p class="next-action">${escapeHtml(client.nextAction)}</p>` : `<span class="missing-action-pill">Sem próxima ação</span>`}
-        ${gaps.length ? `<p class="data-gap-line">Faltando: ${escapeHtml(gaps.slice(0, 4).join(", "))}${gaps.length > 4 ? "..." : ""}</p>` : ""}
-      </button>
-      <div class="client-quick-actions" aria-label="Ações rápidas">
-        <button class="icon-button" type="button" data-quick-client-action="task" data-client-id="${client.id}" title="Nova tarefa" aria-label="Nova tarefa"><i data-lucide="list-plus"></i></button>
-        <button class="icon-button" type="button" data-quick-client-action="deadline" data-client-id="${client.id}" title="Novo prazo" aria-label="Novo prazo"><i data-lucide="calendar-plus"></i></button>
-        <button class="icon-button" type="button" data-quick-client-action="note" data-client-id="${client.id}" title="Registrar anotação" aria-label="Registrar anotação"><i data-lucide="message-square-plus"></i></button>
-        <button class="icon-button" type="button" data-quick-client-action="waiting" data-client-id="${client.id}" title="Marcar pendência do cliente" aria-label="Marcar pendência do cliente"><i data-lucide="hourglass"></i></button>
-        <button class="icon-button" type="button" data-quick-client-action="whatsapp" data-client-id="${client.id}" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i data-lucide="phone"></i></button>
-        <button class="icon-button" type="button" data-quick-client-action="folder" data-client-id="${client.id}" title="Copiar pasta" aria-label="Copiar pasta"><i data-lucide="copy"></i></button>
+      </header>
+      <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
+      <div class="card-alerts">
+        <span class="card-alert ${openTasks.length ? "active" : ""}">
+          <i data-lucide="list-checks"></i>
+          ${openTasks.length ? `${openTasks.length} tarefa(s): ${escapeHtml(taskOwners)}` : "Sem tarefas abertas"}
+        </span>
+        <span class="card-alert ${deadlines.length ? "active deadline" : ""}">
+          <i data-lucide="calendar-clock"></i>
+          ${deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"}
+        </span>
       </div>
-    </article>
+      <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
+    </button>
   `;
 }
 
@@ -4285,11 +4188,10 @@ function renderCompactClients(clients) {
 
 function renderCompactClientRow(client) {
   const statuses = getClientStatuses(client).slice(0, 3).map((status) => chip(status)).join("");
-  const openTasks = openClientTasks(client);
+  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
   const deadlines = client.deadlines || [];
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   const workLine = [destinationLabel(client), client.state, client.area].filter(Boolean).join(" | ");
-  const attention = clientAttentionReasons(client);
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
       <span class="compact-client-main">
@@ -4297,7 +4199,7 @@ function renderCompactClientRow(client) {
         <small>${escapeHtml(`${workTitle}${workLine}`)}</small>
       </span>
       <span class="compact-client-status">${statuses || `<span class="chip neutral">Sem status</span>`}</span>
-      <span>${attention[0] ? escapeHtml(attention[0].label) : `${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)`}</span>
+      <span>${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)</span>
     </button>
   `;
 }
@@ -4423,11 +4325,9 @@ function openClient(client) {
   renderDestinationOptions();
   renderActiveStatuses();
   renderStatusPicker();
-  renderOperationalChecklist();
   renderMonthlyTable();
   renderTasks();
   renderDeadlines();
-  renderDocuments();
   renderNotes();
   renderHistory();
   renderWorkerMessages();
@@ -4624,7 +4524,6 @@ function renderActiveStatuses() {
       activeClient.statusIds = activeClient.statusIds.filter((idValue) => idValue !== button.dataset.removeStatus);
       renderActiveStatuses();
       renderStatusPicker();
-      renderOperationalChecklist();
     });
   });
 }
@@ -4632,19 +4531,29 @@ function renderActiveStatuses() {
 function renderStatusPicker() {
   const active = new Set(activeClient.statusIds || []);
   el.statusPicker.innerHTML = `
-    <div class="status-check-list">
+    <div class="status-editor-list">
       ${state.statuses
         .map(
           (status) => `
-            <label class="status-check-row">
-              <input type="checkbox" ${active.has(status.id) ? "checked" : ""} data-toggle-status="${status.id}" />
-              <span class="chip" style="background:${status.color}">${escapeHtml(status.name)}</span>
-            </label>
+            <div class="status-editor-row" data-status-editor="${status.id}">
+              <label class="status-toggle">
+                <input type="checkbox" ${active.has(status.id) ? "checked" : ""} data-toggle-status="${status.id}" />
+                <span>Ativo</span>
+              </label>
+              <input value="${escapeAttr(status.name)}" data-status-editor-field="name" aria-label="Nome do status" />
+              <input class="color-input" type="color" value="${status.color}" data-status-editor-field="color" aria-label="Cor do status" />
+              <button class="icon-button" type="button" data-remove-global-status="${status.id}" aria-label="Remover status"><i data-lucide="trash-2"></i></button>
+            </div>
           `
         )
         .join("")}
+      <div class="status-editor-row new-status-row">
+        <span></span>
+        <input id="newStatusName" type="text" placeholder="Novo status" />
+        <input id="newStatusColor" class="color-input" type="color" value="#009f7f" />
+        <button id="createStatusFromCard" class="small-button" type="button"><i data-lucide="plus"></i> Criar</button>
+      </div>
     </div>
-    <p class="manager-note">A criação e edição global dos status ficam na área administrativa Status.</p>
   `;
 
   document.querySelectorAll("[data-toggle-status]").forEach((checkbox) => {
@@ -4655,14 +4564,55 @@ function renderStatusPicker() {
         activeClient.statusIds = (activeClient.statusIds || []).filter((idValue) => idValue !== checkbox.dataset.toggleStatus);
       }
       renderActiveStatuses();
-      renderOperationalChecklist();
     });
+  });
+
+  document.querySelectorAll("[data-status-editor]").forEach((row) => {
+    const status = state.statuses.find((item) => item.id === row.dataset.statusEditor);
+    row.querySelectorAll("[data-status-editor-field]").forEach((input) => {
+      input.addEventListener("input", () => {
+        status[input.dataset.statusEditorField] = input.value;
+        saveState();
+        renderStatusFilter();
+        renderClients();
+        renderActiveStatuses();
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-remove-global-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.statuses = state.statuses.filter((status) => status.id !== button.dataset.removeGlobalStatus);
+      state.clients.forEach((client) => {
+        client.statusIds = (client.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
+      });
+      activeClient.statusIds = (activeClient.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
+      saveState();
+      renderStatusFilter();
+      renderClients();
+      renderActiveStatuses();
+      renderStatusPicker();
+    });
+  });
+
+  document.getElementById("createStatusFromCard")?.addEventListener("click", () => {
+    const nameInput = document.getElementById("newStatusName");
+    const colorInput = document.getElementById("newStatusColor");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    const status = { id: id(), name, color: colorInput.value || "#009f7f" };
+    state.statuses.push(status);
+    activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), status.id])];
+    saveState();
+    renderStatusFilter();
+    renderClients();
+    renderActiveStatuses();
+    renderStatusPicker();
   });
   refreshIcons();
 }
 
 function renderMonthlyTable() {
-  renderMonthlyProgressList();
   el.monthlyTable.innerHTML = (activeClient.monthly || [])
     .sort((a, b) => a.month.localeCompare(b.month))
     .map(
@@ -4683,13 +4633,9 @@ function renderMonthlyTable() {
     tr.querySelectorAll("[data-month-field]").forEach((input) => {
       input.addEventListener("input", () => {
         row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
-        renderMonthlyProgressList();
-        renderOperationalChecklist();
       });
       input.addEventListener("change", () => {
         row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
-        renderMonthlyProgressList();
-        renderOperationalChecklist();
       });
     });
   });
