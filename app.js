@@ -6331,7 +6331,7 @@ function normalizeReferralCommissionChoice(client = {}) {
 }
 
 function clientOriginValues() {
-  return ["BNI", "Instagram", "Facebook", "Outdoor", "Prospecção ativa", "Site", "Indicação"];
+  return ["BNI", "Instagram", "Facebook", "Outdoor", "Panfleto", "Prospecção ativa", "Site", "Indicação"];
 }
 
 function normalizeClientOrigin(client = {}) {
