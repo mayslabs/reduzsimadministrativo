@@ -1615,10 +1615,27 @@ function renderDataDashboard() {
     dataPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`, "byDocumentType"),
     dataPanel("Comercial", "Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`, "byOrigin"),
   ].join("");
-  el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
+  const ticketPanels = ensureDataTicketPanels();
+  if (ticketPanels) ticketPanels.innerHTML = renderDataTicketPanels(data);
   renderDataDrilldown();
   bindDataDashboardActions();
   refreshIcons();
+}
+
+function ensureDataTicketPanels() {
+  if (el.dataTicketPanels) return el.dataTicketPanels;
+  const existing = document.getElementById("dataTicketPanels");
+  if (existing) {
+    el.dataTicketPanels = existing;
+    return existing;
+  }
+  if (!el.dataPanels) return null;
+  const container = document.createElement("div");
+  container.id = "dataTicketPanels";
+  container.className = "data-ticket-panels";
+  el.dataPanels.insertAdjacentElement("afterend", container);
+  el.dataTicketPanels = container;
+  return container;
 }
 
 function renderDataFilterOptions() {
