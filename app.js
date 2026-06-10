@@ -722,9 +722,9 @@ function normalizeRegularizationClient(process = {}) {
   return {
     id: process.id || id(),
     clientName: process.clientName || process.name || "",
-    propertyType: process.propertyType || "",
+    propertyType: normalizeSelectValue(process.propertyType, destinationValues()) || process.propertyType || "",
     clientOrigin: process.clientOrigin || process.origin || "",
-    cityState: process.cityState || "",
+    cityState: normalizeSelectValue(String(process.cityState || "").toUpperCase(), brazilianStates()) || process.cityState || "",
     address: process.address || "",
     registryNumber: process.registryNumber || process.registration || "",
     status: process.status || "Em análise",
@@ -1599,23 +1599,33 @@ function formatAreaTotal(value) {
 }
 
 function renderDataDashboard() {
-  renderDataFilterOptions();
-  const data = inssDataSummary();
-  el.dataSummary.innerHTML = renderDataSummary(data);
-  el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
-  el.dataPanels.innerHTML = [
-    reportMonthlyContractsPanel(data),
-    reportMonthlyFeesPanel(data),
-    reportHorizontalPanel("Localização", "Obras por estado", data.byState, "byState", data.totalWorks, { badge: "Top 6 estados", icon: "map-pin" }),
-    reportDonutPanel("Comercial", "Origem dos clientes", data.byOrigin, "byOrigin", data.totalWorks, { icon: "users" }),
-    reportHorizontalPanel("Perfil da obra", "Obras por destinação", data.byDestination, "byDestination", data.totalWorks, { badge: "Este ano", icon: "network" }),
-    reportDonutPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, "byDocumentType", data.documentTypeTotal, { icon: "contact" }),
-  ].join("");
-  if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
-  if (el.dataReportFooter) el.dataReportFooter.innerHTML = renderDataReportFooter();
-  renderDataDrilldown();
-  bindDataDashboardActions();
-  refreshIcons();
+  if (!el.dataSummary || !el.dataPanels) return;
+  try {
+    renderDataFilterOptions();
+    const data = inssDataSummary();
+    el.dataSummary.innerHTML = renderDataSummary(data);
+    el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
+    el.dataPanels.innerHTML = [
+      reportMonthlyContractsPanel(data),
+      reportMonthlyFeesPanel(data),
+      reportHorizontalPanel("Localização", "Obras por estado", data.byState, "byState", data.totalWorks, { badge: "Top 6 estados", icon: "map-pin" }),
+      reportDonutPanel("Comercial", "Origem dos clientes", data.byOrigin, "byOrigin", data.totalWorks, { icon: "users" }),
+      reportHorizontalPanel("Perfil da obra", "Obras por destinação", data.byDestination, "byDestination", data.totalWorks, { badge: "Este ano", icon: "network" }),
+      reportDonutPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, "byDocumentType", data.documentTypeTotal, { icon: "contact" }),
+    ].join("");
+    if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
+    if (el.dataReportFooter) el.dataReportFooter.innerHTML = renderDataReportFooter();
+    renderDataDrilldown();
+    bindDataDashboardActions();
+    refreshIcons();
+  } catch (error) {
+    console.error(error);
+    el.dataSummary.innerHTML = `<p class="empty-state compact">Não foi possível carregar os relatórios. Atualize a página e tente novamente.</p>`;
+    if (el.dataQualityPanel) el.dataQualityPanel.innerHTML = "";
+    if (el.dataPanels) el.dataPanels.innerHTML = "";
+    if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = "";
+    if (el.dataReportFooter) el.dataReportFooter.innerHTML = "";
+  }
 }
 
 function ensureDataTicketPanels() {
@@ -1826,7 +1836,7 @@ function inssDataSummary() {
 }
 
 function dataAllRecords() {
-  const inssRecords = state.clients.map((client) => ({
+  const inssRecords = (Array.isArray(state.clients) ? state.clients : []).map((client) => ({
     ...client,
     sourceType: "client",
     sourceLabel: "INSS de obras",
@@ -1836,7 +1846,7 @@ function dataAllRecords() {
     finished: isClientFinished(client),
   }));
 
-  const regularizationRecords = state.regularizationClients.map((process) => ({
+  const regularizationRecords = (Array.isArray(state.regularizationClients) ? state.regularizationClients : []).map((process) => ({
     ...process,
     sourceType: "regularization",
     sourceLabel: "Regularização de imóvel",
@@ -1884,6 +1894,8 @@ function filteredDataClients() {
 }
 
 function regularizationStateLabel(process = {}) {
+  const normalizedState = normalizeSelectValue(String(process.cityState || "").toUpperCase(), brazilianStates());
+  if (normalizedState) return normalizedState;
   const value = String(process.cityState || "");
   const match = value.match(/\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/i);
   return match ? match[1].toUpperCase() : "";
@@ -4826,7 +4838,13 @@ function openRegularizationDialog(processId = null) {
   const current = normalizeRegularizationClient(process || {});
   openSimpleDialog(process ? "Editar regularização" : "Novo processo de regularização", [
     { label: "Nome do cliente", name: "clientName", type: "text", value: current.clientName },
-    { label: "Tipo de imóvel", name: "propertyType", type: "text", value: current.propertyType },
+    {
+      label: "Tipo de imóvel",
+      name: "propertyType",
+      type: "select",
+      value: current.propertyType,
+      options: [{ value: "", label: "Selecionar" }, ...destinationValues().map((destination) => ({ value: destination, label: destination }))],
+    },
     {
       label: "Origem",
       name: "clientOrigin",
@@ -4834,10 +4852,16 @@ function openRegularizationDialog(processId = null) {
       value: current.clientOrigin,
       options: [{ value: "", label: "Selecionar" }, ...clientOriginValues().map((origin) => ({ value: origin, label: origin }))],
     },
-    { label: "Cidade/Estado", name: "cityState", type: "text", value: current.cityState },
+    {
+      label: "Estado",
+      name: "cityState",
+      type: "select",
+      value: current.cityState,
+      options: [{ value: "", label: "Selecionar" }, ...brazilianStates().map((stateValue) => ({ value: stateValue, label: stateValue }))],
+    },
     { label: "Endereço", name: "address", type: "text", value: current.address },
     { label: "Fechamento do contrato", name: "contractClosedDate", type: "date", value: current.contractClosedDate },
-    { label: "Valor dos honorários", name: "feeValue", type: "text", value: current.feeValue },
+    { label: "Valor dos honorários", name: "feeValue", type: "money", value: current.feeValue },
     {
       label: "Status",
       name: "status",
@@ -4856,7 +4880,9 @@ function openRegularizationDialog(processId = null) {
     const payload = normalizeRegularizationClient({
       ...current,
       ...values,
-      feeValue: formatFlexibleCurrencyValue(values.feeValue || ""),
+      propertyType: normalizeSelectValue(values.propertyType, destinationValues()) || "",
+      cityState: normalizeSelectValue(values.cityState, brazilianStates()) || "",
+      feeValue: formatCurrencyValue(values.feeValue || ""),
       updatedAt: now,
       createdAt: current.createdAt || now,
     });
@@ -6854,6 +6880,11 @@ function openSimpleDialog(title, fields, onSave) {
     const shouldClose = onSave(values);
     if (shouldClose !== false) el.simpleDialog.close();
   };
+  el.simpleDialogBody.querySelectorAll("[data-money-field]").forEach((input) => {
+    input.addEventListener("input", () => {
+      input.value = formatCurrencyValue(input.value);
+    });
+  });
   el.simpleDialog.showModal();
   refreshIcons();
 }
@@ -6871,6 +6902,10 @@ function simpleFieldControl(field) {
     return `<select data-simple-field="${field.name}">${(field.options || [])
       .map((option) => `<option value="${escapeAttr(option.value)}" ${option.value === field.value ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
       .join("")}</select>`;
+  }
+
+  if (field.type === "money") {
+    return `<input type="text" inputmode="numeric" value="${escapeAttr(formatCurrencyValue(field.value || ""))}" data-simple-field="${field.name}" data-money-field />`;
   }
 
   return `<input class="${field.type === "color" ? "color-input" : ""}" type="${field.type}" value="${escapeAttr(field.value)}" data-simple-field="${field.name}" />`;
@@ -6900,6 +6935,9 @@ function switchSection(sectionId) {
   }
   if (sectionId === "billsSection") {
     renderBillsDashboard();
+  }
+  if (sectionId === "dataSection") {
+    renderDataDashboard();
   }
 }
 
