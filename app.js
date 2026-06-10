@@ -1633,7 +1633,7 @@ function ensureDataTicketPanels() {
   const container = document.createElement("div");
   container.id = "dataTicketPanels";
   container.className = "data-ticket-panels";
-  el.dataPanels.insertAdjacentElement("afterend", container);
+  el.dataPanels.insertAdjacentElement("beforebegin", container);
   el.dataTicketPanels = container;
   return container;
 }
@@ -1871,14 +1871,25 @@ function dataRow(row, value, group) {
 
 function renderDataTicketPanels(data) {
   return `
-    <section class="data-ticket-card ticket-highlight">
-      <p class="eyebrow">Ticket médio</p>
-      <h3>Honorários por contrato fechado</h3>
-      <strong>${escapeHtml(calculatedCurrency(data.ticketAverage))}</strong>
-      <span>${data.ticketContractCount} contrato(s) com fechamento e honorários</span>
+    <section class="data-ticket-section">
+      <div class="data-ticket-heading">
+        <div>
+          <p class="eyebrow">Ticket médio</p>
+          <h3>Análise dos honorários fechados</h3>
+        </div>
+        <span>Calculado somente com contratos que têm fechamento e honorários preenchidos.</span>
+      </div>
+      <div class="data-ticket-grid">
+        <article class="data-ticket-card ticket-highlight">
+          <p class="eyebrow">Contrato fechado</p>
+          <h3>Honorários por contrato</h3>
+          <strong>${escapeHtml(calculatedCurrency(data.ticketAverage))}</strong>
+          <span>${data.ticketContractCount} contrato(s) considerados</span>
+        </article>
+        ${dataAveragePanel("Ticket médio por origem", data.ticketByOrigin)}
+        ${dataAveragePanel("Ticket médio por destinação", data.ticketByDestination)}
+      </div>
     </section>
-    ${dataAveragePanel("Ticket médio por origem", data.ticketByOrigin)}
-    ${dataAveragePanel("Ticket médio por destinação", data.ticketByDestination)}
   `;
 }
 
