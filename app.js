@@ -1646,12 +1646,31 @@ function ensureDataTicketPanels() {
 
 function renderDataFilterOptions() {
   const records = dataAllRecords();
+  renderDataPeriodOptions(records);
   setDataSelectOptions(el.dataStateFilter, "Todos os estados", sortedDataRecordValues(records, (record) => record.state || "Sem estado"));
   setDataSelectOptions(el.dataDestinationFilter, "Todas as destinações", sortedDataRecordValues(records, (record) => {
     const destinations = destinationList(record.destination);
     return destinations.length ? destinations : ["Sem destinação"];
   }));
   setDataSelectOptions(el.dataOriginFilter, "Todas as origens", sortedDataRecordValues(records, (record) => record.clientOrigin || "Sem origem"));
+}
+
+function renderDataPeriodOptions(records = dataAllRecords()) {
+  const selected = el.dataPeriodFilter.value;
+  const monthKeys = new Set(dataReportMonths().map((month) => month.key));
+  records.forEach((record) => {
+    const monthKey = dataMonthKey(record.contractClosedDate);
+    if (monthKey) monthKeys.add(monthKey);
+  });
+  const monthOptions = [...monthKeys].sort((a, b) => b.localeCompare(a));
+  el.dataPeriodFilter.innerHTML = `
+    <option value="">Todo período</option>
+    <option value="month">Este mês</option>
+    <option value="year">Este ano</option>
+    <option value="last12">Últimos 12 meses</option>
+    ${monthOptions.map((monthKey) => `<option value="month:${escapeAttr(monthKey)}">${escapeHtml(dataMonthOptionLabel(monthKey))}</option>`).join("")}
+  `;
+  el.dataPeriodFilter.value = [...["", "month", "year", "last12"], ...monthOptions.map((monthKey) => `month:${monthKey}`)].includes(selected) ? selected : "";
 }
 
 function setDataSelectOptions(select, allLabel, values) {
@@ -1821,7 +1840,7 @@ function inssDataSummary() {
 
   return {
     ...summary,
-    quality: dataQualityItems(clients),
+    quality: dataQualityItems(records),
     monthlyWorks: mapToSortedRows(summary.monthlyWorks, "date"),
     monthlyContracts: mapToMonthlyRows(summary.monthlyContracts, "count"),
     monthlyFees: mapToMonthlyRows(summary.monthlyFees, "amount"),
@@ -1903,6 +1922,7 @@ function regularizationStateLabel(process = {}) {
 
 function matchesDataPeriod(client, period) {
   if (!period) return true;
+  if (String(period).startsWith("month:")) return dataMonthKey(client.contractClosedDate) === String(period).slice(6);
   const date = new Date(client.contractClosedDate || "");
   if (Number.isNaN(date.getTime())) return false;
   const now = new Date();
@@ -2338,6 +2358,14 @@ function dataReportMonths(year = dataReportYear()) {
       shortLabel,
     };
   });
+}
+
+function dataMonthOptionLabel(monthKey) {
+  const [year, month] = String(monthKey || "").split("-");
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const index = Number(month) - 1;
+  if (!year || index < 0 || index > 11) return monthKey;
+  return `${monthNames[index]}/${year}`;
 }
 
 function reportChartColor(index) {
