@@ -1608,15 +1608,15 @@ function renderDataDashboard() {
   ];
   el.dataSummary.innerHTML = totals.map(renderDataTotal).join("");
   el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
+  if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = "";
   el.dataPanels.innerHTML = [
+    renderDataTicketPanels(data),
     dataPanel("Volume", "Contratos fechados por mês", data.monthlyWorks, (row) => `${row.count} contrato(s)`, "monthlyWorks"),
     dataPanel("Localização", "Obras por estado", data.byState, (row) => `${row.count} obra(s)`, "byState"),
     dataPanel("Perfil da obra", "Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`, "byDestination"),
     dataPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`, "byDocumentType"),
     dataPanel("Comercial", "Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`, "byOrigin"),
   ].join("");
-  const ticketPanels = ensureDataTicketPanels();
-  if (ticketPanels) ticketPanels.innerHTML = renderDataTicketPanels(data);
   renderDataDrilldown();
   bindDataDashboardActions();
   refreshIcons();

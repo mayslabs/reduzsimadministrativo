@@ -477,10 +477,15 @@ h3 {
   margin: 14px 0 18px;
 }
 
+.data-ticket-panels:empty {
+  display: none;
+}
+
 .data-ticket-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fbfefe;
+  grid-column: 1 / -1;
   padding: 14px;
 }
 
