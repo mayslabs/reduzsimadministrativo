@@ -21,6 +21,10 @@ const DEFAULT_GOAL_SETTINGS = {
   stretch: "R$ 25.000,00",
 };
 
+const BILL_YEAR = "2026";
+const BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
+const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
+
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -249,6 +253,9 @@ let activeTaskDate = new Date();
 let activeDataDrilldown = null;
 let activeGoalsYear = "2026";
 let activeGoalsMonth = "2026-06";
+let activeBillsYear = BILL_YEAR;
+let activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
+let activeBillsStatusFilter = "";
 let collapsedGuidanceIds = new Set(loadCollapsedGuidanceIds());
 let updatesImportantOnly = false;
 let taskMineOnly = false;
@@ -336,6 +343,16 @@ const el = {
   goalsContractsTitle: document.getElementById("goalsContractsTitle"),
   goalsContractsList: document.getElementById("goalsContractsList"),
   goalsMissingData: document.getElementById("goalsMissingData"),
+  billsYearSelect: document.getElementById("billsYearSelect"),
+  billsMonthSelect: document.getElementById("billsMonthSelect"),
+  exportBillsButton: document.getElementById("exportBillsButton"),
+  copyPreviousBillsButton: document.getElementById("copyPreviousBillsButton"),
+  addBillButton: document.getElementById("addBillButton"),
+  billsSummary: document.getElementById("billsSummary"),
+  billsAlert: document.getElementById("billsAlert"),
+  billsSearchInput: document.getElementById("billsSearchInput"),
+  billsTableBody: document.getElementById("billsTableBody"),
+  billsCategoryChart: document.getElementById("billsCategoryChart"),
   searchInput: document.getElementById("searchInput"),
   regularizationSearchInput: document.getElementById("regularizationSearchInput"),
   regularizationList: document.getElementById("regularizationList"),
@@ -484,6 +501,7 @@ function loadState() {
     meetings: [],
     activities: [],
     goals: normalizeGoalSettings(),
+    companyBills: [],
   };
   state = initial;
   initial.clients = [defaultClient()];
@@ -517,6 +535,7 @@ function migrateState(savedState = {}, persist = true) {
     meetings: Array.isArray(savedState.meetings) ? savedState.meetings.map(normalizeMeeting) : [],
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
     goals: normalizeGoalSettings(savedState.goals),
+    companyBills: Array.isArray(savedState.companyBills) ? savedState.companyBills.map(normalizeCompanyBill) : [],
   };
   migrated.statuses = migrated.statuses.map((status) => ({
     ...status,
@@ -663,6 +682,29 @@ function normalizeMeeting(meeting) {
     createdBy: meeting.createdBy || "",
     createdAt: meeting.createdAt || new Date().toISOString(),
     updatedAt: meeting.updatedAt || null,
+  };
+}
+
+function normalizeCompanyBill(bill = {}) {
+  const dueDate = bill.dueDate || "";
+  const dueYear = dueDate.slice(0, 4);
+  const dueMonth = dueDate.slice(5, 7);
+  const year = String(bill.year || dueYear || BILL_YEAR);
+  const month = String(bill.month || dueMonth || "01").padStart(2, "0");
+  return {
+    id: bill.id || id(),
+    year: year === BILL_YEAR ? BILL_YEAR : year,
+    month: month >= "01" && month <= "12" ? month : "01",
+    description: bill.description || bill.title || bill.name || "",
+    category: normalizeSelectValue(bill.category, BILL_CATEGORIES) || "Outros",
+    amount: formatFlexibleCurrencyValue(bill.amount || bill.value || ""),
+    dueDate,
+    status: normalizeSelectValue(bill.status, BILL_STATUS_OPTIONS) || "A pagar",
+    paidAt: bill.paidAt || "",
+    recurring: bill.recurring === true || bill.recurring === "Sim",
+    notes: bill.notes || bill.observation || "",
+    createdAt: bill.createdAt || new Date().toISOString(),
+    updatedAt: bill.updatedAt || bill.createdAt || new Date().toISOString(),
   };
 }
 
@@ -1103,6 +1145,25 @@ function bindEvents() {
     renderGoalsDashboard();
   });
   el.editGoalsButton.addEventListener("click", openGoalsDialog);
+  el.billsYearSelect.addEventListener("change", () => {
+    activeBillsYear = BILL_YEAR;
+    el.billsYearSelect.value = BILL_YEAR;
+    renderBillsDashboard();
+  });
+  el.billsMonthSelect.addEventListener("change", () => {
+    activeBillsMonth = el.billsMonthSelect.value || activeBillsMonth;
+    renderBillsDashboard();
+  });
+  el.billsSearchInput.addEventListener("input", renderBillsDashboard);
+  el.exportBillsButton.addEventListener("click", exportBillsCsv);
+  el.copyPreviousBillsButton.addEventListener("click", copyPreviousMonthBills);
+  el.addBillButton.addEventListener("click", () => openBillDialog());
+  document.querySelectorAll("[data-bill-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeBillsStatusFilter = button.dataset.billFilter || "";
+      renderBillsDashboard();
+    });
+  });
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
   el.saveClientButton.addEventListener("click", saveActiveClient);
@@ -1305,7 +1366,9 @@ function currentAppVersion() {
 function configureNavigationForRole() {
   const isAdmin = currentUser.role === "admin";
   const statusNavItem = document.querySelector('[data-section="statusSection"]');
+  const billsNavItem = document.querySelector('[data-section="billsSection"]');
   if (statusNavItem) statusNavItem.style.display = isAdmin ? "" : "none";
+  if (billsNavItem) billsNavItem.style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="usersSection"]').style.display = isAdmin ? "" : "none";
   document.querySelector('[data-section="accountSection"]').style.display = isAdmin ? "none" : "";
   el.addUserButton.style.display = "none";
@@ -1313,7 +1376,7 @@ function configureNavigationForRole() {
   el.editGoalsButton.style.display = isAdmin ? "" : "none";
 
   const activeSection = document.querySelector(".nav-item.active")?.dataset.section;
-  if ((!isAdmin && ["usersSection", "statusSection"].includes(activeSection)) || (isAdmin && activeSection === "accountSection")) {
+  if ((!isAdmin && ["usersSection", "statusSection", "billsSection"].includes(activeSection)) || (isAdmin && activeSection === "accountSection")) {
     switchSection("clientsSection");
   }
 }
@@ -1329,6 +1392,7 @@ function renderAll() {
   renderGuidance();
   renderDataDashboard();
   renderGoalsDashboard();
+  renderBillsDashboard();
   renderStatusManager();
   renderUserManager();
   renderAccount();
@@ -1918,6 +1982,436 @@ function exportDataDashboardCsv() {
   link.click();
   link.remove();
   URL.revokeObjectURL(link.href);
+}
+
+function renderBillsDashboard() {
+  if (!el.billsSummary || currentUser?.role !== "admin") return;
+  state.companyBills = Array.isArray(state.companyBills) ? state.companyBills.map(normalizeCompanyBill) : [];
+  activeBillsYear = BILL_YEAR;
+  if (!activeBillsMonth || activeBillsMonth < "01" || activeBillsMonth > "12") activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
+  el.billsYearSelect.value = BILL_YEAR;
+  el.billsMonthSelect.value = activeBillsMonth;
+
+  const monthBills = currentMonthBills();
+  const summary = companyBillsSummary(monthBills);
+  const filtered = filteredCompanyBills(monthBills);
+
+  renderBillsSummary(summary);
+  renderBillsAlert(summary);
+  renderBillsFilters();
+  renderBillsTable(filtered);
+  renderBillsCategoryChart(summary);
+  bindBillDashboardActions();
+  refreshIcons();
+}
+
+function currentMonthBills() {
+  return state.companyBills
+    .filter((bill) => bill.year === activeBillsYear && bill.month === activeBillsMonth)
+    .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || "") || a.description.localeCompare(b.description, "pt-BR"));
+}
+
+function filteredCompanyBills(bills) {
+  const query = normalize(el.billsSearchInput.value);
+  return bills.filter((bill) => {
+    const status = billEffectiveStatus(bill);
+    const statusKey = billStatusKey(status);
+    if (activeBillsStatusFilter && statusKey !== activeBillsStatusFilter) return false;
+    if (!query) return true;
+    return normalize([bill.description, bill.category, bill.notes, bill.amount, status].join(" ")).includes(query);
+  });
+}
+
+function companyBillsSummary(bills) {
+  const summary = {
+    total: 0,
+    paid: 0,
+    pending: 0,
+    overdue: 0,
+    paidCount: 0,
+    pendingCount: 0,
+    overdueCount: 0,
+    categoryTotals: new Map(),
+    count: bills.length,
+  };
+
+  bills.forEach((bill) => {
+    const amount = currencyAmount(bill.amount) || 0;
+    const status = billEffectiveStatus(bill);
+    summary.total += amount;
+    if (status === "Pago") {
+      summary.paid += amount;
+      summary.paidCount += 1;
+    } else if (status === "Vencida") {
+      summary.overdue += amount;
+      summary.overdueCount += 1;
+    } else {
+      summary.pending += amount;
+      summary.pendingCount += 1;
+    }
+    const current = summary.categoryTotals.get(bill.category) || 0;
+    summary.categoryTotals.set(bill.category, current + amount);
+  });
+
+  return summary;
+}
+
+function renderBillsSummary(summary) {
+  const paidPercent = summary.total ? `${Math.round((summary.paid / summary.total) * 100)}% do mês quitado` : "Nenhum pagamento registrado";
+  const cards = [
+    { label: "Total do mês", value: calculatedCurrency(summary.total), hint: `${summary.count} conta(s) cadastrada(s)`, tone: "total", icon: "circle-dollar-sign" },
+    { label: "Pago", value: calculatedCurrency(summary.paid), hint: paidPercent, tone: "paid", icon: "check-circle-2" },
+    { label: "A pagar", value: calculatedCurrency(summary.pending), hint: `${summary.pendingCount} conta(s) pendente(s)`, tone: "pending", icon: "clock-3" },
+    { label: "Vencidas", value: calculatedCurrency(summary.overdue), hint: `${summary.overdueCount} conta(s) exige(m) ação`, tone: "overdue", icon: "circle-alert" },
+  ];
+  el.billsSummary.innerHTML = cards
+    .map(
+      (card) => `
+        <article class="bill-summary-card tone-${card.tone}">
+          <span class="bill-summary-icon"><i data-lucide="${card.icon}"></i></span>
+          <div>
+            <span>${escapeHtml(card.label)}</span>
+            <strong>${escapeHtml(card.value)}</strong>
+            <small>${escapeHtml(card.hint)}</small>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderBillsAlert(summary) {
+  if (!summary.overdueCount) {
+    el.billsAlert.hidden = true;
+    el.billsAlert.innerHTML = "";
+    return;
+  }
+  el.billsAlert.hidden = false;
+  el.billsAlert.innerHTML = `
+    <div>
+      <i data-lucide="circle-alert"></i>
+      <strong>Atenção:</strong>
+      <span>há ${summary.overdueCount} conta(s) vencida(s) no valor de ${escapeHtml(calculatedCurrency(summary.overdue))}. Regularize ou registre uma observação.</span>
+    </div>
+    <button class="link-action" type="button" data-show-overdue-bills>Ver conta vencida <i data-lucide="chevron-right"></i></button>
+  `;
+}
+
+function renderBillsFilters() {
+  document.querySelectorAll("[data-bill-filter]").forEach((button) => {
+    button.classList.toggle("active", (button.dataset.billFilter || "") === activeBillsStatusFilter);
+  });
+}
+
+function renderBillsTable(bills) {
+  el.billsTableBody.innerHTML = bills.length
+    ? bills.map(renderBillRow).join("")
+    : `<tr><td colspan="7" class="empty-table-cell">Nenhuma conta encontrada para este mês.</td></tr>`;
+}
+
+function renderBillRow(bill) {
+  const status = billEffectiveStatus(bill);
+  const isPaid = status === "Pago";
+  const notes = bill.notes ? `<small>${escapeHtml(bill.notes)}</small>` : "";
+  return `
+    <tr class="bill-row ${billStatusKey(status)}">
+      <td><strong>${escapeHtml(bill.description || "Conta sem nome")}</strong>${notes}</td>
+      <td>${escapeHtml(bill.category || "Outros")}</td>
+      <td>${bill.dueDate ? escapeHtml(formatDate(bill.dueDate)) : "Sem vencimento"}</td>
+      <td><strong>${escapeHtml(bill.amount || calculatedCurrency(0))}</strong></td>
+      <td><span class="bill-status-pill ${billStatusKey(status)}">${escapeHtml(status)}</span></td>
+      <td><span class="bill-recurring-pill ${bill.recurring ? "yes" : "no"}">${bill.recurring ? "Sim" : "Não"}</span></td>
+      <td>
+        <div class="bill-row-actions">
+          <button class="icon-button" type="button" data-edit-bill="${bill.id}" aria-label="Editar conta"><i data-lucide="pencil"></i></button>
+          <button class="icon-button" type="button" data-toggle-bill-paid="${bill.id}" aria-label="${isPaid ? "Marcar como a pagar" : "Marcar como paga"}"><i data-lucide="${isPaid ? "rotate-ccw" : "check-circle-2"}"></i></button>
+          <button class="icon-button danger-icon" type="button" data-delete-bill="${bill.id}" aria-label="Remover conta"><i data-lucide="trash-2"></i></button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderBillsCategoryChart(summary) {
+  const rows = [...summary.categoryTotals.entries()]
+    .map(([category, amount]) => ({ category, amount }))
+    .filter((row) => row.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  if (!rows.length) {
+    el.billsCategoryChart.innerHTML = `<p class="empty-state compact">Sem valores cadastrados neste mês.</p>`;
+    return;
+  }
+
+  const colors = billCategoryColors();
+  let cursor = 0;
+  const stops = rows.map((row, index) => {
+    const start = cursor;
+    const size = (row.amount / summary.total) * 100;
+    cursor += size;
+    return `${colors[index % colors.length]} ${start}% ${cursor}%`;
+  });
+
+  el.billsCategoryChart.innerHTML = `
+    <div class="bill-donut-wrap">
+      <div class="bill-donut" style="--bill-chart:${stops.join(", ")}">
+        <span>Total gasto<strong>${escapeHtml(calculatedCurrency(summary.total))}</strong></span>
+      </div>
+      <div class="bill-category-list">
+        ${rows.map((row, index) => renderBillCategoryRow(row, summary.total, colors[index % colors.length])).join("")}
+        <div class="bill-category-total"><span>Total</span><strong>${escapeHtml(calculatedCurrency(summary.total))}</strong><span>100%</span></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBillCategoryRow(row, total, color) {
+  const percent = total ? (row.amount / total) * 100 : 0;
+  return `
+    <div class="bill-category-row">
+      <span class="bill-category-dot" style="background:${color}"></span>
+      <span>${escapeHtml(row.category)}</span>
+      <strong>${escapeHtml(calculatedCurrency(row.amount))}</strong>
+      <small>${percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</small>
+    </div>
+  `;
+}
+
+function bindBillDashboardActions() {
+  el.billsTableBody.querySelectorAll("[data-edit-bill]").forEach((button) => {
+    button.addEventListener("click", () => openBillDialog(button.dataset.editBill));
+  });
+  el.billsTableBody.querySelectorAll("[data-toggle-bill-paid]").forEach((button) => {
+    button.addEventListener("click", () => toggleBillPaid(button.dataset.toggleBillPaid));
+  });
+  el.billsTableBody.querySelectorAll("[data-delete-bill]").forEach((button) => {
+    button.addEventListener("click", () => deleteBill(button.dataset.deleteBill));
+  });
+  el.billsAlert.querySelectorAll("[data-show-overdue-bills]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeBillsStatusFilter = "overdue";
+      renderBillsDashboard();
+    });
+  });
+}
+
+function openBillDialog(billId) {
+  if (currentUser?.role !== "admin") return;
+  const existing = state.companyBills.find((bill) => bill.id === billId);
+  const current = normalizeCompanyBill(
+    existing || {
+      year: activeBillsYear,
+      month: activeBillsMonth,
+      dueDate: `${activeBillsYear}-${activeBillsMonth}-01`,
+      status: "A pagar",
+      recurring: true,
+    }
+  );
+
+  openSimpleDialog(existing ? "Editar conta" : "Adicionar conta", [
+    { label: "Conta", name: "description", type: "text", value: current.description },
+    { label: "Categoria", name: "category", type: "select", value: current.category, options: BILL_CATEGORIES.map((value) => ({ value, label: value })) },
+    { label: "Valor", name: "amount", type: "text", value: current.amount },
+    { label: "Vencimento", name: "dueDate", type: "date", value: current.dueDate },
+    { label: "Status", name: "status", type: "select", value: current.status, options: BILL_STATUS_OPTIONS.map((value) => ({ value, label: value })) },
+    { label: "Data de pagamento", name: "paidAt", type: "date", value: current.paidAt },
+    { label: "Recorrente", name: "recurring", type: "select", value: current.recurring ? "Sim" : "Não", options: [{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }] },
+    { label: "Observação", name: "notes", type: "textarea", rows: 3, value: current.notes },
+  ], (values) => {
+    const description = values.description.trim();
+    const amount = formatFlexibleCurrencyValue(values.amount);
+    const dueDate = values.dueDate || "";
+    if (!description) {
+      alert("Informe o nome da conta.");
+      return false;
+    }
+    if (!amount) {
+      alert("Informe o valor da conta.");
+      return false;
+    }
+    if (!dueDate || !dueDate.startsWith(`${BILL_YEAR}-`)) {
+      alert("Informe um vencimento dentro de 2026.");
+      return false;
+    }
+
+    const status = normalizeSelectValue(values.status, BILL_STATUS_OPTIONS) || "A pagar";
+    const payload = normalizeCompanyBill({
+      ...current,
+      description,
+      category: normalizeSelectValue(values.category, BILL_CATEGORIES) || "Outros",
+      amount,
+      dueDate,
+      year: BILL_YEAR,
+      month: dueDate.slice(5, 7),
+      status,
+      paidAt: status === "Pago" ? values.paidAt || localDateKey() : "",
+      recurring: values.recurring === "Sim",
+      notes: values.notes,
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (existing) {
+      Object.assign(existing, payload);
+      recordActivity("finance", `Atualizou conta interna: ${payload.description}.`, `${payload.amount} | ${billEffectiveStatus(payload)}`, { visibility: "admin" });
+    } else {
+      state.companyBills.unshift(payload);
+      recordActivity("finance", `Criou conta interna: ${payload.description}.`, `${payload.amount} | ${billEffectiveStatus(payload)}`, { visibility: "admin" });
+    }
+    activeBillsMonth = payload.month;
+    saveState();
+    renderBillsDashboard();
+    renderUpdates();
+    return true;
+  });
+}
+
+function toggleBillPaid(billId) {
+  const bill = state.companyBills.find((item) => item.id === billId);
+  if (!bill || currentUser?.role !== "admin") return;
+  const nextPaid = bill.status !== "Pago";
+  bill.status = nextPaid ? "Pago" : "A pagar";
+  bill.paidAt = nextPaid ? localDateKey() : "";
+  bill.updatedAt = new Date().toISOString();
+  recordActivity("finance", `${nextPaid ? "Marcou como paga" : "Reabriu"} conta interna: ${bill.description}.`, bill.amount, { visibility: "admin" });
+  saveState();
+  renderBillsDashboard();
+  renderUpdates();
+}
+
+function deleteBill(billId) {
+  const bill = state.companyBills.find((item) => item.id === billId);
+  if (!bill || currentUser?.role !== "admin") return;
+  if (!confirm(`Remover a conta "${bill.description}"?`)) return;
+  state.companyBills = state.companyBills.filter((item) => item.id !== billId);
+  recordActivity("finance", `Removeu conta interna: ${bill.description}.`, bill.amount, { visibility: "admin" });
+  saveState();
+  renderBillsDashboard();
+  renderUpdates();
+}
+
+function copyPreviousMonthBills() {
+  if (currentUser?.role !== "admin") return;
+  const previous = previousBillMonth();
+  if (!previous) {
+    alert("Janeiro de 2026 não tem mês anterior dentro deste controle.");
+    return;
+  }
+
+  const sourceBills = state.companyBills.filter((bill) => bill.year === previous.year && bill.month === previous.month);
+  if (!sourceBills.length) {
+    alert("Não há contas no mês anterior para copiar.");
+    return;
+  }
+
+  const currentBills = currentMonthBills();
+  if (currentBills.length && !confirm("Este mês já tem contas cadastradas. Deseja copiar mesmo assim?")) return;
+
+  const existingKeys = new Set(currentBills.map((bill) => billDuplicateKey(bill)));
+  const copies = sourceBills
+    .map((bill) => {
+      const dueDate = shiftBillDueDate(bill.dueDate, activeBillsYear, activeBillsMonth);
+      return normalizeCompanyBill({
+        ...bill,
+        id: id(),
+        year: activeBillsYear,
+        month: activeBillsMonth,
+        dueDate,
+        status: "A pagar",
+        paidAt: "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    })
+    .filter((bill) => !existingKeys.has(billDuplicateKey(bill)));
+
+  if (!copies.length) {
+    alert("As contas do mês anterior já parecem estar copiadas para este mês.");
+    return;
+  }
+
+  state.companyBills.unshift(...copies);
+  recordActivity("finance", `Copiou contas internas para ${monthName(activeBillsMonth)}/${activeBillsYear}.`, `${copies.length} conta(s) copiadas.`, { visibility: "admin" });
+  saveState();
+  renderBillsDashboard();
+  renderUpdates();
+}
+
+function exportBillsCsv() {
+  const bills = filteredCompanyBills(currentMonthBills());
+  const rows = [
+    ["Conta", "Categoria", "Vencimento", "Valor", "Status", "Recorrente", "Data de pagamento", "Observação"],
+    ...bills.map((bill) => [
+      bill.description,
+      bill.category,
+      bill.dueDate ? formatDate(bill.dueDate) : "",
+      bill.amount,
+      billEffectiveStatus(bill),
+      bill.recurring ? "Sim" : "Não",
+      bill.paidAt ? formatDate(bill.paidAt) : "",
+      bill.notes,
+    ]),
+  ];
+  const csv = rows.map((row) => row.map(csvCell).join(";")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `contas-${activeBillsYear}-${activeBillsMonth}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(link.href);
+}
+
+function billEffectiveStatus(bill) {
+  if (bill.status === "Pago") return "Pago";
+  if (bill.dueDate && bill.dueDate < localDateKey()) return "Vencida";
+  return "A pagar";
+}
+
+function billStatusKey(status) {
+  return {
+    Pago: "paid",
+    "A pagar": "pending",
+    Vencida: "overdue",
+  }[status] || "pending";
+}
+
+function previousBillMonth() {
+  const monthNumber = Number(activeBillsMonth);
+  if (monthNumber <= 1) return null;
+  return { year: activeBillsYear, month: String(monthNumber - 1).padStart(2, "0") };
+}
+
+function shiftBillDueDate(dueDate, year, month) {
+  const originalDay = Number((dueDate || "").slice(8, 10)) || 1;
+  const lastDay = new Date(Number(year), Number(month), 0).getDate();
+  const day = Math.min(originalDay, lastDay);
+  return `${year}-${month}-${String(day).padStart(2, "0")}`;
+}
+
+function billDuplicateKey(bill) {
+  const dueDay = (bill.dueDate || "").slice(8, 10);
+  return normalize([bill.description, bill.category, bill.amount, dueDay].join("|"));
+}
+
+function monthName(month) {
+  return {
+    "01": "Janeiro",
+    "02": "Fevereiro",
+    "03": "Março",
+    "04": "Abril",
+    "05": "Maio",
+    "06": "Junho",
+    "07": "Julho",
+    "08": "Agosto",
+    "09": "Setembro",
+    "10": "Outubro",
+    "11": "Novembro",
+    "12": "Dezembro",
+  }[month] || month;
+}
+
+function billCategoryColors() {
+  return ["#009f7f", "#5aa9e6", "#f2994a", "#f26b6b", "#8b5cf6", "#c78000", "#64748b", "#14b8a6", "#a3a3a3"];
 }
 
 function renderGoalsDashboard() {
@@ -5954,6 +6448,7 @@ function simpleFieldControl(field) {
 function switchSection(sectionId) {
   if (sectionId === "usersSection" && currentUser.role !== "admin") return;
   if (sectionId === "statusSection" && currentUser.role !== "admin") return;
+  if (sectionId === "billsSection" && currentUser.role !== "admin") return;
   if (sectionId === "accountSection" && currentUser.role === "admin") return;
 
   document.querySelectorAll(".app-section").forEach((section) => {
@@ -5971,6 +6466,9 @@ function switchSection(sectionId) {
   }
   if (sectionId === "goalsSection") {
     renderGoalsDashboard();
+  }
+  if (sectionId === "billsSection") {
+    renderBillsDashboard();
   }
 }
 

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=91" />
+    <link rel="stylesheet" href="./styles.css?v=92" />
     <link rel="stylesheet" href="./goals-patch.css?v=1" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -54,6 +54,7 @@
           <button class="nav-item" data-section="guidanceSection"><i data-lucide="book-open-check"></i> Orientações</button>
           <button class="nav-item" data-section="dataSection"><i data-lucide="chart-column"></i> Dados</button>
           <button class="nav-item" data-section="goalsSection"><i data-lucide="target"></i> Metas</button>
+          <button class="nav-item" data-section="billsSection"><i data-lucide="wallet"></i> Contas</button>
           <button class="nav-item" data-section="usersSection"><i data-lucide="users"></i> Usuários</button>
           <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
         </nav>
@@ -324,6 +325,85 @@
                 <h3>Regularizações sem dados para meta</h3>
               </div>
               <div id="goalsMissingData" class="goals-contract-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="billsSection" class="app-section" hidden>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Acesso administrativo</p>
+              <h2>Financeiro interno</h2>
+              <p class="section-subtitle">Controle mensal de despesas, vencimentos e recorrências da operação.</p>
+            </div>
+            <div class="inline-actions bills-actions">
+              <label>Ano
+                <select id="billsYearSelect" aria-label="Selecionar ano das contas">
+                  <option value="2026">2026</option>
+                </select>
+              </label>
+              <label>Mês
+                <select id="billsMonthSelect" aria-label="Selecionar mês das contas">
+                  <option value="01">Janeiro</option>
+                  <option value="02">Fevereiro</option>
+                  <option value="03">Março</option>
+                  <option value="04">Abril</option>
+                  <option value="05">Maio</option>
+                  <option value="06">Junho</option>
+                  <option value="07">Julho</option>
+                  <option value="08">Agosto</option>
+                  <option value="09">Setembro</option>
+                  <option value="10">Outubro</option>
+                  <option value="11">Novembro</option>
+                  <option value="12">Dezembro</option>
+                </select>
+              </label>
+              <button id="exportBillsButton" class="secondary-button" type="button"><i data-lucide="download"></i> Exportar</button>
+              <button id="copyPreviousBillsButton" class="secondary-button" type="button"><i data-lucide="copy"></i> Copiar mês anterior</button>
+              <button id="addBillButton" class="primary-button" type="button"><i data-lucide="plus"></i> Adicionar conta</button>
+            </div>
+          </div>
+
+          <div id="billsSummary" class="bills-summary-grid"></div>
+          <div id="billsAlert" class="bills-alert" hidden></div>
+
+          <div class="bills-layout">
+            <section class="bills-table-card">
+              <div class="toolbar bills-toolbar">
+                <label class="search-field">
+                  <i data-lucide="search"></i>
+                  <input id="billsSearchInput" type="search" placeholder="Buscar conta, categoria ou observação" />
+                </label>
+                <div class="segmented-control bills-filter-control" role="group" aria-label="Filtrar contas">
+                  <button class="active" type="button" data-bill-filter="">Todas</button>
+                  <button type="button" data-bill-filter="paid">Pagas</button>
+                  <button type="button" data-bill-filter="pending">A pagar</button>
+                  <button type="button" data-bill-filter="overdue">Vencidas</button>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table bills-table">
+                  <thead>
+                    <tr>
+                      <th>Conta</th>
+                      <th>Categoria</th>
+                      <th>Vencimento</th>
+                      <th>Valor</th>
+                      <th>Status</th>
+                      <th>Recorrente</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="billsTableBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="bills-category-card">
+              <div class="mini-heading">
+                <h3>Gastos por categoria</h3>
+              </div>
+              <div id="billsCategoryChart" class="bills-category-chart"></div>
             </section>
           </div>
         </section>
@@ -675,7 +755,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=91"></script>
+    <script src="./app.js?v=92"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
