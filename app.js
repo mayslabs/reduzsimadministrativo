@@ -2089,8 +2089,10 @@ function reportDonutPanel(groupLabel, title, rows, group, total, options = {}) {
       </header>
       <div class="report-donut-layout">
         <div class="report-donut" style="--report-donut:${escapeAttr(reportConicGradient(visibleRows))}">
-          <span>Total</span>
-          <strong>${total}</strong>
+          <div class="report-donut-center">
+            <span>Total</span>
+            <strong>${total}</strong>
+          </div>
         </div>
         <div class="report-legend">
           ${
