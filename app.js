@@ -335,6 +335,7 @@ const el = {
   dataSummary: document.getElementById("dataSummary"),
   dataQualityPanel: document.getElementById("dataQualityPanel"),
   dataPanels: document.getElementById("dataPanels"),
+  dataTicketPanels: document.getElementById("dataTicketPanels"),
   dataDrilldown: document.getElementById("dataDrilldown"),
   goalsYearSelect: document.getElementById("goalsYearSelect"),
   editGoalsButton: document.getElementById("editGoalsButton"),
@@ -1603,6 +1604,7 @@ function renderDataDashboard() {
     { label: "Economia bruta total", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy" },
     { label: "Contratos fechados", value: data.totalWorks, hint: `${data.withContractDate} com data informada`, tone: "works" },
     { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees" },
+    { label: "Ticket médio", value: calculatedCurrency(data.ticketAverage), hint: "Honorários por contrato fechado", tone: "ticket" },
   ];
   el.dataSummary.innerHTML = totals.map(renderDataTotal).join("");
   el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
@@ -1613,6 +1615,7 @@ function renderDataDashboard() {
     dataPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`, "byDocumentType"),
     dataPanel("Comercial", "Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`, "byOrigin"),
   ].join("");
+  el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
   renderDataDrilldown();
   bindDataDashboardActions();
   refreshIcons();
@@ -1706,11 +1709,15 @@ function inssDataSummary() {
     finishedWorks: clients.filter(isClientFinished).length,
     withContractDate: clients.filter((client) => Boolean(client.contractClosedDate)).length,
     totalFees: 0,
+    ticketFeeTotal: 0,
+    ticketContractCount: 0,
     monthlyWorks: new Map(),
     byState: new Map(),
     byDestination: new Map(),
     byDocumentType: new Map(),
     byOrigin: new Map(),
+    ticketByOrigin: new Map(),
+    ticketByDestination: new Map(),
   };
 
   clients.forEach((client) => {
@@ -1726,6 +1733,16 @@ function inssDataSummary() {
     (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, client.id));
     incrementDataMap(summary.byDocumentType, documentTypeForClient(client) === "cnpj" ? "PJ" : "PF", client.id);
     incrementDataMap(summary.byOrigin, client.clientOrigin || "Sem origem", client.id);
+
+    const feeAmount = currencyAmount(client.feeValue);
+    if (client.contractClosedDate && feeAmount !== null) {
+      summary.ticketFeeTotal += feeAmount;
+      summary.ticketContractCount += 1;
+      incrementTicketAverageMap(summary.ticketByOrigin, client.clientOrigin || "Sem origem", feeAmount, client.id);
+      (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => {
+        incrementTicketAverageMap(summary.ticketByDestination, destination, feeAmount, client.id);
+      });
+    }
   });
 
   return {
@@ -1736,6 +1753,9 @@ function inssDataSummary() {
     byDestination: mapToSortedRows(summary.byDestination),
     byDocumentType: mapToSortedRows(summary.byDocumentType),
     byOrigin: mapToSortedRows(summary.byOrigin),
+    ticketAverage: summary.ticketContractCount ? summary.ticketFeeTotal / summary.ticketContractCount : null,
+    ticketByOrigin: mapToAverageRows(summary.ticketByOrigin),
+    ticketByDestination: mapToAverageRows(summary.ticketByDestination),
   };
 }
 
@@ -1832,6 +1852,47 @@ function dataRow(row, value, group) {
   `;
 }
 
+function renderDataTicketPanels(data) {
+  return `
+    <section class="data-ticket-card ticket-highlight">
+      <p class="eyebrow">Ticket médio</p>
+      <h3>Honorários por contrato fechado</h3>
+      <strong>${escapeHtml(calculatedCurrency(data.ticketAverage))}</strong>
+      <span>${data.ticketContractCount} contrato(s) com fechamento e honorários</span>
+    </section>
+    ${dataAveragePanel("Ticket médio por origem", data.ticketByOrigin)}
+    ${dataAveragePanel("Ticket médio por destinação", data.ticketByDestination)}
+  `;
+}
+
+function dataAveragePanel(title, rows) {
+  return `
+    <article class="data-ticket-card">
+      <p class="eyebrow">Análise comercial</p>
+      <h3>${escapeHtml(title)}</h3>
+      <div class="data-list ticket-average-list">
+        ${
+          rows.length
+            ? rows.map((row) => dataAverageRow(row)).join("")
+            : `<p class="empty-state compact">Nenhum contrato com honorários para calcular.</p>`
+        }
+      </div>
+    </article>
+  `;
+}
+
+function dataAverageRow(row) {
+  return `
+    <div class="data-row ticket-average-row">
+      <div>
+        <strong>${escapeHtml(row.label)}</strong>
+        <span>${escapeHtml(calculatedCurrency(row.average))} | ${row.count} contrato(s)</span>
+      </div>
+      <div class="data-bar" aria-hidden="true"><span style="width:${row.percent}%"></span></div>
+    </div>
+  `;
+}
+
 function renderDataDrilldown() {
   if (!activeDataDrilldown) {
     el.dataDrilldown.innerHTML = "";
@@ -1924,6 +1985,15 @@ function incrementDataMap(map, key, clientId) {
   map.set(label, current);
 }
 
+function incrementTicketAverageMap(map, key, amount, clientId) {
+  const label = key || "Não informado";
+  const current = map.get(label) || { total: 0, count: 0, clientIds: new Set() };
+  current.total += amount;
+  current.count += 1;
+  if (clientId) current.clientIds.add(clientId);
+  map.set(label, current);
+}
+
 function mapToSortedRows(map, mode = "count") {
   const values = [...map.entries()].map(([label, data]) => ({
     label,
@@ -1934,6 +2004,20 @@ function mapToSortedRows(map, mode = "count") {
   return values
     .map((row) => ({ ...row, percent: Math.max(8, Math.round((row.count / max) * 100)) }))
     .sort((a, b) => (mode === "date" ? a.label.localeCompare(b.label, "pt-BR") : b.count - a.count || a.label.localeCompare(b.label, "pt-BR")));
+}
+
+function mapToAverageRows(map) {
+  const values = [...map.entries()].map(([label, data]) => ({
+    label,
+    total: data.total,
+    count: data.count,
+    average: data.count ? data.total / data.count : null,
+    clientIds: [...data.clientIds],
+  }));
+  const max = Math.max(...values.map((row) => row.average || 0), 1);
+  return values
+    .map((row) => ({ ...row, percent: Math.max(8, Math.round(((row.average || 0) / max) * 100)) }))
+    .sort((a, b) => (b.average || 0) - (a.average || 0) || a.label.localeCompare(b.label, "pt-BR"));
 }
 
 function exportDataDashboardCsv() {

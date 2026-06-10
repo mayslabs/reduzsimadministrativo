@@ -389,7 +389,7 @@ h3 {
 
 .data-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -467,6 +467,67 @@ h3 {
 
 .data-total.tone-fees::before {
   background: #c78000;
+}
+
+.data-total.tone-ticket::before {
+  background: #0e7490;
+}
+
+.data-ticket-panels {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.75fr) repeat(2, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+
+.data-ticket-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 14px;
+}
+
+.data-ticket-card h3 {
+  margin-bottom: 12px;
+}
+
+.data-ticket-card.ticket-highlight {
+  background: #f0f9fb;
+  border-color: #bde7ef;
+  border-left: 5px solid #0e7490;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.data-ticket-card.ticket-highlight strong {
+  color: #0e7490;
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.data-ticket-card.ticket-highlight span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.ticket-average-list {
+  gap: 9px;
+}
+
+.ticket-average-row {
+  cursor: default;
+}
+
+.ticket-average-row:hover {
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.ticket-average-row:hover strong {
+  color: var(--charcoal);
 }
 
 .bills-actions {
@@ -4198,6 +4259,7 @@ h3 {
   .data-quality-card,
   .data-quality-list,
   .data-panels,
+  .data-ticket-panels,
   .bills-layout,
   .task-overview,
   .my-day-board,
@@ -4269,6 +4331,7 @@ h3 {
   .data-quality-card,
   .data-quality-list,
   .data-panels,
+  .data-ticket-panels,
   .bills-layout,
   .task-overview,
   .my-day-board,
