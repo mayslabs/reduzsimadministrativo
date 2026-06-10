@@ -723,6 +723,7 @@ function normalizeRegularizationClient(process = {}) {
     id: process.id || id(),
     clientName: process.clientName || process.name || "",
     propertyType: process.propertyType || "",
+    clientOrigin: process.clientOrigin || process.origin || "",
     cityState: process.cityState || "",
     address: process.address || "",
     registryNumber: process.registryNumber || process.registration || "",
@@ -1608,7 +1609,7 @@ function renderDataDashboard() {
     reportHorizontalPanel("Localização", "Obras por estado", data.byState, "byState", data.totalWorks, { badge: "Top 6 estados", icon: "map-pin" }),
     reportDonutPanel("Comercial", "Origem dos clientes", data.byOrigin, "byOrigin", data.totalWorks, { icon: "users" }),
     reportHorizontalPanel("Perfil da obra", "Obras por destinação", data.byDestination, "byDestination", data.totalWorks, { badge: "Este ano", icon: "network" }),
-    reportDonutPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, "byDocumentType", data.totalWorks, { icon: "contact" }),
+    reportDonutPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, "byDocumentType", data.documentTypeTotal, { icon: "contact" }),
   ].join("");
   if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
   if (el.dataReportFooter) el.dataReportFooter.innerHTML = renderDataReportFooter();
@@ -1634,12 +1635,13 @@ function ensureDataTicketPanels() {
 }
 
 function renderDataFilterOptions() {
-  setDataSelectOptions(el.dataStateFilter, "Todos os estados", sortedDataValues((client) => client.state || "Sem estado"));
-  setDataSelectOptions(el.dataDestinationFilter, "Todas as destinações", sortedDataValues((client) => {
-    const destinations = destinationList(client.destination);
+  const records = dataAllRecords();
+  setDataSelectOptions(el.dataStateFilter, "Todos os estados", sortedDataRecordValues(records, (record) => record.state || "Sem estado"));
+  setDataSelectOptions(el.dataDestinationFilter, "Todas as destinações", sortedDataRecordValues(records, (record) => {
+    const destinations = destinationList(record.destination);
     return destinations.length ? destinations : ["Sem destinação"];
   }));
-  setDataSelectOptions(el.dataOriginFilter, "Todas as origens", sortedDataValues((client) => client.clientOrigin || "Sem origem"));
+  setDataSelectOptions(el.dataOriginFilter, "Todas as origens", sortedDataRecordValues(records, (record) => record.clientOrigin || "Sem origem"));
 }
 
 function setDataSelectOptions(select, allLabel, values) {
@@ -1655,6 +1657,15 @@ function sortedDataValues(getValues) {
   return state.clients
     .flatMap((client) => {
       const value = getValues(client);
+      return Array.isArray(value) ? value : [value];
+    })
+    .sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function sortedDataRecordValues(records, getValues) {
+  return records
+    .flatMap((record) => {
+      const value = getValues(record);
       return Array.isArray(value) ? value : [value];
     })
     .sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -1739,19 +1750,24 @@ function bindDataDashboardActions() {
   el.dataDrilldown.querySelectorAll("[data-open-data-client]").forEach((button) => {
     button.addEventListener("click", () => openClientById(button.dataset.openDataClient));
   });
+  el.dataDrilldown.querySelectorAll("[data-open-data-regularization]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationDialog(button.dataset.openDataRegularization));
+  });
 }
 
 function inssDataSummary() {
-  const clients = filteredDataClients();
+  const records = filteredDataRecords();
+  const documentRecords = records.filter((record) => record.includeDocumentType);
   const summary = {
     totalArea: 0,
     grossEconomyTotal: 0,
-    totalWorks: clients.length,
-    finishedWorks: clients.filter(isClientFinished).length,
-    withContractDate: clients.filter((client) => Boolean(client.contractClosedDate)).length,
+    totalWorks: records.length,
+    finishedWorks: records.filter((record) => record.finished).length,
+    withContractDate: records.filter((record) => Boolean(record.contractClosedDate)).length,
     totalFees: 0,
     ticketFeeTotal: 0,
     ticketContractCount: 0,
+    documentTypeTotal: documentRecords.length,
     monthlyWorks: new Map(),
     monthlyContracts: new Map(),
     monthlyFees: new Map(),
@@ -1763,32 +1779,32 @@ function inssDataSummary() {
     ticketByDestination: new Map(),
   };
 
-  clients.forEach((client) => {
-    summary.totalArea += areaAmount(client.area);
-    const feeAmount = currencyAmount(client.feeValue);
+  records.forEach((record) => {
+    summary.totalArea += areaAmount(record.area);
+    const feeAmount = currencyAmount(record.feeValue);
     summary.totalFees += feeAmount || 0;
 
-    const grossEconomy = clientGrossEconomy(client);
+    const grossEconomy = clientGrossEconomy(record);
     if (grossEconomy !== null) summary.grossEconomyTotal += grossEconomy;
 
-    incrementDataMap(summary.monthlyWorks, contractClosedMonthLabel(client), client.id);
-    if (client.contractClosedDate) {
-      const monthKey = dataMonthKey(client.contractClosedDate);
-      incrementMonthlyCountMap(summary.monthlyContracts, monthKey, client.id);
-      if (feeAmount !== null) incrementMonthlyAmountMap(summary.monthlyFees, monthKey, feeAmount, client.id);
+    incrementDataMap(summary.monthlyWorks, contractClosedMonthLabel(record), record.id);
+    if (record.contractClosedDate) {
+      const monthKey = dataMonthKey(record.contractClosedDate);
+      incrementMonthlyCountMap(summary.monthlyContracts, monthKey, record.id);
+      if (feeAmount !== null) incrementMonthlyAmountMap(summary.monthlyFees, monthKey, feeAmount, record.id);
     }
-    incrementDataMap(summary.byState, client.state || "Sem estado", client.id);
-    const destinations = destinationList(client.destination);
-    (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, client.id));
-    incrementDataMap(summary.byDocumentType, documentTypeForClient(client) === "cnpj" ? "PJ" : "PF", client.id);
-    incrementDataMap(summary.byOrigin, client.clientOrigin || "Sem origem", client.id);
+    incrementDataMap(summary.byState, record.state || "Sem estado", record.id);
+    const destinations = destinationList(record.destination);
+    (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, record.id));
+    if (record.includeDocumentType) incrementDataMap(summary.byDocumentType, documentTypeForClient(record) === "cnpj" ? "PJ" : "PF", record.id);
+    incrementDataMap(summary.byOrigin, record.clientOrigin || "Sem origem", record.id);
 
-    if (client.contractClosedDate && feeAmount !== null) {
+    if (record.contractClosedDate && feeAmount !== null) {
       summary.ticketFeeTotal += feeAmount;
       summary.ticketContractCount += 1;
-      incrementTicketAverageMap(summary.ticketByOrigin, client.clientOrigin || "Sem origem", feeAmount, client.id);
+      incrementTicketAverageMap(summary.ticketByOrigin, record.clientOrigin || "Sem origem", feeAmount, record.id);
       (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => {
-        incrementTicketAverageMap(summary.ticketByDestination, destination, feeAmount, client.id);
+        incrementTicketAverageMap(summary.ticketByDestination, destination, feeAmount, record.id);
       });
     }
   });
@@ -1809,7 +1825,34 @@ function inssDataSummary() {
   };
 }
 
-function filteredDataClients() {
+function dataAllRecords() {
+  const inssRecords = state.clients.map((client) => ({
+    ...client,
+    sourceType: "client",
+    sourceLabel: "INSS de obras",
+    destination: client.destination || "",
+    state: client.state || "",
+    includeDocumentType: true,
+    finished: isClientFinished(client),
+  }));
+
+  const regularizationRecords = state.regularizationClients.map((process) => ({
+    ...process,
+    sourceType: "regularization",
+    sourceLabel: "Regularização de imóvel",
+    destination: process.propertyType || "",
+    state: regularizationStateLabel(process),
+    area: "",
+    inssOriginalValue: "",
+    inssReducedValue: "",
+    includeDocumentType: false,
+    finished: normalize(process.status) === "finalizado",
+  }));
+
+  return [...inssRecords, ...regularizationRecords];
+}
+
+function filteredDataRecords() {
   const period = el.dataPeriodFilter.value;
   const workStatus = el.dataWorkStatusFilter.value;
   const stateFilter = el.dataStateFilter.value;
@@ -1817,16 +1860,16 @@ function filteredDataClients() {
   const documentFilter = el.dataDocumentFilter.value;
   const originFilter = el.dataOriginFilter.value;
 
-  return state.clients.filter((client) => {
-    const destinations = destinationList(client.destination);
+  return dataAllRecords().filter((record) => {
+    const destinations = destinationList(record.destination);
     const destinationLabels = destinations.length ? destinations : ["Sem destinação"];
-    const documentLabel = documentTypeForClient(client) === "cnpj" ? "PJ" : "PF";
-    const originLabel = client.clientOrigin || "Sem origem";
-    const stateLabel = client.state || "Sem estado";
-    const finished = isClientFinished(client);
+    const documentLabel = record.includeDocumentType ? (documentTypeForClient(record) === "cnpj" ? "PJ" : "PF") : "";
+    const originLabel = record.clientOrigin || "Sem origem";
+    const stateLabel = record.state || "Sem estado";
+    const finished = record.finished;
 
     return (
-      matchesDataPeriod(client, period) &&
+      matchesDataPeriod(record, period) &&
       (!workStatus || (workStatus === "finished" ? finished : !finished)) &&
       (!stateFilter || stateLabel === stateFilter) &&
       (!destinationFilter || destinationLabels.includes(destinationFilter)) &&
@@ -1834,6 +1877,16 @@ function filteredDataClients() {
       (!originFilter || originLabel === originFilter)
     );
   });
+}
+
+function filteredDataClients() {
+  return filteredDataRecords();
+}
+
+function regularizationStateLabel(process = {}) {
+  const value = String(process.cityState || "");
+  const match = value.match(/\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/i);
+  return match ? match[1].toUpperCase() : "";
 }
 
 function matchesDataPeriod(client, period) {
@@ -1865,8 +1918,8 @@ function dataQualityItems(clients) {
 function dataQualityClients(key, clients = filteredDataClients()) {
   return clients.filter((client) => {
     if (key === "contract") return !client.contractClosedDate;
-    if (key === "area") return !areaAmount(client.area);
-    if (key === "economy") return currencyAmount(client.inssOriginalValue) === null || currencyAmount(client.inssReducedValue) === null;
+    if (key === "area") return client.sourceType === "client" && !areaAmount(client.area);
+    if (key === "economy") return client.sourceType === "client" && (currencyAmount(client.inssOriginalValue) === null || currencyAmount(client.inssReducedValue) === null);
     if (key === "fees") return currencyAmount(client.feeValue) === null;
     if (key === "state") return !client.state;
     if (key === "origin") return !client.clientOrigin;
@@ -2127,7 +2180,7 @@ function dataClientMatchesGroup(client, group, label) {
     const destinations = destinationList(client.destination);
     return (destinations.length ? destinations : ["Sem destinação"]).includes(label);
   }
-  if (group === "byDocumentType") return (documentTypeForClient(client) === "cnpj" ? "PJ" : "PF") === label;
+  if (group === "byDocumentType") return client.includeDocumentType && (documentTypeForClient(client) === "cnpj" ? "PJ" : "PF") === label;
   if (group === "byOrigin") return (client.clientOrigin || "Sem origem") === label;
   return false;
 }
@@ -2151,7 +2204,7 @@ function dataGroupTitle(group) {
 
 function renderDataClientRow(client) {
   const grossEconomy = clientGrossEconomy(client);
-  const workLine = [destinationLabel(client), client.state || "Sem estado", client.area || "Sem área"].filter(Boolean).join(" | ");
+  const workLine = [destinationLabel(client), client.state || "Sem estado", client.area || client.sourceLabel || "Sem área"].filter(Boolean).join(" | ");
   return `
     <article class="data-client-row">
       <div>
@@ -2159,7 +2212,11 @@ function renderDataClientRow(client) {
         <small>${escapeHtml(workLine)}</small>
       </div>
       <span>${escapeHtml(grossEconomy === null ? "Economia não informada" : calculatedCurrency(grossEconomy))}</span>
-      <button class="small-button" type="button" data-open-data-client="${client.id}"><i data-lucide="external-link"></i> Abrir card</button>
+      ${
+        client.sourceType === "regularization"
+          ? `<button class="small-button" type="button" data-open-data-regularization="${client.id}"><i data-lucide="external-link"></i> Abrir processo</button>`
+          : `<button class="small-button" type="button" data-open-data-client="${client.id}"><i data-lucide="external-link"></i> Abrir card</button>`
+      }
     </article>
   `;
 }
@@ -2327,14 +2384,14 @@ function exportDataDashboardCsv() {
       client.contractClosedDate ? formatDate(client.contractClosedDate) : "",
       client.state || "",
       client.destination || "",
-      documentTypeForClient(client) === "cnpj" ? "PJ" : "PF",
+      client.includeDocumentType ? (documentTypeForClient(client) === "cnpj" ? "PJ" : "PF") : "",
       client.area || "",
       client.inssOriginalValue || "",
       client.inssReducedValue || "",
       clientGrossEconomy(client) === null ? "" : calculatedCurrency(clientGrossEconomy(client)),
       client.feeValue || "",
       client.clientOrigin || "",
-      getClientStatuses(client).map((status) => status.name).join(" | "),
+      client.sourceType === "regularization" ? client.status || "" : getClientStatuses(client).map((status) => status.name).join(" | "),
       formatDateTime(client.createdAt || client.updatedAt),
     ]),
   ];
@@ -2979,7 +3036,7 @@ function goalContracts() {
       clientName: process.clientName,
       contractClosedDate: process.contractClosedDate,
       amount: currencyAmount(process.feeValue),
-      origin: "",
+      origin: process.clientOrigin,
       ownerId: "",
       financeStatus: process.status,
     }))
@@ -4721,9 +4778,9 @@ function filteredRegularizationClients() {
       const haystack = normalize([
         process.clientName,
         process.propertyType,
+        process.clientOrigin,
         process.cityState,
         process.address,
-        process.registryNumber,
         process.status,
         process.nextAction,
         process.notes,
@@ -4747,7 +4804,7 @@ function renderRegularizationCard(process) {
       </header>
       <div class="card-meta">
         <span><i data-lucide="map-pin"></i>${escapeHtml(process.address || "Endereço não informado")}</span>
-        <span><i data-lucide="file-text"></i>${escapeHtml(process.registryNumber || "Matrícula não informada")}</span>
+        <span><i data-lucide="tag"></i>${escapeHtml(process.clientOrigin || "Origem não informada")}</span>
         <span><i data-lucide="calendar-check"></i>${escapeHtml(process.contractClosedDate ? `Fechado em ${formatDate(process.contractClosedDate)}` : "Sem fechamento")}</span>
         <span><i data-lucide="circle-dollar-sign"></i>${escapeHtml(process.feeValue || "Honorários não informados")}</span>
       </div>
@@ -4770,9 +4827,15 @@ function openRegularizationDialog(processId = null) {
   openSimpleDialog(process ? "Editar regularização" : "Novo processo de regularização", [
     { label: "Nome do cliente", name: "clientName", type: "text", value: current.clientName },
     { label: "Tipo de imóvel", name: "propertyType", type: "text", value: current.propertyType },
+    {
+      label: "Origem",
+      name: "clientOrigin",
+      type: "select",
+      value: current.clientOrigin,
+      options: [{ value: "", label: "Selecionar" }, ...clientOriginValues().map((origin) => ({ value: origin, label: origin }))],
+    },
     { label: "Cidade/Estado", name: "cityState", type: "text", value: current.cityState },
     { label: "Endereço", name: "address", type: "text", value: current.address },
-    { label: "Matrícula", name: "registryNumber", type: "text", value: current.registryNumber },
     { label: "Fechamento do contrato", name: "contractClosedDate", type: "date", value: current.contractClosedDate },
     { label: "Valor dos honorários", name: "feeValue", type: "text", value: current.feeValue },
     {
@@ -4806,6 +4869,7 @@ function openRegularizationDialog(processId = null) {
     }
     saveState();
     renderRegularizationClients();
+    renderDataDashboard();
     renderGoalsDashboard();
     renderUpdates();
   });
@@ -4820,6 +4884,7 @@ function deleteRegularizationProcess(processId) {
   recordActivity("client", `Removeu regularização: ${process.clientName || "Cliente sem nome"}.`, "");
   saveState();
   renderRegularizationClients();
+  renderDataDashboard();
   renderGoalsDashboard();
   renderUpdates();
 }
