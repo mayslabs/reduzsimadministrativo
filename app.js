@@ -336,6 +336,7 @@ const el = {
   dataQualityPanel: document.getElementById("dataQualityPanel"),
   dataPanels: document.getElementById("dataPanels"),
   dataTicketPanels: document.getElementById("dataTicketPanels"),
+  dataReportFooter: document.getElementById("dataReportFooter"),
   dataDrilldown: document.getElementById("dataDrilldown"),
   goalsYearSelect: document.getElementById("goalsYearSelect"),
   editGoalsButton: document.getElementById("editGoalsButton"),
@@ -1599,24 +1600,18 @@ function formatAreaTotal(value) {
 function renderDataDashboard() {
   renderDataFilterOptions();
   const data = inssDataSummary();
-  const totals = [
-    { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area" },
-    { label: "Economia bruta total", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy" },
-    { label: "Contratos fechados", value: data.totalWorks, hint: `${data.withContractDate} com data informada`, tone: "works" },
-    { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees" },
-    { label: "Ticket médio", value: calculatedCurrency(data.ticketAverage), hint: "Honorários por contrato fechado", tone: "ticket" },
-  ];
-  el.dataSummary.innerHTML = totals.map(renderDataTotal).join("");
+  el.dataSummary.innerHTML = renderDataSummary(data);
   el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
-  if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = "";
   el.dataPanels.innerHTML = [
-    renderDataTicketPanels(data),
-    dataPanel("Volume", "Contratos fechados por mês", data.monthlyWorks, (row) => `${row.count} contrato(s)`, "monthlyWorks"),
-    dataPanel("Localização", "Obras por estado", data.byState, (row) => `${row.count} obra(s)`, "byState"),
-    dataPanel("Perfil da obra", "Obras por destinação", data.byDestination, (row) => `${row.count} obra(s)`, "byDestination"),
-    dataPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, (row) => `${row.count} cliente(s)`, "byDocumentType"),
-    dataPanel("Comercial", "Origem dos clientes", data.byOrigin, (row) => `${row.count} cliente(s)`, "byOrigin"),
+    reportMonthlyContractsPanel(data),
+    reportMonthlyFeesPanel(data),
+    reportHorizontalPanel("Localização", "Obras por estado", data.byState, "byState", data.totalWorks, { badge: "Top 6 estados", icon: "map-pin" }),
+    reportDonutPanel("Comercial", "Origem dos clientes", data.byOrigin, "byOrigin", data.totalWorks, { icon: "users" }),
+    reportHorizontalPanel("Perfil da obra", "Obras por destinação", data.byDestination, "byDestination", data.totalWorks, { badge: "Este ano", icon: "network" }),
+    reportDonutPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, "byDocumentType", data.totalWorks, { icon: "contact" }),
   ].join("");
+  if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
+  if (el.dataReportFooter) el.dataReportFooter.innerHTML = renderDataReportFooter();
   renderDataDrilldown();
   bindDataDashboardActions();
   refreshIcons();
@@ -1665,12 +1660,26 @@ function sortedDataValues(getValues) {
     .sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
+function renderDataSummary(data) {
+  const totals = [
+    { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area", icon: "ruler" },
+    { label: "Economia bruta", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy", icon: "circle-dollar-sign" },
+    { label: "Contratos fechados", value: data.withContractDate, hint: `${data.totalWorks - data.withContractDate} sem data de fechamento`, tone: "works", icon: "file-check-2" },
+    { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees", icon: "user-round" },
+    { label: "Ticket médio", value: calculatedCurrency(data.ticketAverage), hint: "Honorários por contrato fechado", tone: "ticket", icon: "crosshair" },
+  ];
+  return totals.map(renderDataTotal).join("");
+}
+
 function renderDataTotal(item) {
   return `
-    <article class="data-total tone-${item.tone}">
-      <span>${escapeHtml(item.label)}</span>
-      <strong>${escapeHtml(item.value)}</strong>
-      <small>${escapeHtml(item.hint)}</small>
+    <article class="data-total report-metric tone-${item.tone}">
+      <span class="report-metric-icon"><i data-lucide="${escapeAttr(item.icon)}"></i></span>
+      <div>
+        <span>${escapeHtml(item.label)}</span>
+        <strong>${escapeHtml(String(item.value))}</strong>
+        <small>${escapeHtml(item.hint)}</small>
+      </div>
     </article>
   `;
 }
@@ -1678,10 +1687,10 @@ function renderDataTotal(item) {
 function renderDataQualityPanel(items) {
   return `
     <section class="data-quality-card">
-      <div>
-        <p class="eyebrow">Conferência dos dados</p>
-        <h3>Campos que ainda precisam de atenção</h3>
-      </div>
+      <header class="data-quality-heading">
+        <i data-lucide="shield-check"></i>
+        <h3>Conferência dos dados</h3>
+      </header>
       <div class="data-quality-list">
         ${items.map(renderDataQualityItem).join("")}
       </div>
@@ -1690,13 +1699,28 @@ function renderDataQualityPanel(items) {
 }
 
 function renderDataQualityItem(item) {
+  const meta = dataQualityMeta(item.key);
   return `
-    <button class="data-quality-item ${item.count ? "needs-attention" : ""}" type="button" data-data-quality="${item.key}">
+    <button class="data-quality-item ${item.count ? "needs-attention" : ""} tone-${meta.tone}" type="button" data-data-quality="${item.key}">
+      <span class="data-quality-icon"><i data-lucide="${escapeAttr(meta.icon)}"></i></span>
       <span>${escapeHtml(item.label)}</span>
       <strong>${item.count}</strong>
-      <small>${escapeHtml(item.hint)}</small>
+      <small>Ver detalhes</small>
     </button>
   `;
+}
+
+function dataQualityMeta(key) {
+  return (
+    {
+      contract: { icon: "triangle-alert", tone: "danger" },
+      area: { icon: "ruler", tone: "warning" },
+      economy: { icon: "circle-dollar-sign", tone: "purple" },
+      fees: { icon: "user-round", tone: "blue" },
+      state: { icon: "map-pin", tone: "green" },
+      origin: { icon: "building-2", tone: "neutral" },
+    }[key] || { icon: "info", tone: "neutral" }
+  );
 }
 
 function bindDataDashboardActions() {
@@ -1729,6 +1753,8 @@ function inssDataSummary() {
     ticketFeeTotal: 0,
     ticketContractCount: 0,
     monthlyWorks: new Map(),
+    monthlyContracts: new Map(),
+    monthlyFees: new Map(),
     byState: new Map(),
     byDestination: new Map(),
     byDocumentType: new Map(),
@@ -1739,19 +1765,24 @@ function inssDataSummary() {
 
   clients.forEach((client) => {
     summary.totalArea += areaAmount(client.area);
-    summary.totalFees += currencyAmount(client.feeValue) || 0;
+    const feeAmount = currencyAmount(client.feeValue);
+    summary.totalFees += feeAmount || 0;
 
     const grossEconomy = clientGrossEconomy(client);
     if (grossEconomy !== null) summary.grossEconomyTotal += grossEconomy;
 
     incrementDataMap(summary.monthlyWorks, contractClosedMonthLabel(client), client.id);
+    if (client.contractClosedDate) {
+      const monthKey = dataMonthKey(client.contractClosedDate);
+      incrementMonthlyCountMap(summary.monthlyContracts, monthKey, client.id);
+      if (feeAmount !== null) incrementMonthlyAmountMap(summary.monthlyFees, monthKey, feeAmount, client.id);
+    }
     incrementDataMap(summary.byState, client.state || "Sem estado", client.id);
     const destinations = destinationList(client.destination);
     (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, client.id));
     incrementDataMap(summary.byDocumentType, documentTypeForClient(client) === "cnpj" ? "PJ" : "PF", client.id);
     incrementDataMap(summary.byOrigin, client.clientOrigin || "Sem origem", client.id);
 
-    const feeAmount = currencyAmount(client.feeValue);
     if (client.contractClosedDate && feeAmount !== null) {
       summary.ticketFeeTotal += feeAmount;
       summary.ticketContractCount += 1;
@@ -1766,6 +1797,8 @@ function inssDataSummary() {
     ...summary,
     quality: dataQualityItems(clients),
     monthlyWorks: mapToSortedRows(summary.monthlyWorks, "date"),
+    monthlyContracts: mapToMonthlyRows(summary.monthlyContracts, "count"),
+    monthlyFees: mapToMonthlyRows(summary.monthlyFees, "amount"),
     byState: mapToSortedRows(summary.byState),
     byDestination: mapToSortedRows(summary.byDestination),
     byDocumentType: mapToSortedRows(summary.byDocumentType),
@@ -1841,15 +1874,105 @@ function dataQualityClients(key, clients = filteredDataClients()) {
   });
 }
 
-function dataPanel(groupLabel, title, rows, valueFormatter, group) {
+function reportMonthlyContractsPanel(data) {
+  const rows = data.monthlyContracts;
   return `
-    <article class="data-panel">
-      <p class="eyebrow">${escapeHtml(groupLabel)}</p>
-      <h3>${escapeHtml(title)}</h3>
-      <div class="data-list">
+    <article class="data-panel report-panel report-panel-wide">
+      <header class="report-panel-header">
+        <div>
+          <p class="eyebrow"><i data-lucide="chart-column"></i> Volume</p>
+          <h3>Contratos fechados por mês</h3>
+        </div>
+        <span>Este ano</span>
+      </header>
+      <div class="report-month-chart">
+        ${rows.map((row) => reportMonthBar(row)).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function reportMonthBar(row) {
+  return `
+    <button class="report-month-bar" type="button" data-data-group="monthlyWorks" data-data-label="${escapeAttr(row.label)}" style="--bar-height:${row.percent}%">
+      <span>${row.count ? row.count : ""}</span>
+      <i aria-hidden="true"></i>
+      <small>${escapeHtml(row.shortLabel)}</small>
+    </button>
+  `;
+}
+
+function reportMonthlyFeesPanel(data) {
+  const total = data.monthlyFees.reduce((sum, row) => sum + row.total, 0);
+  return `
+    <article class="data-panel report-panel report-panel-wide">
+      <header class="report-panel-header">
+        <div>
+          <p class="eyebrow"><i data-lucide="circle-dollar-sign"></i> Financeiro</p>
+          <h3>Honorários fechados por mês</h3>
+        </div>
+        <span>Total ${dataReportYear()} · ${escapeHtml(formatCompactCurrency(total))}</span>
+      </header>
+      ${reportLineChart(data.monthlyFees)}
+    </article>
+  `;
+}
+
+function reportLineChart(rows) {
+  const width = 560;
+  const height = 210;
+  const pad = { top: 18, right: 18, bottom: 34, left: 44 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const max = Math.max(...rows.map((row) => row.total), 1);
+  const points = rows.map((row, index) => {
+    const x = pad.left + (rows.length === 1 ? 0 : (index / (rows.length - 1)) * plotWidth);
+    const y = pad.top + plotHeight - (row.total / max) * plotHeight;
+    return { ...row, x, y };
+  });
+  const path = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+    const value = max * ratio;
+    const y = pad.top + plotHeight - ratio * plotHeight;
+    return { value, y };
+  });
+
+  return `
+    <div class="report-line-chart">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Honorários fechados por mês">
+        ${ticks
+          .map(
+            (tick) => `
+              <line x1="${pad.left}" x2="${width - pad.right}" y1="${tick.y.toFixed(1)}" y2="${tick.y.toFixed(1)}"></line>
+              <text x="6" y="${(tick.y + 4).toFixed(1)}">${escapeHtml(formatCompactCurrency(tick.value))}</text>
+            `
+          )
+          .join("")}
+        <path d="${path}"></path>
+        ${points.map((point) => `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4"></circle>`).join("")}
+        ${points
+          .map((point) => `<text class="month-label" x="${point.x.toFixed(1)}" y="${height - 8}">${escapeHtml(point.shortLabel)}</text>`)
+          .join("")}
+      </svg>
+    </div>
+  `;
+}
+
+function reportHorizontalPanel(groupLabel, title, rows, group, total, options = {}) {
+  const visibleRows = rows.slice(0, 6);
+  return `
+    <article class="data-panel report-panel">
+      <header class="report-panel-header">
+        <div>
+          <p class="eyebrow"><i data-lucide="${escapeAttr(options.icon || "bar-chart-3")}"></i> ${escapeHtml(groupLabel)}</p>
+          <h3>${escapeHtml(title)}</h3>
+        </div>
+        <span>${escapeHtml(options.badge || "Este ano")}</span>
+      </header>
+      <div class="report-horizontal-list">
         ${
-          rows.length
-            ? rows.map((row) => dataRow(row, valueFormatter(row), group)).join("")
+          visibleRows.length
+            ? visibleRows.map((row, index) => reportHorizontalRow(row, group, total, index)).join("")
             : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
         }
       </div>
@@ -1857,14 +1980,51 @@ function dataPanel(groupLabel, title, rows, valueFormatter, group) {
   `;
 }
 
-function dataRow(row, value, group) {
+function reportHorizontalRow(row, group, total, index) {
   return `
-    <button class="data-row" type="button" data-data-group="${escapeAttr(group)}" data-data-label="${escapeAttr(row.label)}">
-      <div>
-        <strong>${escapeHtml(row.label)}</strong>
-        <span>${escapeHtml(value)}</span>
+    <button class="report-horizontal-row" type="button" data-data-group="${escapeAttr(group)}" data-data-label="${escapeAttr(row.label)}" style="--row-color:${escapeAttr(reportChartColor(index))}">
+      <span>${escapeHtml(row.label)}</span>
+      <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+      <strong>${escapeHtml(reportCountShare(row.count, total))}</strong>
+    </button>
+  `;
+}
+
+function reportDonutPanel(groupLabel, title, rows, group, total, options = {}) {
+  const visibleRows = rows.slice(0, 6);
+  const chartTotal = visibleRows.reduce((sum, row) => sum + row.count, 0);
+  return `
+    <article class="data-panel report-panel">
+      <header class="report-panel-header">
+        <div>
+          <p class="eyebrow"><i data-lucide="${escapeAttr(options.icon || "pie-chart")}"></i> ${escapeHtml(groupLabel)}</p>
+          <h3>${escapeHtml(title)}</h3>
+        </div>
+        <span>Este ano</span>
+      </header>
+      <div class="report-donut-layout">
+        <div class="report-donut" style="--report-donut:${escapeAttr(reportConicGradient(visibleRows))}">
+          <span>Total</span>
+          <strong>${total}</strong>
+        </div>
+        <div class="report-legend">
+          ${
+            visibleRows.length
+              ? visibleRows.map((row, index) => reportLegendRow(row, group, chartTotal || total, index)).join("")
+              : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
+          }
+        </div>
       </div>
-      <div class="data-bar" aria-hidden="true"><span style="width:${row.percent}%"></span></div>
+    </article>
+  `;
+}
+
+function reportLegendRow(row, group, total, index) {
+  return `
+    <button class="report-legend-row" type="button" data-data-group="${escapeAttr(group)}" data-data-label="${escapeAttr(row.label)}">
+      <i style="background:${escapeAttr(reportChartColor(index))}" aria-hidden="true"></i>
+      <span>${escapeHtml(row.label)}</span>
+      <strong>${escapeHtml(reportCountShare(row.count, total))}</strong>
     </button>
   `;
 }
@@ -1874,34 +2034,35 @@ function renderDataTicketPanels(data) {
     <section class="data-ticket-section">
       <div class="data-ticket-heading">
         <div>
-          <p class="eyebrow">Ticket médio</p>
-          <h3>Análise dos honorários fechados</h3>
+          <h3>Ticket médio</h3>
+          <span>Indicadores de honorários calculados com contratos que possuem data de fechamento e valor preenchido.</span>
         </div>
-        <span>Calculado somente com contratos que têm fechamento e honorários preenchidos.</span>
       </div>
       <div class="data-ticket-grid">
         <article class="data-ticket-card ticket-highlight">
-          <p class="eyebrow">Contrato fechado</p>
-          <h3>Honorários por contrato</h3>
+          <span class="report-metric-icon"><i data-lucide="circle-dollar-sign"></i></span>
+          <h3>Ticket médio de honorários</h3>
           <strong>${escapeHtml(calculatedCurrency(data.ticketAverage))}</strong>
-          <span>${data.ticketContractCount} contrato(s) considerados</span>
+          <span>Honorários / contratos fechados</span>
         </article>
-        ${dataAveragePanel("Ticket médio por origem", data.ticketByOrigin)}
-        ${dataAveragePanel("Ticket médio por destinação", data.ticketByDestination)}
+        ${dataAveragePanel("Ticket médio por origem", data.ticketByOrigin, "users")}
+        ${dataAveragePanel("Ticket médio por destinação", data.ticketByDestination, "network")}
       </div>
     </section>
   `;
 }
 
-function dataAveragePanel(title, rows) {
+function dataAveragePanel(title, rows, icon) {
   return `
     <article class="data-ticket-card">
-      <p class="eyebrow">Análise comercial</p>
-      <h3>${escapeHtml(title)}</h3>
-      <div class="data-list ticket-average-list">
+      <header class="ticket-average-heading">
+        <h3><i data-lucide="${escapeAttr(icon)}"></i> ${escapeHtml(title)}</h3>
+        <span>Este ano</span>
+      </header>
+      <div class="ticket-average-list">
         ${
           rows.length
-            ? rows.map((row) => dataAverageRow(row)).join("")
+            ? rows.slice(0, 6).map((row, index) => dataAverageRow(row, index)).join("")
             : `<p class="empty-state compact">Nenhum contrato com honorários para calcular.</p>`
         }
       </div>
@@ -1909,15 +2070,20 @@ function dataAveragePanel(title, rows) {
   `;
 }
 
-function dataAverageRow(row) {
+function dataAverageRow(row, index = 0) {
   return `
-    <div class="data-row ticket-average-row">
-      <div>
-        <strong>${escapeHtml(row.label)}</strong>
-        <span>${escapeHtml(calculatedCurrency(row.average))} | ${row.count} contrato(s)</span>
-      </div>
-      <div class="data-bar" aria-hidden="true"><span style="width:${row.percent}%"></span></div>
+    <div class="ticket-average-row" style="--row-color:${escapeAttr(reportChartColor(index))}">
+      <span>${escapeHtml(row.label)}</span>
+      <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+      <strong>${escapeHtml(calculatedCurrency(row.average))}</strong>
     </div>
+  `;
+}
+
+function renderDataReportFooter() {
+  return `
+    <span><i data-lucide="info"></i> Os dados são atualizados automaticamente com base nas informações cadastradas no sistema.</span>
+    <span>Última atualização: ${escapeHtml(formatDateTime(new Date().toISOString()))}</span>
   `;
 }
 
@@ -2022,6 +2188,23 @@ function incrementTicketAverageMap(map, key, amount, clientId) {
   map.set(label, current);
 }
 
+function incrementMonthlyCountMap(map, monthKey, clientId) {
+  if (!monthKey) return;
+  const current = map.get(monthKey) || { count: 0, total: 0, clientIds: new Set() };
+  current.count += 1;
+  if (clientId) current.clientIds.add(clientId);
+  map.set(monthKey, current);
+}
+
+function incrementMonthlyAmountMap(map, monthKey, amount, clientId) {
+  if (!monthKey) return;
+  const current = map.get(monthKey) || { count: 0, total: 0, clientIds: new Set() };
+  current.total += amount;
+  current.count += 1;
+  if (clientId) current.clientIds.add(clientId);
+  map.set(monthKey, current);
+}
+
 function mapToSortedRows(map, mode = "count") {
   const values = [...map.entries()].map(([label, data]) => ({
     label,
@@ -2046,6 +2229,77 @@ function mapToAverageRows(map) {
   return values
     .map((row) => ({ ...row, percent: Math.max(8, Math.round(((row.average || 0) / max) * 100)) }))
     .sort((a, b) => (b.average || 0) - (a.average || 0) || a.label.localeCompare(b.label, "pt-BR"));
+}
+
+function mapToMonthlyRows(map, mode = "count") {
+  const rows = dataReportMonths().map((month) => {
+    const data = map.get(month.key) || { count: 0, total: 0, clientIds: new Set() };
+    const value = mode === "amount" ? data.total : data.count;
+    return {
+      ...month,
+      count: data.count || 0,
+      total: data.total || 0,
+      value,
+      clientIds: data.clientIds instanceof Set ? [...data.clientIds] : [],
+    };
+  });
+  const max = Math.max(...rows.map((row) => row.value), 1);
+  return rows.map((row) => ({ ...row, percent: row.value ? Math.max(6, Math.round((row.value / max) * 100)) : 0 }));
+}
+
+function dataMonthKey(dateValue) {
+  const value = String(dateValue || "");
+  if (/^\d{4}-\d{2}/.test(value)) return value.slice(0, 7);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function dataReportYear() {
+  return String(new Date().getFullYear());
+}
+
+function dataReportMonths(year = dataReportYear()) {
+  const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  return monthNames.map((shortLabel, index) => {
+    const month = String(index + 1).padStart(2, "0");
+    return {
+      key: `${year}-${month}`,
+      label: `${month}/${year}`,
+      shortLabel,
+    };
+  });
+}
+
+function reportChartColor(index) {
+  return ["#009f7f", "#ff6fa8", "#7c3aed", "#f59e0b", "#2f80ed", "#94a3b8"][index % 6];
+}
+
+function reportConicGradient(rows) {
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  if (!total) return "#eef2f7 0% 100%";
+  let start = 0;
+  return rows
+    .map((row, index) => {
+      const end = start + (row.count / total) * 100;
+      const stop = `${reportChartColor(index)} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+      start = end;
+      return stop;
+    })
+    .join(", ");
+}
+
+function reportCountShare(count, total) {
+  const share = total ? (count / total) * 100 : 0;
+  return `${count} (${share.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)`;
+}
+
+function formatCompactCurrency(value) {
+  const amount = Number(value) || 0;
+  const abs = Math.abs(amount);
+  if (abs >= 1000000) return `R$ ${(amount / 1000000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (abs >= 1000) return `R$ ${(amount / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
+  return amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 }
 
 function exportDataDashboardCsv() {
