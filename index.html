@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=104" />
+    <link rel="stylesheet" href="./styles.css?v=105" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -175,6 +175,7 @@
             <div>
               <p class="eyebrow">Acompanhamento da equipe</p>
               <h2>Atualizações</h2>
+              <p class="section-subtitle">Acompanhe mudanças importantes da equipe e dos clientes em um feed mais organizado.</p>
             </div>
             <button id="markAllUpdatesReadButton" class="secondary-button" type="button"><i data-lucide="check-check"></i> Marcar todas como lidas</button>
           </div>
@@ -212,7 +213,10 @@
             <button id="updatesImportantFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="star"></i> Somente importantes</button>
           </div>
 
-          <div id="updatesList" class="updates-list"></div>
+          <div class="updates-content-grid">
+            <div id="updatesList" class="updates-list"></div>
+            <aside id="updatesAside" class="updates-aside" aria-label="Resumo das atualizações"></aside>
+          </div>
         </section>
 
         <section id="guidanceSection" class="app-section" hidden>
@@ -782,7 +786,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=104"></script>
+    <script src="./app.js?v=105"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

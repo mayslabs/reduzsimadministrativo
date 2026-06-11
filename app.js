@@ -316,6 +316,7 @@ const el = {
   updatesTypeFilter: document.getElementById("updatesTypeFilter"),
   updatesImportantFilterButton: document.getElementById("updatesImportantFilterButton"),
   updatesList: document.getElementById("updatesList"),
+  updatesAside: document.getElementById("updatesAside"),
   addGuidanceButton: document.getElementById("addGuidanceButton"),
   guidanceQuestionInput: document.getElementById("guidanceQuestionInput"),
   searchGuidanceButton: document.getElementById("searchGuidanceButton"),
@@ -3365,6 +3366,7 @@ function renderUpdates() {
         .map(([day, dayActivities]) => updateDayGroup(day, dayActivities))
         .join("")
     : `<p class="empty-state">Nenhuma atualização encontrada.</p>`;
+  renderUpdatesAside(visibleActivities, activities);
 
   document.querySelectorAll("[data-open-update-client]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -3392,33 +3394,143 @@ function renderUpdates() {
       renderUpdates();
     });
   });
+  document.querySelectorAll("[data-show-important-updates]").forEach((button) => {
+    button.addEventListener("click", () => {
+      updatesImportantOnly = true;
+      renderUpdates();
+    });
+  });
   refreshIcons();
 }
 
 function renderUpdatesSummary(activities) {
   if (!el.updatesSummary) return;
   const stats = [
-    { label: "Não lidas", value: activities.filter((activity) => !activityIsRead(activity)).length, type: "unread" },
-    { label: "Hoje", value: activities.filter((activity) => matchesActivityPeriod(activity, "today")).length, type: "today" },
+    { label: "Não lidas", value: activities.filter((activity) => !activityIsRead(activity)).length, type: "unread", icon: "mail" },
+    { label: "Hoje", value: activities.filter((activity) => matchesActivityPeriod(activity, "today")).length, type: "today", icon: "calendar-days" },
     {
-      label: "Tarefas/Prazos",
+      label: "Tarefas e prazos",
       value: activities.filter((activity) => ["task", "deadline"].includes(activityDisplayType(activity))).length,
       type: "task",
+      icon: "clock-3",
     },
-    { label: "Anotações", value: activities.filter((activity) => activityDisplayType(activity) === "note").length, type: "note" },
-    { label: "Mensal", value: activities.filter((activity) => activityDisplayType(activity) === "monthly").length, type: "monthly" },
+    { label: "Mensal", value: activities.filter((activity) => activityDisplayType(activity) === "monthly").length, type: "monthly", icon: "bar-chart-3" },
   ];
 
   el.updatesSummary.innerHTML = stats
     .map(
       (stat) => `
         <article class="updates-summary-card ${stat.type}">
-          <span>${stat.label}</span>
-          <strong>${stat.value}</strong>
+          <span class="updates-summary-icon"><i data-lucide="${stat.icon}"></i></span>
+          <div>
+            <span>${stat.label}</span>
+            <strong>${stat.value}</strong>
+          </div>
         </article>
       `
     )
     .join("");
+}
+
+function renderUpdatesAside(allActivities, filteredActivities) {
+  if (!el.updatesAside) return;
+  const todayActivities = allActivities.filter((activity) => matchesActivityPeriod(activity, "today"));
+  const todayRows = [
+    {
+      label: "Anotações",
+      hint: "Registros feitos hoje",
+      icon: "message-square",
+      type: "note",
+      value: todayActivities.filter((activity) => activityDisplayType(activity) === "note").length,
+    },
+    {
+      label: "Tarefas e prazos",
+      hint: "Pendências movimentadas",
+      icon: "calendar-check",
+      type: "task",
+      value: todayActivities.filter((activity) => ["task", "deadline"].includes(activityDisplayType(activity))).length,
+    },
+    {
+      label: "Mensal",
+      hint: "Acompanhamentos mensais",
+      icon: "calendar-days",
+      type: "monthly",
+      value: todayActivities.filter((activity) => activityDisplayType(activity) === "monthly").length,
+    },
+  ];
+  const importantActivities = allActivities
+    .filter((activity) => priorityActivityTypes().includes(activityDisplayType(activity)))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5);
+
+  el.updatesAside.innerHTML = `
+    <section class="updates-side-card">
+      <header>
+        <div>
+          <p>Resumo do dia</p>
+          <h3>Hoje</h3>
+        </div>
+        <span>${todayActivities.length} atualização${todayActivities.length === 1 ? "" : "ões"}</span>
+      </header>
+      <div class="updates-side-list">
+        ${todayRows.map(renderUpdatesSideRow).join("")}
+      </div>
+    </section>
+    <section class="updates-side-card">
+      <header>
+        <div>
+          <p>Prioridade</p>
+          <h3>Importantes</h3>
+        </div>
+        <i data-lucide="star"></i>
+      </header>
+      <div class="updates-important-list">
+        ${
+          importantActivities.length
+            ? importantActivities.map(renderUpdatesImportantItem).join("")
+            : `<p class="updates-side-empty">Nenhuma atualização importante no momento.</p>`
+        }
+      </div>
+      <button class="updates-aside-link" type="button" data-show-important-updates>
+        Ver todas as importantes
+      </button>
+    </section>
+    <p class="updates-aside-note">Exibindo ${filteredActivities.length} de ${allActivities.length} atualizações visíveis.</p>
+  `;
+}
+
+function renderUpdatesSideRow(row) {
+  return `
+    <div class="updates-side-row update-type-${row.type}">
+      <span class="updates-side-icon"><i data-lucide="${row.icon}"></i></span>
+      <div>
+        <strong>${row.value}</strong>
+        <span>${escapeHtml(row.label)}</span>
+        <small>${escapeHtml(row.hint)}</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderUpdatesImportantItem(activity) {
+  const displayType = activityDisplayType(activity);
+  const title = activity.clientName || activity.title || "Atualização";
+  const meta = `${activityTypeLabel(displayType)} • ${activityActorLabel(activity, displayType)} • ${activityTimeLabel(activity.createdAt)}`;
+  const content = `
+    <span class="updates-important-dot" aria-hidden="true"></span>
+    <span>
+      <strong>${escapeHtml(title)}</strong>
+      <small>${escapeHtml(meta)}</small>
+    </span>
+  `;
+  if (activity.clientId) {
+    return `
+      <button class="updates-important-item update-type-${displayType}" type="button" data-open-update-client="${escapeAttr(activity.clientId)}" data-activity-id="${escapeAttr(activity.id)}">
+        ${content}
+      </button>
+    `;
+  }
+  return `<div class="updates-important-item update-type-${displayType}">${content}</div>`;
 }
 
 function renderUpdatesUserFilter() {
