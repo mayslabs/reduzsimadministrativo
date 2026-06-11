@@ -18,6 +18,7 @@
 .goals-heading h2 {
   color: #111827;
   font-size: 25px;
+  font-weight: 700;
   line-height: 1.12;
 }
 
@@ -92,6 +93,10 @@
 }
 
 .goals-overview-card {
+  background:
+    radial-gradient(circle at 10% 18%, rgba(0, 159, 127, 0.12), transparent 30%),
+    linear-gradient(90deg, rgba(231, 247, 242, 0.45), #fff 42%);
+  box-shadow: 0 18px 44px rgba(0, 159, 127, 0.12), 0 8px 22px rgba(15, 23, 42, 0.04);
   display: grid;
   gap: 20px;
   grid-template-columns: minmax(330px, 0.78fr) minmax(580px, 1.35fr);
@@ -104,7 +109,7 @@
   display: flex;
   gap: 7px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   margin: 0 0 18px;
   text-transform: uppercase;
 }
@@ -157,7 +162,7 @@
 .goal-ring-content span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .goal-main-value {
@@ -174,7 +179,7 @@
 .goal-main-value span {
   color: var(--muted);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .goal-main-value p {
@@ -183,7 +188,7 @@
   display: flex;
   gap: 7px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   margin: 8px 0 0;
 }
 
@@ -232,19 +237,20 @@
 .goal-contract-total span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .goal-overview-metric strong {
   color: #111827;
   font-size: 18px;
+  font-weight: 700;
   line-height: 1.18;
 }
 
 .goal-overview-metric small {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 550;
 }
 
 .goal-threshold-grid {
@@ -275,6 +281,7 @@
 .goal-threshold-card strong {
   color: #111827;
   font-size: 18px;
+  font-weight: 700;
 }
 
 .goal-threshold-card.target strong {
@@ -335,13 +342,14 @@
 .goal-annual-total strong {
   color: #111827;
   font-size: 25px;
+  font-weight: 700;
 }
 
 .goal-annual-total span,
 .goal-panel-hint {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .goal-annual-track {
@@ -382,13 +390,14 @@
 .goal-annual-labels span {
   color: var(--muted);
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 600;
   text-align: center;
 }
 
 .goal-annual-labels strong {
   color: var(--charcoal);
   font-size: 10.5px;
+  font-weight: 700;
 }
 
 .goal-year-progress {
@@ -403,12 +412,13 @@
 .goal-year-progress strong {
   color: var(--green-dark);
   font-size: 13px;
+  font-weight: 700;
 }
 
 .goal-year-progress span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .goal-annual-thresholds {
@@ -430,13 +440,14 @@
 
 .goal-performance-panel .mini-heading h3 {
   font-size: 14px;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
 .goal-performance-panel .mini-heading span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .goal-month-bars {
@@ -464,6 +475,7 @@
 .goal-month-bar-button strong {
   color: var(--charcoal);
   font-size: 10.5px;
+  font-weight: 650;
   line-height: 1.1;
   min-height: 24px;
   text-align: center;
@@ -498,7 +510,7 @@
 
 .goal-month-bar-button small {
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 650;
 }
 
 .goal-panel-hint {
@@ -567,6 +579,7 @@
 .goal-contract-row strong {
   color: #111827;
   font-size: 12.5px;
+  font-weight: 700;
 }
 
 .goal-contract-row > div:nth-child(2) {
@@ -586,6 +599,7 @@
 .goal-contract-total strong {
   color: var(--green-dark);
   font-size: 14px;
+  font-weight: 700;
 }
 
 .goals-missing-list {
@@ -605,6 +619,7 @@
 .goals-missing-card > strong {
   color: #9a6400;
   font-size: 13px;
+  font-weight: 700;
 }
 
 .goals-missing-items {
