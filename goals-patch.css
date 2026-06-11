@@ -552,15 +552,13 @@
 
 .goal-contract-row {
   align-items: center;
-  border-bottom: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1.1fr) minmax(110px, 0.38fr) auto;
-  padding: 9px 0;
-}
-
-.goal-contract-row:last-child {
-  border-bottom: 0;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 132px 76px;
+  min-height: 68px;
+  padding: 10px 12px;
 }
 
 .goal-contract-row.missing {
@@ -580,10 +578,32 @@
   color: #111827;
   font-size: 12.5px;
   font-weight: 700;
+  line-height: 1.25;
+}
+
+.goal-contract-row > div:first-child span {
+  margin-top: 2px;
 }
 
 .goal-contract-row > div:nth-child(2) {
+  align-self: center;
   text-align: right;
+}
+
+.goal-contract-row > div:nth-child(2) span {
+  line-height: 1.18;
+}
+
+.goal-contract-row > div:nth-child(2) strong {
+  margin-top: 2px;
+}
+
+.goal-contract-row .small-button {
+  justify-content: center;
+  min-height: 38px;
+  padding-left: 10px;
+  padding-right: 10px;
+  width: 76px;
 }
 
 .goal-contract-total {
