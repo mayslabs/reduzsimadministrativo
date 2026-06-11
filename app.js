@@ -345,6 +345,7 @@ const el = {
   editGoalsButton: document.getElementById("editGoalsButton"),
   goalsSummary: document.getElementById("goalsSummary"),
   goalsMonthlyGrid: document.getElementById("goalsMonthlyGrid"),
+  goalsPerformancePanel: document.getElementById("goalsPerformancePanel"),
   goalsContractsTitle: document.getElementById("goalsContractsTitle"),
   goalsContractsList: document.getElementById("goalsContractsList"),
   goalsMissingData: document.getElementById("goalsMissingData"),
@@ -2910,10 +2911,8 @@ function renderGoalsDashboard() {
 
   syncGoalSelectors(data);
   el.goalsSummary.innerHTML = renderGoalsOverview(data, month, settings);
-  el.goalsMonthlyGrid.innerHTML = [
-    renderGoalsAnnualPanel(data, settings, annualTarget, annualStretch),
-    renderGoalsMonthlyPerformance(data, settings),
-  ].join("");
+  el.goalsMonthlyGrid.innerHTML = renderGoalsAnnualPanel(data, settings, annualTarget, annualStretch);
+  if (el.goalsPerformancePanel) el.goalsPerformancePanel.innerHTML = renderGoalsMonthlyPerformance(data, settings);
   renderGoalContracts(data);
   renderGoalMissingData(data.missingRegularization);
   bindGoalActions();
@@ -2986,9 +2985,9 @@ function renderGoalsOverview(data, month, settings) {
       </div>
       <div class="goal-overview-side">
         <div class="goal-overview-metrics">
-          ${renderGoalMetric("wallet", "Honorários fechados no mês", calculatedCurrency(monthTotal), "")}
+          ${renderGoalMetric("wallet", "Receita recebida no mês", calculatedCurrency(monthTotal), "")}
           ${renderGoalMetric("flag", "Falta para a meta", calculatedCurrency(remainingTarget), remainingTarget ? "" : "Meta batida")}
-          ${renderGoalMetric("users", "Contratos no mês", monthContracts.length, "Contratos fechados")}
+          ${renderGoalMetric("users", "Clientes pagos no mês", monthContracts.length, "Contratos pagos")}
           ${renderGoalMetric("banknote", "Ticket médio", calculatedCurrency(monthTicket), "Por contrato")}
         </div>
         <div class="goal-threshold-grid">
@@ -3091,7 +3090,7 @@ function renderGoalsMonthlyPerformance(data, settings) {
 function renderGoalContracts(data) {
   const month = data.months.find((item) => item.key === activeGoalsMonth) || data.months[0];
   if (!month) return;
-  el.goalsContractsTitle.textContent = `Contratos fechados em ${month.label}`;
+  el.goalsContractsTitle.textContent = `Contratos pagos em ${month.label}`;
   el.goalsContractsList.innerHTML = month.contracts.length
     ? [
         ...month.contracts.map(
@@ -3119,21 +3118,30 @@ function renderGoalContracts(data) {
 }
 
 function renderGoalMissingData(items) {
+  if (!el.goalsMissingData) return;
+  el.goalsMissingData.hidden = !items.length;
   el.goalsMissingData.innerHTML = items.length
-    ? items
-        .map(
-          (process) => `
-            <article class="goal-contract-row missing">
-              <div>
-                <strong>${escapeHtml(process.clientName || "Cliente sem nome")}</strong>
-                <span>${escapeHtml(goalMissingRegularizationLabel(process))}</span>
-              </div>
-              <button class="small-button" type="button" data-edit-regularization="${process.id}"><i data-lucide="pencil"></i> Preencher</button>
-            </article>
-          `
-        )
-        .join("")
-    : `<p class="empty-state compact">Todas as regularizações têm data e valor quando aplicável.</p>`;
+    ? `
+      <section class="goals-missing-card">
+        <strong>Dados pendentes para a meta</strong>
+        <div class="goals-missing-items">
+          ${items
+            .map(
+              (process) => `
+                <article class="goal-contract-row missing">
+                  <div>
+                    <strong>${escapeHtml(process.clientName || "Cliente sem nome")}</strong>
+                    <span>${escapeHtml(goalMissingRegularizationLabel(process))}</span>
+                  </div>
+                  <button class="small-button" type="button" data-edit-regularization="${process.id}"><i data-lucide="pencil"></i> Preencher</button>
+                </article>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+    `
+    : "";
 }
 
 function bindGoalActions() {
@@ -3181,7 +3189,7 @@ function companyGoalsData(year) {
     const monthContracts = contracts.filter((contract) => contract.contractClosedDate?.startsWith(key));
     return {
       key,
-      label: monthName(String(index + 1).padStart(2, "0")),
+      label: goalMonthName(key),
       contracts: monthContracts,
       total: monthContracts.reduce((sum, contract) => sum + contract.amount, 0),
     };
@@ -3255,9 +3263,10 @@ function goalLevelLabel(total, target, stretch) {
   return "Em andamento";
 }
 
-function monthName(monthKey) {
-  const date = new Date(`${monthKey}-01T00:00:00`);
-  return date.toLocaleDateString("pt-BR", { month: "long" }).replace(/^./, (letter) => letter.toUpperCase());
+function goalMonthName(monthKey) {
+  const parts = String(monthKey || "").split("-");
+  const month = parts.length > 1 ? parts[1] : parts[0];
+  return monthName(String(month || "").padStart(2, "0"));
 }
 
 function goalMissingRegularizationLabel(process = {}) {
