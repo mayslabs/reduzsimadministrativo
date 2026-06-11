@@ -3435,6 +3435,7 @@ function renderUpdatesSummary(activities) {
 function renderUpdatesAside(allActivities, filteredActivities) {
   if (!el.updatesAside) return;
   const todayActivities = allActivities.filter((activity) => matchesActivityPeriod(activity, "today"));
+  const todayCountLabel = `${todayActivities.length} ${todayActivities.length === 1 ? "atualização" : "atualizações"}`;
   const todayRows = [
     {
       label: "Anotações",
@@ -3470,7 +3471,7 @@ function renderUpdatesAside(allActivities, filteredActivities) {
           <p>Resumo do dia</p>
           <h3>Hoje</h3>
         </div>
-        <span>${todayActivities.length} atualização${todayActivities.length === 1 ? "" : "ões"}</span>
+        <span>${todayCountLabel}</span>
       </header>
       <div class="updates-side-list">
         ${todayRows.map(renderUpdatesSideRow).join("")}
@@ -3491,6 +3492,7 @@ function renderUpdatesAside(allActivities, filteredActivities) {
             : `<p class="updates-side-empty">Nenhuma atualização importante no momento.</p>`
         }
       </div>
+      <p class="updates-important-criteria">Critério: anotações, tarefas, prazos e acompanhamento mensal.</p>
       <button class="updates-aside-link" type="button" data-show-important-updates>
         Ver todas as importantes
       </button>
@@ -3504,10 +3506,10 @@ function renderUpdatesSideRow(row) {
     <div class="updates-side-row update-type-${row.type}">
       <span class="updates-side-icon"><i data-lucide="${row.icon}"></i></span>
       <div>
-        <strong>${row.value}</strong>
         <span>${escapeHtml(row.label)}</span>
         <small>${escapeHtml(row.hint)}</small>
       </div>
+      <strong>${row.value}</strong>
     </div>
   `;
 }
@@ -4917,7 +4919,6 @@ function updateTimelineItem(activity) {
           <span class="update-type-pill">${escapeHtml(activityTypeLabel(displayType))}</span>
           <span><i data-lucide="user-round"></i>${escapeHtml(activityActorLabel(activity, displayType))}</span>
           ${activityResponsibleLabel(activity, displayType) ? `<span class="update-responsible"><i data-lucide="user-check"></i>${escapeHtml(activityResponsibleLabel(activity, displayType))}</span>` : ""}
-          ${activity.clientName ? `<span><i data-lucide="folder-open"></i>${escapeHtml(activity.clientName)}</span>` : ""}
         </div>
         <h3>${escapeHtml(activity.title)}</h3>
         ${detailHtml}
@@ -6425,8 +6426,9 @@ function recordClientChangeActivities(previousClient, nextClient, changes) {
   addedMonthly.forEach((row) => {
     recordActivity("monthly", `Criou controle mensal em ${context.clientName}.`, monthlyActivityDetail(row), context);
   });
+  const previousMonthlyById = new Map((previousClient.monthly || []).map((row) => [row.id, row]));
   changedMonthly.forEach((row) => {
-    recordActivity("monthly", `Atualizou mensal em ${context.clientName}.`, monthlyActivityDetail(row), context);
+    recordActivity("monthly", `Atualizou mensal em ${context.clientName}.`, monthlyActivityDetail(row, previousMonthlyById.get(row.id)), context);
   });
   addedHistory.forEach((entry) => {
     recordActivity("history", `Registrou histórico em ${context.clientName}.`, truncateHistoryValue((entry.details || []).join(" "), 120), context);
@@ -6476,8 +6478,42 @@ function statusName(statusId) {
   return state.statuses.find((status) => status.id === statusId)?.name || "Status";
 }
 
-function monthlyActivityDetail(row = {}) {
-  return row.month ? `Competência ${row.month}` : "Competência sem data";
+function monthlyFieldLabels() {
+  return {
+    month: "Competência",
+    receiptSent: "Recibo enviado",
+    receiptSigned: "Recibo assinado",
+    remunerationSent: "Remuneração enviada",
+    guideIssued: "Guia emitida",
+    guideSent: "Guia enviada",
+    guidePaid: "Guia paga",
+    notes: "Obs.",
+  };
+}
+
+function monthlyActivityDetail(row = {}, previousRow = null) {
+  const labels = monthlyFieldLabels();
+  const monthLabel = row.month ? `Competência ${row.month}` : "Competência sem data";
+  if (!previousRow) {
+    const marked = ["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"]
+      .filter((field) => row[field])
+      .map((field) => labels[field]);
+    return [monthLabel, marked.length ? `Marcado: ${marked.join(", ")}.` : "Nenhuma coluna marcada."].join("\n");
+  }
+
+  const fields = ["month", "receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid", "notes"];
+  const changes = fields
+    .filter((field) => monthlyFieldValue(previousRow[field], field) !== monthlyFieldValue(row[field], field))
+    .map((field) => `${labels[field]}: ${monthlyFieldValue(previousRow[field], field)} → ${monthlyFieldValue(row[field], field)}.`);
+  return changes.length ? [monthLabel, ...changes].join("\n") : monthLabel;
+}
+
+function monthlyFieldValue(value, field) {
+  if (["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"].includes(field)) {
+    return value ? "marcado" : "desmarcado";
+  }
+  if (field === "month") return value || "sem competência";
+  return value ? truncateHistoryValue(value, 80) : "vazio";
 }
 
 function summarizeClientChanges(previousClient, nextClient) {
