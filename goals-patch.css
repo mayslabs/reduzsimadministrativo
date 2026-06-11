@@ -8,150 +8,515 @@
   padding-right: 2px;
 }
 
-.goals-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(130px, 1fr));
+.goals-heading {
+  align-items: flex-start;
+  border-bottom: 0;
+  margin-bottom: 18px;
+}
+
+.goals-heading h2 {
+  color: #111827;
+  font-size: 25px;
+  line-height: 1.12;
+}
+
+.goals-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
+}
+
+.goals-filter,
+.goals-month-control {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.goals-filter svg {
+  color: var(--charcoal);
+  height: 17px;
+  width: 17px;
+}
+
+.goals-filter select,
+.goals-month-control select {
+  border: 0;
+  box-shadow: none;
+  min-width: 96px;
+  padding: 8px 4px;
+}
+
+.goals-month-control {
+  padding: 0 4px;
+}
+
+.goals-month-control .icon-button {
+  border: 0;
+  height: 32px;
+  min-height: 32px;
+  width: 32px;
+}
+
+.goals-summary-grid,
+.goals-monthly-grid,
+.goals-detail-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.goals-summary-grid {
+  grid-template-columns: 1fr;
   margin-bottom: 14px;
 }
 
-.goal-summary-card {
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--green);
-  border-radius: var(--radius);
+.goals-overview-card,
+.goal-annual-panel,
+.goal-performance-panel,
+.goals-contract-panel {
   background: #fff;
-  display: grid;
-  gap: 4px;
-  min-height: 82px;
-  padding: 11px 12px;
-}
-
-.goal-summary-card span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 850;
-}
-
-.goal-summary-card strong {
-  color: var(--charcoal);
-  font-size: 19px;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.goal-summary-card small {
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 700;
-}
-
-.goals-monthly-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.goal-month-card {
   border: 1px solid var(--line);
-  border-left: 4px solid #94a3b8;
   border-radius: var(--radius);
-  background: #fff;
-  color: var(--charcoal);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+}
+
+.goals-overview-card {
   display: grid;
-  gap: 9px;
-  min-height: 160px;
-  padding: 12px;
-  text-align: left;
+  gap: 22px;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(520px, 1.35fr);
+  padding: 22px;
 }
 
-.goal-month-card.active {
-  box-shadow: 0 0 0 3px rgba(0, 159, 127, 0.12);
+.goals-card-kicker {
+  align-items: center;
+  color: var(--green-dark);
+  display: flex;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 900;
+  margin: 0 0 18px;
+  text-transform: uppercase;
 }
 
-.goal-month-card.below {
-  border-left-color: var(--red);
+.goals-card-kicker svg {
+  height: 18px;
+  width: 18px;
 }
 
-.goal-month-card.floor {
-  border-left-color: var(--amber);
+.goal-hero-content {
+  align-items: center;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 138px minmax(0, 1fr);
 }
 
-.goal-month-card.target {
-  border-left-color: var(--green);
+.goal-ring {
+  aspect-ratio: 1;
+  background: conic-gradient(var(--green) var(--goal-ring), #e8edf0 0);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 138px;
 }
 
-.goal-month-card.super {
-  border-left-color: var(--blue);
+.goal-ring::before {
+  background: #fff;
+  border-radius: 50%;
+  content: "";
+  inset: 17px;
+  position: absolute;
 }
 
-.goal-month-card header,
-.goal-month-marks,
-.goals-detail-grid {
+.goal-ring-content {
+  color: #0f172a;
+  display: grid;
+  gap: 2px;
+  place-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.goal-ring-content strong {
+  color: var(--green-dark);
+  font-size: 27px;
+  line-height: 1;
+}
+
+.goal-ring-content span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.goal-main-value {
   display: grid;
   gap: 8px;
 }
 
-.goal-month-card header {
-  align-items: start;
-  grid-template-columns: minmax(0, 1fr) auto;
+.goal-main-value strong {
+  color: #111827;
+  font-size: 34px;
+  line-height: 1.05;
 }
 
-.goal-month-card header strong {
+.goal-main-value span {
+  color: var(--muted);
   font-size: 15px;
+  font-weight: 700;
 }
 
-.goal-month-card header span,
-.goal-month-card p,
-.goal-month-marks span {
+.goal-main-value p {
+  align-items: center;
+  color: var(--green-dark);
+  display: flex;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  margin: 8px 0 0;
+}
+
+.goal-main-value svg {
+  height: 17px;
+  width: 17px;
+}
+
+.goal-overview-side {
+  border-left: 1px solid var(--line);
+  display: grid;
+  gap: 18px;
+  padding-left: 20px;
+}
+
+.goal-overview-metrics,
+.goal-threshold-grid,
+.goal-annual-thresholds {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.goal-overview-metric {
+  border-right: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  min-height: 84px;
+  padding: 0 14px 0 0;
+}
+
+.goal-overview-metric:last-child {
+  border-right: 0;
+}
+
+.goal-overview-metric svg {
+  color: var(--green-dark);
+  height: 20px;
+  width: 20px;
+}
+
+.goal-overview-metric span,
+.goal-threshold-card span,
+.goal-threshold-card small,
+.goal-contract-row span,
+.goal-contract-total span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 800;
 }
 
-.goal-month-total {
-  color: var(--charcoal);
-  font-size: 22px;
-  font-weight: 900;
-  line-height: 1.15;
+.goal-overview-metric strong {
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.18;
 }
 
-.goal-progress-track {
-  background: #edf2f0;
+.goal-overview-metric small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.goal-threshold-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.goal-threshold-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+}
+
+.goal-threshold-card.floor {
+  border-color: #d6dde8;
+}
+
+.goal-threshold-card.target {
+  background: #f4fbf8;
+  border-color: #b6e5d7;
+}
+
+.goal-threshold-card.stretch {
+  border-color: #f0d39a;
+}
+
+.goal-threshold-card strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.goal-threshold-card.target strong {
+  color: var(--green-dark);
+}
+
+.goal-threshold-card.stretch strong {
+  color: #b77900;
+}
+
+.goal-mini-track,
+.goal-annual-track {
+  background: #e8edf0;
   border-radius: 999px;
-  height: 10px;
   overflow: hidden;
-  position: relative;
 }
 
-.goal-progress-track span {
-  background: linear-gradient(90deg, var(--amber), var(--green), var(--blue));
+.goal-mini-track {
+  height: 7px;
+}
+
+.goal-mini-track i,
+.goal-annual-track span {
+  background: var(--green);
   display: block;
   height: 100%;
 }
 
-.goal-progress-track i {
-  background: #fff;
-  border-left: 2px solid var(--charcoal);
-  height: 100%;
-  position: absolute;
-  top: 0;
-  width: 1px;
+.goal-threshold-card.floor .goal-mini-track i {
+  background: #94a3b8;
 }
 
-.goal-month-marks {
+.goal-threshold-card.stretch .goal-mini-track i {
+  background: #e59a00;
+}
+
+.goals-monthly-grid {
+  grid-template-columns: 1fr;
+  margin-bottom: 14px;
+}
+
+.goal-annual-panel {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(150px, 0.35fr) minmax(360px, 0.95fr);
+  padding: 20px;
+}
+
+.goal-annual-total {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.goal-annual-total strong {
+  color: #111827;
+  font-size: 25px;
+}
+
+.goal-annual-total span,
+.goal-panel-hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.goal-annual-track {
+  height: 12px;
+  overflow: visible;
+  position: relative;
+}
+
+.goal-annual-track span {
+  border-radius: 999px;
+}
+
+.goal-annual-track i {
+  background: #fff;
+  border: 3px solid var(--green);
+  border-radius: 50%;
+  height: 14px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+}
+
+.goal-annual-track i.floor {
+  border-color: #94a3b8;
+}
+
+.goal-annual-track i.stretch {
+  border-color: #e59a00;
+}
+
+.goal-annual-labels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.goal-annual-labels span {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.goal-annual-labels strong {
+  color: var(--charcoal);
+  font-size: 10.5px;
+}
+
+.goal-year-progress {
+  background: #f2faf7;
+  border: 1px solid #d8eee7;
+  border-radius: var(--radius);
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+}
+
+.goal-year-progress strong {
+  color: var(--green-dark);
+  font-size: 13px;
+}
+
+.goal-year-progress span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.goal-annual-thresholds {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.goal-performance-panel {
+  padding: 18px;
+}
+
+.goal-performance-panel .mini-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.goal-performance-panel .mini-heading h3 {
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.goal-performance-panel .mini-heading span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.goal-month-bars {
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(12, minmax(32px, 1fr));
+  min-height: 190px;
+  padding: 18px 0 8px;
+}
+
+.goal-month-bar-button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  display: grid;
+  gap: 7px;
+  height: 170px;
+  justify-items: center;
+  padding: 0;
+}
+
+.goal-month-bar-button strong {
+  color: var(--charcoal);
+  font-size: 10.5px;
+  line-height: 1.1;
+  min-height: 24px;
+  text-align: center;
+}
+
+.goal-month-bar {
+  align-items: end;
+  background: #edf2f0;
+  border-radius: 999px 999px 4px 4px;
+  display: flex;
+  height: 112px;
+  justify-content: center;
+  overflow: hidden;
+  width: 18px;
+}
+
+.goal-month-bar i {
+  background: #cfe7dc;
+  border-radius: 999px 999px 4px 4px;
+  display: block;
+  height: var(--bar-height);
+  width: 100%;
+}
+
+.goal-month-bar-button.active .goal-month-bar i {
+  background: var(--green);
+}
+
+.goal-month-bar-button.active small {
+  color: var(--green-dark);
+}
+
+.goal-month-bar-button small {
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.goal-panel-hint {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  margin: 12px 0 0;
+}
+
+.goal-panel-hint svg {
+  color: var(--green-dark);
+  height: 16px;
+  width: 16px;
+}
+
 .goals-detail-grid {
-  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
 }
 
 .goals-contract-panel {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  padding: 14px;
+  padding: 16px;
+}
+
+.goals-contract-panel .mini-heading {
+  margin-bottom: 12px;
 }
 
 .goals-contract-list {
@@ -161,18 +526,23 @@
 
 .goal-contract-row {
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 7px;
+  border-bottom: 1px solid var(--line);
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(160px, 0.6fr) auto;
-  gap: 10px;
-  padding: 10px;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(160px, 0.45fr) auto;
+  padding: 9px 0;
+}
+
+.goal-contract-row:last-child {
+  border-bottom: 0;
 }
 
 .goal-contract-row.missing {
-  border-color: #eadfcb;
   background: #fffaf0;
+  border: 1px solid #eadfcb;
+  border-radius: var(--radius);
   grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px;
 }
 
 .goal-contract-row strong,
@@ -181,36 +551,100 @@
 }
 
 .goal-contract-row strong {
-  color: var(--charcoal);
-  font-size: 13px;
+  color: #111827;
+  font-size: 12.5px;
 }
 
-.goal-contract-row span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.4;
+.goal-contract-row > div:nth-child(2) {
+  text-align: right;
 }
 
-@media (max-width: 1180px) {
-  .goals-summary-grid,
-  .goals-monthly-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+.goal-contract-total {
+  align-items: center;
+  background: #f4fbf8;
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding: 11px 12px;
+}
+
+.goal-contract-total strong {
+  color: var(--green-dark);
+  font-size: 14px;
+}
+
+@media (max-width: 1260px) {
+  .goals-overview-card,
+  .goal-annual-panel,
+  .goals-detail-grid {
+    grid-template-columns: 1fr;
   }
 
-  .goals-detail-grid,
+  .goal-overview-side {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 18px;
+  }
+}
+
+@media (max-width: 900px) {
+  .goals-heading,
+  .goals-header-actions,
+  .goal-hero-content,
+  .goal-overview-metrics,
+  .goal-threshold-grid,
+  .goal-annual-thresholds,
   .goal-contract-row,
   .goal-contract-row.missing {
     grid-template-columns: 1fr;
   }
+
+  .goals-heading,
+  .goals-header-actions {
+    align-items: stretch;
+  }
+
+  .goals-header-actions,
+  .goals-filter,
+  .goals-month-control {
+    width: 100%;
+  }
+
+  .goal-overview-metrics {
+    display: grid;
+  }
+
+  .goal-overview-metric {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 12px;
+  }
+
+  .goal-overview-metric:last-child {
+    border-bottom: 0;
+  }
+
+  .goal-month-bars {
+    overflow-x: auto;
+    grid-template-columns: repeat(12, 54px);
+  }
+
+  .goal-contract-row > div:nth-child(2) {
+    text-align: left;
+  }
 }
 
-@media (max-width: 720px) {
-  .goals-summary-grid,
-  .goals-monthly-grid,
-  .goals-detail-grid,
-  .goal-contract-row,
-  .goal-contract-row.missing {
-    grid-template-columns: 1fr;
+@media (max-width: 560px) {
+  .goals-overview-card,
+  .goal-annual-panel,
+  .goal-performance-panel,
+  .goals-contract-panel {
+    padding: 14px;
+  }
+
+  .goal-main-value strong {
+    font-size: 26px;
   }
 }

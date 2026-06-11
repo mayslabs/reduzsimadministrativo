@@ -339,6 +339,9 @@ const el = {
   dataReportFooter: document.getElementById("dataReportFooter"),
   dataDrilldown: document.getElementById("dataDrilldown"),
   goalsYearSelect: document.getElementById("goalsYearSelect"),
+  goalsMonthSelect: document.getElementById("goalsMonthSelect"),
+  goalsPrevMonthButton: document.getElementById("goalsPrevMonthButton"),
+  goalsNextMonthButton: document.getElementById("goalsNextMonthButton"),
   editGoalsButton: document.getElementById("editGoalsButton"),
   goalsSummary: document.getElementById("goalsSummary"),
   goalsMonthlyGrid: document.getElementById("goalsMonthlyGrid"),
@@ -1144,9 +1147,16 @@ function bindEvents() {
   el.exportDataButton.addEventListener("click", exportDataDashboardCsv);
   el.goalsYearSelect.addEventListener("change", () => {
     activeGoalsYear = el.goalsYearSelect.value || "2026";
-    activeGoalsMonth = `${activeGoalsYear}-01`;
+    const current = currentMonthKey();
+    activeGoalsMonth = current.startsWith(activeGoalsYear) ? current : `${activeGoalsYear}-01`;
     renderGoalsDashboard();
   });
+  el.goalsMonthSelect.addEventListener("change", () => {
+    activeGoalsMonth = el.goalsMonthSelect.value || activeGoalsMonth;
+    renderGoalsDashboard();
+  });
+  el.goalsPrevMonthButton.addEventListener("click", () => shiftGoalMonth(-1));
+  el.goalsNextMonthButton.addEventListener("click", () => shiftGoalMonth(1));
   el.editGoalsButton.addEventListener("click", openGoalsDialog);
   el.billsYearSelect.addEventListener("change", () => {
     activeBillsYear = BILL_YEAR;
@@ -2883,89 +2893,217 @@ function renderGoalsDashboard() {
   if (!el.goalsSummary) return;
   state.goals = normalizeGoalSettings(state.goals);
   activeGoalsYear = activeGoalsYear || "2026";
-  el.goalsYearSelect.value = activeGoalsYear;
+
+  const data = companyGoalsData(activeGoalsYear);
+  const settings = goalNumericSettings();
   if (!activeGoalsMonth || !activeGoalsMonth.startsWith(activeGoalsYear)) {
     const current = currentMonthKey();
     activeGoalsMonth = current.startsWith(activeGoalsYear) ? current : `${activeGoalsYear}-01`;
   }
+  if (!data.months.some((month) => month.key === activeGoalsMonth)) {
+    activeGoalsMonth = data.months[0]?.key || `${activeGoalsYear}-01`;
+  }
 
-  const data = companyGoalsData(activeGoalsYear);
-  const settings = goalNumericSettings();
   const annualTarget = settings.target * 12;
   const annualStretch = settings.stretch * 12;
-  const remainingTarget = Math.max(annualTarget - data.total, 0);
-  const percent = annualTarget ? (data.total / annualTarget) * 100 : 0;
-  const averageTicket = data.contracts.length ? data.total / data.contracts.length : 0;
+  const month = data.months.find((item) => item.key === activeGoalsMonth) || data.months[0];
 
-  el.goalsSummary.innerHTML = [
-    { label: "Meta anual", value: calculatedCurrency(annualTarget), hint: `Supermeta: ${calculatedCurrency(annualStretch)}` },
-    { label: "Fechado no ano", value: calculatedCurrency(data.total), hint: `${data.contracts.length} contrato(s)` },
-    { label: "Falta para meta", value: calculatedCurrency(remainingTarget), hint: remainingTarget ? "Para bater a meta anual" : "Meta anual batida" },
-    { label: "Percentual atingido", value: calculatedPercent(percent), hint: goalLevelLabel(data.total, annualTarget, annualStretch) },
-    { label: "Ticket médio", value: calculatedCurrency(averageTicket), hint: "Honorários por contrato" },
-    { label: "Contratos", value: data.contracts.length, hint: "INSS de obras + Regularização" },
-  ]
-    .map(renderGoalSummaryCard)
-    .join("");
-
-  el.goalsMonthlyGrid.innerHTML = data.months.map((month) => renderGoalMonthCard(month, settings)).join("");
+  syncGoalSelectors(data);
+  el.goalsSummary.innerHTML = renderGoalsOverview(data, month, settings);
+  el.goalsMonthlyGrid.innerHTML = [
+    renderGoalsAnnualPanel(data, settings, annualTarget, annualStretch),
+    renderGoalsMonthlyPerformance(data, settings),
+  ].join("");
   renderGoalContracts(data);
   renderGoalMissingData(data.missingRegularization);
   bindGoalActions();
   refreshIcons();
 }
 
-function renderGoalSummaryCard(item) {
+function syncGoalSelectors(data) {
+  el.goalsYearSelect.value = activeGoalsYear;
+  el.goalsMonthSelect.innerHTML = data.months
+    .map((month) => `<option value="${month.key}">${escapeHtml(month.label)}</option>`)
+    .join("");
+  el.goalsMonthSelect.value = activeGoalsMonth;
+}
+
+function shiftGoalMonth(direction) {
+  const data = companyGoalsData(activeGoalsYear);
+  const currentIndex = data.months.findIndex((month) => month.key === activeGoalsMonth);
+  const nextIndex = Math.min(data.months.length - 1, Math.max(0, currentIndex + direction));
+  activeGoalsMonth = data.months[nextIndex]?.key || activeGoalsMonth;
+  renderGoalsDashboard();
+}
+
+function goalPercent(total, target) {
+  if (!target) return 0;
+  return Math.max(0, (Number(total) || 0) / target * 100);
+}
+
+function goalPercentLabel(total, target) {
+  return calculatedPercent(goalPercent(total, target));
+}
+
+function goalsYearProgress(year) {
+  const numericYear = Number(year);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const elapsedMonths = numericYear < currentYear ? 12 : numericYear > currentYear ? 0 : now.getMonth() + 1;
+  return {
+    elapsedMonths,
+    percent: Math.round((elapsedMonths / 12) * 100),
+  };
+}
+
+function renderGoalsOverview(data, month, settings) {
+  const monthTotal = month?.total || 0;
+  const monthContracts = month?.contracts || [];
+  const targetPercent = Math.min(100, Math.round(goalPercent(monthTotal, settings.target)));
+  const remainingTarget = Math.max(settings.target - monthTotal, 0);
+  const monthTicket = monthContracts.length ? monthTotal / monthContracts.length : 0;
+  const feedback = remainingTarget
+    ? `Faltam ${calculatedCurrency(remainingTarget)} para atingir a meta mensal.`
+    : "Excelente! A meta mensal foi atingida.";
+
   return `
-    <article class="goal-summary-card">
-      <span>${escapeHtml(item.label)}</span>
-      <strong>${escapeHtml(item.value)}</strong>
-      <small>${escapeHtml(item.hint)}</small>
+    <section class="goals-overview-card">
+      <div class="goal-month-hero">
+        <p class="goals-card-kicker">Meta mensal</p>
+        <div class="goal-hero-content">
+          <div class="goal-ring" style="--goal-ring:${targetPercent}%">
+            <div class="goal-ring-content">
+              <strong>${targetPercent}%</strong>
+              <span>da meta</span>
+            </div>
+          </div>
+          <div class="goal-main-value">
+            <strong>${escapeHtml(calculatedCurrency(monthTotal))}</strong>
+            <span>de ${escapeHtml(calculatedCurrency(settings.target))}</span>
+            <p><i data-lucide="check-circle-2"></i>${escapeHtml(feedback)}</p>
+          </div>
+        </div>
+      </div>
+      <div class="goal-overview-side">
+        <div class="goal-overview-metrics">
+          ${renderGoalMetric("wallet", "Honorários fechados no mês", calculatedCurrency(monthTotal), "")}
+          ${renderGoalMetric("flag", "Falta para a meta", calculatedCurrency(remainingTarget), remainingTarget ? "" : "Meta batida")}
+          ${renderGoalMetric("users", "Contratos no mês", monthContracts.length, "Contratos fechados")}
+          ${renderGoalMetric("banknote", "Ticket médio", calculatedCurrency(monthTicket), "Por contrato")}
+        </div>
+        <div class="goal-threshold-grid">
+          ${renderGoalThresholdCard("Piso mensal", settings.floor, monthTotal, "floor")}
+          ${renderGoalThresholdCard("Meta mensal", settings.target, monthTotal, "target")}
+          ${renderGoalThresholdCard("Supermeta mensal", settings.stretch, monthTotal, "stretch")}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderGoalMetric(icon, label, value, hint) {
+  return `
+    <article class="goal-overview-metric">
+      <i data-lucide="${icon}"></i>
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value))}</strong>
+      ${hint ? `<small>${escapeHtml(hint)}</small>` : ""}
     </article>
   `;
 }
 
-function renderGoalMonthCard(month, settings) {
-  const percent = settings.stretch ? Math.min(100, Math.round((month.total / settings.stretch) * 100)) : 0;
-  const level = monthlyGoalLevel(month.total, settings);
+function renderGoalThresholdCard(label, amount, total, tone) {
+  const percent = Math.min(100, Math.round(goalPercent(total, amount)));
   return `
-    <button class="goal-month-card ${level.className} ${month.key === activeGoalsMonth ? "active" : ""}" type="button" data-goal-month="${month.key}">
-      <header>
-        <strong>${escapeHtml(month.label)}</strong>
-        <span>${month.contracts.length} contrato(s)</span>
-      </header>
-      <div class="goal-month-total">${escapeHtml(calculatedCurrency(month.total))}</div>
-      <div class="goal-progress-track">
-        <span style="width:${percent}%"></span>
-        <i style="left:${Math.min(100, Math.round((settings.floor / settings.stretch) * 100))}%"></i>
-        <i style="left:${Math.min(100, Math.round((settings.target / settings.stretch) * 100))}%"></i>
+    <article class="goal-threshold-card ${tone}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(calculatedCurrency(amount))}</strong>
+      <small>${escapeHtml(goalPercentLabel(total, amount))} alcançado</small>
+      <div class="goal-mini-track"><i style="width:${percent}%"></i></div>
+    </article>
+  `;
+}
+
+function renderGoalsAnnualPanel(data, settings, annualTarget, annualStretch) {
+  const annualFloor = settings.floor * 12;
+  const targetProgress = Math.min(100, Math.round(goalPercent(data.total, annualStretch)));
+  const yearProgress = goalsYearProgress(activeGoalsYear);
+  return `
+    <section class="goal-annual-panel">
+      <div class="goal-annual-main">
+        <p class="goals-card-kicker"><i data-lucide="target"></i> Meta anual</p>
+        <div class="goal-annual-total">
+          <strong>${escapeHtml(calculatedCurrency(data.total))}</strong>
+          <span>de ${escapeHtml(calculatedCurrency(annualTarget))}</span>
+        </div>
+        <div class="goal-annual-track">
+          <span style="width:${targetProgress}%"></span>
+          <i class="floor" style="left:${Math.min(100, Math.round(goalPercent(annualFloor, annualStretch)))}%"></i>
+          <i class="target" style="left:${Math.min(100, Math.round(goalPercent(annualTarget, annualStretch)))}%"></i>
+          <i class="stretch" style="left:100%"></i>
+        </div>
+        <div class="goal-annual-labels">
+          <span>Piso anual<br><strong>${escapeHtml(calculatedCurrency(annualFloor))}</strong></span>
+          <span>Meta anual<br><strong>${escapeHtml(calculatedCurrency(annualTarget))}</strong></span>
+          <span>Supermeta anual<br><strong>${escapeHtml(calculatedCurrency(annualStretch))}</strong></span>
+        </div>
       </div>
-      <div class="goal-month-marks">
-        <span>Piso ${escapeHtml(calculatedCurrency(settings.floor))}</span>
-        <span>Meta ${escapeHtml(calculatedCurrency(settings.target))}</span>
-        <span>Supermeta ${escapeHtml(calculatedCurrency(settings.stretch))}</span>
+      <div class="goal-year-progress">
+        <strong>${yearProgress.percent}% do ano concluído</strong>
+        <span>${yearProgress.elapsedMonths} de 12 meses</span>
       </div>
-      <p>${escapeHtml(goalMonthMessage(month.total, settings))}</p>
-    </button>
+      <div class="goal-annual-thresholds">
+        ${renderGoalThresholdCard("Piso anual", annualFloor, data.total, "floor")}
+        ${renderGoalThresholdCard("Meta anual", annualTarget, data.total, "target")}
+        ${renderGoalThresholdCard("Supermeta anual", annualStretch, data.total, "stretch")}
+      </div>
+    </section>
+  `;
+}
+
+function renderGoalsMonthlyPerformance(data, settings) {
+  const maxTotal = Math.max(settings.stretch, ...data.months.map((month) => month.total), 1);
+  return `
+    <section class="goal-performance-panel">
+      <div class="mini-heading">
+        <h3>Desempenho mensal - ${escapeHtml(activeGoalsYear)}</h3>
+        <span>Meta mensal: ${escapeHtml(calculatedCurrency(settings.target))}</span>
+      </div>
+      <div class="goal-month-bars">
+        ${data.months
+          .map((month) => {
+            const height = Math.max(6, Math.round((month.total / maxTotal) * 100));
+            return `
+              <button class="goal-month-bar-button ${month.key === activeGoalsMonth ? "active" : ""}" type="button" data-goal-month="${month.key}">
+                <strong>${escapeHtml(formatCompactCurrency(month.total))}</strong>
+                <span class="goal-month-bar" style="--bar-height:${height}%"><i></i></span>
+                <small>${escapeHtml(month.label.slice(0, 3))}</small>
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+      <p class="goal-panel-hint"><i data-lucide="info"></i> Clique em um mês para visualizar os contratos correspondentes.</p>
+    </section>
   `;
 }
 
 function renderGoalContracts(data) {
   const month = data.months.find((item) => item.key === activeGoalsMonth) || data.months[0];
   if (!month) return;
-  el.goalsContractsTitle.textContent = `Contratos de ${month.label}`;
+  el.goalsContractsTitle.textContent = `Contratos fechados em ${month.label}`;
   el.goalsContractsList.innerHTML = month.contracts.length
-    ? month.contracts
-        .map(
+    ? [
+        ...month.contracts.map(
           (contract) => `
             <article class="goal-contract-row">
               <div>
                 <strong>${escapeHtml(contract.clientName || "Cliente sem nome")}</strong>
-                <span>${escapeHtml(contract.source)} | ${formatDate(contract.contractClosedDate)} | ${escapeHtml(ownerName(contract.ownerId))}</span>
+                <span>${escapeHtml(contract.source)} | ${formatDate(contract.contractClosedDate)}</span>
               </div>
               <div>
-                <strong>${escapeHtml(calculatedCurrency(contract.amount))}</strong>
                 <span>${escapeHtml([contract.origin, contract.financeStatus].filter(Boolean).join(" | ") || "Sem detalhe")}</span>
+                <strong>${escapeHtml(calculatedCurrency(contract.amount))}</strong>
               </div>
               ${
                 contract.sourceType === "client"
@@ -2974,8 +3112,9 @@ function renderGoalContracts(data) {
               }
             </article>
           `
-        )
-        .join("")
+        ),
+        `<footer class="goal-contract-total"><span>Total realizado em ${escapeHtml(month.label)}</span><strong>${escapeHtml(calculatedCurrency(month.total))}</strong></footer>`,
+      ].join("")
     : `<p class="empty-state compact">Nenhum contrato fechado neste mês.</p>`;
 }
 
@@ -3042,7 +3181,7 @@ function companyGoalsData(year) {
     const monthContracts = contracts.filter((contract) => contract.contractClosedDate?.startsWith(key));
     return {
       key,
-      label: monthName(key),
+      label: monthName(String(index + 1).padStart(2, "0")),
       contracts: monthContracts,
       total: monthContracts.reduce((sum, contract) => sum + contract.amount, 0),
     };
