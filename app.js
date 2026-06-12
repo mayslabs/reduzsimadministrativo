@@ -1102,7 +1102,7 @@ function bindEvents() {
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.newRegularizationButton.addEventListener("click", () => openRegularizationDialog());
-  el.quickInternalTaskButton.addEventListener("click", openQuickInternalTaskDialog);
+  el.quickInternalTaskButton?.addEventListener("click", openQuickInternalTaskDialog);
   el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
   el.addMeetingButton.addEventListener("click", () => openMeetingDialog());
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
