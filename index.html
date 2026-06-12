@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=106" />
+    <link rel="stylesheet" href="./styles.css?v=107" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -123,8 +123,8 @@
         <section id="tasksSection" class="app-section" hidden>
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Rotina operacional</p>
-              <h2>Central de tarefas</h2>
+              <h2>Tarefas</h2>
+              <p class="section-subtitle">Rotina operacional da equipe, retornos e prioridades do dia.</p>
             </div>
             <div class="inline-actions">
               <button id="quickInternalTaskButton" class="secondary-button" type="button"><i data-lucide="zap"></i> Tarefa rápida</button>
@@ -135,18 +135,13 @@
 
           <div id="taskOverview" class="task-overview"></div>
 
-          <div class="calendar-controls">
+          <div class="calendar-controls task-period-controls" hidden>
             <button id="previousTaskPeriodButton" class="icon-button" type="button" aria-label="Período anterior"><i data-lucide="chevron-left"></i></button>
             <div class="calendar-title">
               <strong id="taskPeriodLabel"></strong>
               <button id="todayTaskButton" class="small-button" type="button">Hoje</button>
             </div>
             <button id="nextTaskPeriodButton" class="icon-button" type="button" aria-label="Próximo período"><i data-lucide="chevron-right"></i></button>
-            <div class="segmented-control calendar-mode" role="group" aria-label="Modo do calendário">
-              <button id="taskDayModeButton" class="active" type="button"><i data-lucide="sun"></i> Meu dia</button>
-              <button id="taskWeekModeButton" type="button"><i data-lucide="columns-3"></i> Semana</button>
-              <button id="taskMonthModeButton" type="button"><i data-lucide="calendar-days"></i> Mês</button>
-            </div>
           </div>
 
           <div class="toolbar task-toolbar">
@@ -155,7 +150,8 @@
               <input id="taskSearchInput" type="search" placeholder="Buscar tarefa, reunião, prazo ou cliente" />
             </label>
             <select id="taskOwnerFilter" aria-label="Filtrar por responsável"></select>
-            <select id="taskStatusFilter" aria-label="Filtrar por status">
+            <select id="taskClientFilter" aria-label="Filtrar por cliente"></select>
+            <select id="taskStatusFilter" class="task-status-filter" aria-label="Filtrar por status">
               <option value="">Todos</option>
               <option value="open">Abertas</option>
               <option value="overdue">Atrasadas</option>
@@ -168,6 +164,11 @@
               <option value="Aguardando terceiro">Aguardando terceiro</option>
             </select>
             <button id="taskMineFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="user-check"></i> Minhas tarefas</button>
+            <div class="segmented-control calendar-mode" role="group" aria-label="Modo de visualização das tarefas">
+              <button id="taskDayModeButton" class="active" type="button"><i data-lucide="sun"></i> Meu dia</button>
+              <button id="taskWeekModeButton" type="button"><i data-lucide="calendar-days"></i> Semana</button>
+              <button id="taskMonthModeButton" type="button"><i data-lucide="list"></i> Lista</button>
+            </div>
           </div>
 
           <div id="taskCenterList" class="task-center-list"></div>
@@ -775,7 +776,10 @@
     <dialog id="simpleDialog" class="simple-dialog">
       <form method="dialog" class="simple-form">
         <header class="dialog-header">
-          <h2 id="simpleDialogTitle"></h2>
+          <div>
+            <h2 id="simpleDialogTitle"></h2>
+            <p id="simpleDialogSubtitle" class="section-subtitle"></p>
+          </div>
           <button class="icon-button" value="close" type="submit" aria-label="Fechar"><i data-lucide="x"></i></button>
         </header>
         <div id="simpleDialogBody" class="field-stack"></div>
@@ -789,7 +793,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=106"></script>
+    <script src="./app.js?v=107"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

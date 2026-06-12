@@ -301,6 +301,7 @@ const el = {
   taskMonthModeButton: document.getElementById("taskMonthModeButton"),
   taskSearchInput: document.getElementById("taskSearchInput"),
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
+  taskClientFilter: document.getElementById("taskClientFilter"),
   taskStatusFilter: document.getElementById("taskStatusFilter"),
   taskMineFilterButton: document.getElementById("taskMineFilterButton"),
   taskCenterList: document.getElementById("taskCenterList"),
@@ -429,6 +430,7 @@ const el = {
   accountMessage: document.getElementById("accountMessage"),
   simpleDialog: document.getElementById("simpleDialog"),
   simpleDialogTitle: document.getElementById("simpleDialogTitle"),
+  simpleDialogSubtitle: document.getElementById("simpleDialogSubtitle"),
   simpleDialogBody: document.getElementById("simpleDialogBody"),
   simpleDialogSave: document.getElementById("simpleDialogSave"),
 };
@@ -683,6 +685,9 @@ function normalizeMeeting(meeting) {
     id: meeting.id || id(),
     title: meeting.title || meeting.name || "",
     description: meeting.description || meeting.notes || "",
+    clientId: meeting.clientId || "",
+    participants: meeting.participants || "",
+    location: meeting.location || "",
     ownerId: meeting.ownerId || "",
     date: meeting.date || meeting.meetingDate || "",
     time: meeting.time || "",
@@ -1115,6 +1120,7 @@ function bindEvents() {
   el.clientSort.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
+  el.taskClientFilter.addEventListener("change", renderTaskCenter);
   el.taskStatusFilter.addEventListener("change", renderTaskCenter);
   el.taskMineFilterButton.addEventListener("click", () => {
     taskMineOnly = !taskMineOnly;
@@ -3283,6 +3289,7 @@ function csvCell(value) {
 
 function renderTaskCenter() {
   renderTaskOwnerFilter();
+  renderTaskClientFilter();
   renderTaskQuickFilters();
   const items = taskCenterItems();
   const filtered = filterTaskCenterItems(items);
@@ -4329,11 +4336,16 @@ function renderTaskCalendar(items) {
     return;
   }
 
+  if (activeTaskCalendarMode === "month") {
+    el.taskCenterList.innerHTML = renderTaskListBoard(items);
+    return;
+  }
+
   const overdueItems = items.filter((item) => item.urgency === "overdue");
   const waitingItems = items.filter((item) => item.urgency === "waiting");
   const datedItems = items.filter((item) => item.date && !["overdue", "waiting"].includes(item.urgency));
   const noDateItems = items.filter((item) => !item.date);
-  const calendarMarkup = activeTaskCalendarMode === "week" ? renderTaskWeekBoard(datedItems) : renderTaskMonthBoard(datedItems);
+  const calendarMarkup = renderTaskWeekBoard(datedItems);
 
   el.taskCenterList.innerHTML = `
     ${renderOverdueTasks(overdueItems)}
@@ -4346,34 +4358,175 @@ function renderTaskCalendar(items) {
 function renderTaskDayBoard(items) {
   const selectedDay = localDateKey(activeTaskDate);
   const openItems = items.filter((item) => item.urgency !== "done");
+  const todayItems = openItems.filter((item) => item.date === selectedDay);
   const overdueItems = openItems.filter((item) => item.urgency === "overdue");
-  const todayItems = openItems.filter((item) => item.urgency === "today" && item.date === selectedDay);
-  const noDateImportant = openItems.filter((item) => item.urgency === "no-date" && taskPriorityRank(item.priority) < 2);
-  const waitingItems = openItems.filter((item) => item.urgency === "waiting");
-  const dayTitle = selectedDay === localDateKey() ? "Hoje" : "Dia selecionado";
+  const waitingItems = openItems.filter((item) => isWaitingReturnItem(item, selectedDay));
+  const upcomingItems = openItems
+    .filter((item) => item.date && item.date > selectedDay && !isWaitingReturnItem(item, selectedDay))
+    .slice(0, 8);
+  const noDateItems = openItems.filter((item) => item.urgency === "no-date").slice(0, 4);
+  const nextActions = [...upcomingItems, ...noDateItems].sort(taskItemSorter).slice(0, 8);
+  const dayTitle = selectedDay === localDateKey() ? "Prioridades de hoje" : "Prioridades do dia";
 
   return `
-    <div class="my-day-board">
-      ${renderTaskFocusPanel("Atrasadas", overdueItems, "overdue", "alert-triangle")}
-      ${renderTaskFocusPanel(dayTitle, todayItems, "today", "sun")}
-      ${renderTaskFocusPanel("Sem prazo importante", noDateImportant, "no-date", "star")}
-      ${renderTaskFocusPanel("Aguardando retorno", waitingItems, "waiting", "hourglass")}
+    <div class="task-dashboard-board">
+      <div class="task-dashboard-main">
+        ${renderTaskTablePanel(dayTitle, todayItems, "today", "circle-dot", { limit: 6, empty: "Sem prioridades para hoje." })}
+        ${renderTaskTablePanel("Próximas ações", nextActions, "upcoming", "list-checks", { limit: 6, empty: "Nenhuma próxima ação filtrada." })}
+      </div>
+      <aside class="task-dashboard-side">
+        ${renderTaskSidePanel("Aguardando retorno", waitingItems, "waiting", "hourglass", { limit: 4 })}
+        ${renderTaskSidePanel("Atrasadas", overdueItems, "overdue", "triangle-alert", { limit: 4 })}
+      </aside>
     </div>
   `;
 }
 
-function renderTaskFocusPanel(title, items, key, icon) {
+function renderTaskListBoard(items) {
+  const openItems = items.filter((item) => item.urgency !== "done");
+  const doneItems = items.filter((item) => item.urgency === "done").slice(0, 8);
   return `
-    <section class="task-focus-panel ${key}">
+    <div class="task-list-board">
+      ${renderTaskTablePanel("Tarefas em lista", openItems, "list", "list", { limit: 80, empty: "Nenhuma tarefa encontrada." })}
+      ${doneItems.length ? renderTaskTablePanel("Concluídas recentes", doneItems, "done", "check-circle-2", { limit: 8 }) : ""}
+    </div>
+  `;
+}
+
+function renderTaskTablePanel(title, items, key, icon, options = {}) {
+  const limit = options.limit || 6;
+  const visibleItems = [...items].sort(taskItemSorter).slice(0, limit);
+  const hiddenCount = Math.max(0, items.length - visibleItems.length);
+  return `
+    <section class="task-work-panel ${key}">
       <header>
-        <span><i data-lucide="${icon}"></i>${title}</span>
+        <span><i data-lucide="${icon}"></i>${escapeHtml(title)}</span>
         <strong>${items.length}</strong>
       </header>
-      <div class="task-focus-items">
-        ${items.length ? renderTaskGroupItems(items, `focus-${key}`, { showDate: true }) : `<p class="empty-state compact">Sem tarefas.</p>`}
+      <div class="task-table-list">
+        ${visibleItems.length ? visibleItems.map(renderTaskTableRow).join("") : `<p class="empty-state compact">${escapeHtml(options.empty || "Sem tarefas.")}</p>`}
       </div>
+      ${hiddenCount ? `<button class="task-panel-link" type="button" data-task-status-jump="${escapeAttr(key)}">Ver todas (${items.length})</button>` : ""}
     </section>
   `;
+}
+
+function renderTaskSidePanel(title, items, key, icon, options = {}) {
+  const limit = options.limit || 4;
+  const visibleItems = [...items].sort(taskItemSorter).slice(0, limit);
+  return `
+    <section class="task-side-panel ${key}">
+      <header>
+        <span><i data-lucide="${icon}"></i>${escapeHtml(title)}</span>
+        <strong>${items.length}</strong>
+      </header>
+      <div class="task-side-list">
+        ${visibleItems.length ? visibleItems.map(renderTaskSideRow).join("") : `<p class="empty-state compact">Sem tarefas.</p>`}
+      </div>
+      ${items.length > limit ? `<button class="task-panel-link" type="button" data-task-status-jump="${escapeAttr(key)}">Ver todas (${items.length})</button>` : ""}
+    </section>
+  `;
+}
+
+function renderTaskTableRow(item) {
+  const key = taskItemKey(item);
+  const expanded = expandedTaskCardIds.has(key);
+  const statusLabel = localizeLabel(item.status || (item.kind.includes("Tarefa") ? "Pendente" : item.kind));
+  const priority = normalizeTaskPriority(item.priority);
+  return `
+    <article class="task-table-row ${taskTypeClass(item)} ${taskOwnerClass(item.ownerId)} ${item.urgency} priority-${normalize(priority)} status-${taskStatusClass(statusLabel)} ${expanded ? "expanded" : ""}" data-toggle-task-card="${escapeAttr(key)}">
+      <span class="task-check-ring" aria-hidden="true"></span>
+      <div class="task-row-title">
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(taskItemContext(item))}</small>
+      </div>
+      <div class="task-row-owner">
+        ${taskOwnerAvatar(item.ownerId)}
+        <span>${escapeHtml(ownerName(item.ownerId))}</span>
+      </div>
+      <div class="task-row-date"><i data-lucide="calendar"></i>${escapeHtml(taskDateText(item))}</div>
+      <div class="task-row-chips">
+        <span class="priority-pill">${escapeHtml(priority)}</span>
+        <span class="task-status-pill">${escapeHtml(statusLabel)}</span>
+      </div>
+      <div class="task-row-control">${taskPrimaryAction(item)}</div>
+      <div class="task-row-expanded" ${expanded ? "" : "hidden"}>
+        ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
+        ${item.followUpNotes ? `<p><strong>Acompanhamento:</strong> ${escapeHtml(item.followUpNotes)}</p>` : ""}
+        <div class="task-row-expanded-actions">
+          ${taskStatusControl(item, statusLabel)}
+          ${taskSecondaryActions(item)}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderTaskSideRow(item) {
+  const statusLabel = localizeLabel(item.status || (item.kind.includes("Tarefa") ? "Pendente" : item.kind));
+  return `
+    <article class="task-side-row ${taskTypeClass(item)} ${taskOwnerClass(item.ownerId)} ${item.urgency}">
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(taskItemContext(item))}</small>
+      </div>
+      <div class="task-side-meta">
+        ${taskOwnerAvatar(item.ownerId)}
+        <span>${escapeHtml(ownerName(item.ownerId))}</span>
+        <span><i data-lucide="calendar"></i>${escapeHtml(taskDateText(item))}</span>
+      </div>
+      <span class="task-status-pill">${escapeHtml(statusLabel)}</span>
+    </article>
+  `;
+}
+
+function taskItemContext(item) {
+  if (item.internalMeetingId) return item.clientName && item.clientName !== "Reunião" ? item.clientName : "Agenda";
+  if (item.internalTaskId) return item.visibility === "admin" ? "Somente admin" : "Equipe interna";
+  return item.clientName || "Cliente não informado";
+}
+
+function taskOwnerAvatar(userId) {
+  return `<span class="task-owner-avatar">${escapeHtml(userInitials(ownerName(userId)))}</span>`;
+}
+
+function taskDateText(item) {
+  if (!item.date) return "Sem prazo";
+  const today = localDateKey();
+  const tomorrow = localDateKey(new Date(Date.now() + 86400000));
+  const base = item.date === today ? "Hoje" : item.date === tomorrow ? "Amanhã" : formatDate(item.date);
+  const timeMatch = String(item.description || "").match(/Horário:\s*([0-9]{2}:[0-9]{2})/);
+  return timeMatch ? `${base}, ${timeMatch[1]}` : base;
+}
+
+function taskPrimaryAction(item) {
+  if (item.internalTaskId) return `<button class="icon-button" type="button" data-edit-internal-task="${escapeAttr(item.internalTaskId)}" aria-label="Editar tarefa"><i data-lucide="pencil"></i></button>`;
+  if (item.internalMeetingId) return `<button class="icon-button" type="button" data-edit-meeting="${escapeAttr(item.internalMeetingId)}" aria-label="Editar reunião"><i data-lucide="pencil"></i></button>`;
+  if (item.clientId) return `<button class="small-button" type="button" data-open-task-client="${escapeAttr(item.clientId)}"><i data-lucide="external-link"></i> Abrir</button>`;
+  return "";
+}
+
+function taskSecondaryActions(item) {
+  if (item.internalTaskId) {
+    return `<button class="icon-button danger-icon" type="button" data-remove-internal-task="${escapeAttr(item.internalTaskId)}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>`;
+  }
+  if (item.internalMeetingId) {
+    return `<button class="icon-button danger-icon" type="button" data-remove-meeting="${escapeAttr(item.internalMeetingId)}" aria-label="Remover reunião"><i data-lucide="trash-2"></i></button>`;
+  }
+  if (item.clientId) return `<button class="small-button" type="button" data-open-task-client="${escapeAttr(item.clientId)}"><i data-lucide="external-link"></i> Abrir card</button>`;
+  return "";
+}
+
+function taskStatusControl(item, statusLabel) {
+  if (!item.kind.includes("Tarefa")) return `<span class="task-type-pill">${escapeHtml(statusLabel)}</span>`;
+  return `<select class="task-status-select" data-center-task-status="${escapeAttr(item.id)}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${escapeAttr(item.clientId || "")}" data-task-id="${escapeAttr(item.id)}">${taskStatusOptions(statusLabel)}</select>`;
+}
+
+function isWaitingReturnItem(item, referenceDay = localDateKey()) {
+  const status = localizeLabel(item.status || "");
+  const waiting = ["Aguardando cliente", "Aguardando terceiro"].includes(status) || item.urgency === "waiting";
+  if (!waiting || item.urgency === "done") return false;
+  return Boolean(item.date && item.date < referenceDay);
 }
 
 function renderOverdueTasks(items) {
@@ -4517,6 +4670,16 @@ function bindTaskCenterActions() {
     });
   });
 
+  document.querySelectorAll("[data-task-status-jump]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.taskStatusJump;
+      activeTaskCalendarMode = "month";
+      if (key === "overdue" || key === "waiting") el.taskStatusFilter.value = key;
+      else el.taskStatusFilter.value = "";
+      renderTaskCenter();
+    });
+  });
+
   document.querySelectorAll("[data-open-task-client]").forEach((button) => {
     button.addEventListener("click", () => openClientById(button.dataset.openTaskClient));
   });
@@ -4608,23 +4771,37 @@ function renderTaskOwnerFilter() {
   el.taskOwnerFilter.value = selected;
 }
 
+function renderTaskClientFilter() {
+  if (!el.taskClientFilter) return;
+  const selected = el.taskClientFilter.value;
+  const clients = state.clients
+    .slice()
+    .sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""));
+  el.taskClientFilter.innerHTML = `<option value="">Todos os clientes</option><option value="internal">Equipe interna</option>${clients
+    .map((client) => `<option value="${client.id}">${escapeHtml(client.clientName || "Cliente sem nome")}</option>`)
+    .join("")}`;
+  el.taskClientFilter.value = selected;
+}
+
 function renderTaskOverview(items) {
   const openItems = items.filter((item) => item.urgency !== "done");
   const stats = [
-    ["Atrasadas", openItems.filter((item) => item.urgency === "overdue").length, "overdue"],
-    ["Hoje", openItems.filter((item) => item.urgency === "today").length, "today"],
-    ["Aguardando retorno", openItems.filter((item) => item.urgency === "waiting").length, "waiting"],
-    ["Urgentes", openItems.filter((item) => normalizeTaskPriority(item.priority) === "Urgente").length, "urgent"],
-    ["Próximas", openItems.filter((item) => item.urgency === "upcoming").length, "upcoming"],
-    ["Sem prazo", openItems.filter((item) => item.urgency === "no-date").length, "no-date"],
+    { label: "Atrasadas", value: openItems.filter((item) => item.urgency === "overdue").length, key: "overdue", icon: "triangle-alert", hint: "tarefas" },
+    { label: "Hoje", value: openItems.filter((item) => item.date === localDateKey()).length, key: "today", icon: "calendar-days", hint: "tarefas" },
+    { label: "Aguardando retorno", value: openItems.filter((item) => isWaitingReturnItem(item)).length, key: "waiting", icon: "hourglass", hint: "tarefas" },
+    { label: "Sem prazo", value: openItems.filter((item) => item.urgency === "no-date").length, key: "no-date", icon: "clock-3", hint: "tarefas" },
   ];
 
   el.taskOverview.innerHTML = stats
     .map(
-      ([label, value, urgency]) => `
-        <article class="task-stat ${urgency}">
-          <span>${label}</span>
-          <strong>${value}</strong>
+      (stat) => `
+        <article class="task-stat ${stat.key}">
+          <span class="task-stat-icon"><i data-lucide="${stat.icon}"></i></span>
+          <div>
+            <span>${stat.label}</span>
+            <strong>${stat.value}</strong>
+            <small>${stat.hint}</small>
+          </div>
         </article>
       `
     )
@@ -4697,19 +4874,26 @@ function taskCenterItems() {
     });
 
   const meetingItems = (state.meetings || []).map((meeting) => {
+    const linkedClient = meeting.clientId ? state.clients.find((client) => client.id === meeting.clientId) : null;
     const item = {
       id: meeting.id,
       source: "Agenda",
       kind: "Reunião",
       title: meeting.title || "Reunião sem título",
-      description: [meeting.time ? `Horário: ${meeting.time}` : "", meeting.description || ""].filter(Boolean).join("\n"),
+      description: [
+        meeting.time ? `Horário: ${meeting.time}` : "",
+        meeting.participants ? `Participantes: ${meeting.participants}` : "",
+        meeting.location ? `Local/link: ${meeting.location}` : "",
+        meeting.description || "",
+      ].filter(Boolean).join("\n"),
       ownerId: meeting.ownerId,
       createdBy: meeting.createdBy || "",
       date: meeting.date || "",
       status: "Reunião",
       priority: "Normal",
       internalMeetingId: meeting.id,
-      clientName: "Reunião",
+      clientId: meeting.clientId || "",
+      clientName: linkedClient?.clientName || "Reunião",
     };
     item.urgency = taskUrgency(item);
     return item;
@@ -4721,6 +4905,7 @@ function taskCenterItems() {
 function filterTaskCenterItems(items) {
   const query = normalize(el.taskSearchInput.value);
   const ownerId = el.taskOwnerFilter.value;
+  const clientFilter = el.taskClientFilter?.value || "";
   const status = el.taskStatusFilter.value;
 
   return items
@@ -4739,6 +4924,10 @@ function filterTaskCenterItems(items) {
       ].join(" "));
       const matchesQuery = !query || haystack.includes(query);
       const matchesOwner = (!ownerId || item.ownerId === ownerId) && (!taskMineOnly || item.ownerId === currentUser.id);
+      const matchesClient =
+        !clientFilter ||
+        item.clientId === clientFilter ||
+        (clientFilter === "internal" && !item.clientId);
       const statusLabel = localizeLabel(item.status || "");
       const matchesStatus =
         !status ||
@@ -4746,7 +4935,7 @@ function filterTaskCenterItems(items) {
         statusLabel === status ||
         (status === "open" && item.urgency !== "done") ||
         (status === "done" && item.urgency === "done");
-      return matchesQuery && matchesOwner && matchesStatus;
+      return matchesQuery && matchesOwner && matchesClient && matchesStatus;
     })
     .sort(taskItemSorter);
 }
@@ -6904,11 +7093,16 @@ function openUserDialog() {
 function openClientTaskDialog(taskId = null) {
   const task = activeClient.tasks.find((item) => item.id === taskId) || null;
   const draft = task || emptyTask();
+  const userOptions = state.users.map((user) => ({ value: user.id, label: user.name }));
   openSimpleDialog(task ? "Editar tarefa" : "Nova tarefa", [
-    { label: "Tarefa", name: "title", type: "text", value: draft.title || "" },
-    { label: "Descrição", name: "description", type: "textarea", rows: 4, value: draft.description || "" },
-    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 4, value: draft.followUpNotes || "" },
-    { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "1. Informações principais", type: "section" },
+    { label: "Tarefa", name: "title", type: "text", value: draft.title || "", placeholder: "Ex.: Revisar contrato de prestação de serviço", span: 2 },
+    { label: "Descrição", name: "description", type: "textarea", rows: 4, value: draft.description || "", placeholder: "Descreva o objetivo, contexto e detalhes da tarefa...", maxLength: 1000, span: 2 },
+    { label: "2. Acompanhamento", type: "section" },
+    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 3, value: draft.followUpNotes || "", placeholder: "Registre observações, atualizações ou próximos passos...", maxLength: 1000, span: 2 },
+    { label: "3. Responsáveis e prazo", type: "section" },
+    { label: "Criada por", name: "createdByLabel", type: "readonly", value: ownerName(draft.createdBy || currentUser.id) },
+    { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: userOptions },
     { label: "Prazo", name: "dueDate", type: "date", value: draft.dueDate || "" },
     { label: "Prioridade", name: "priority", type: "select", value: normalizeTaskPriority(draft.priority), options: taskPriorityValues().map((value) => ({ value, label: value })) },
     { label: "Status", name: "status", type: "select", value: draft.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
@@ -6943,6 +7137,11 @@ function openClientTaskDialog(taskId = null) {
 
     renderTasks();
     return true;
+  }, {
+    className: "task-form-dialog",
+    subtitle: "Organize demandas do cliente e acompanhe prazos.",
+    saveLabel: "Salvar tarefa",
+    saveIcon: "save",
   });
 }
 
@@ -7045,14 +7244,18 @@ function openInternalTaskDialog(taskId = null) {
       .sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""))
       .map((client) => ({ value: client.id, label: client.clientName || "Cliente sem nome" })),
   ];
+  const userOptions = state.users.map((user) => ({ value: user.id, label: user.name }));
 
   openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa", [
+    { label: "1. Informações principais", type: "section" },
     ...(task ? [] : [{ label: "Cliente vinculado", name: "clientId", type: "select", value: "", options: clientOptions }]),
-    { label: "Tarefa", name: "title", type: "text", value: task?.title || "" },
-    { label: "Texto", name: "description", type: "textarea", rows: 5, value: task?.description || "" },
-    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 4, value: task?.followUpNotes || "" },
+    { label: "Tarefa", name: "title", type: "text", value: task?.title || "", placeholder: "Ex.: Revisar contrato de prestação de serviço" },
+    { label: "Descrição", name: "description", type: "textarea", rows: 4, value: task?.description || "", placeholder: "Descreva o objetivo, contexto e detalhes da tarefa...", maxLength: 1000, span: 2 },
+    { label: "2. Acompanhamento", type: "section" },
+    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 3, value: task?.followUpNotes || "", placeholder: "Registre observações, atualizações ou próximos passos...", maxLength: 1000, span: 2 },
+    { label: "3. Responsáveis e prazo", type: "section" },
     { label: "Criada por", name: "createdByLabel", type: "readonly", value: ownerName(task?.createdBy || currentUser.id) },
-    { label: "Responsável", name: "ownerId", type: "select", value: task?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "Responsável", name: "ownerId", type: "select", value: task?.ownerId || currentUser.id, options: userOptions },
     { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
     { label: "Prioridade", name: "priority", type: "select", value: normalizeTaskPriority(task?.priority), options: taskPriorityValues().map((value) => ({ value, label: value })) },
     { label: "Status", name: "status", type: "select", value: task?.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
@@ -7136,17 +7339,34 @@ function openInternalTaskDialog(taskId = null) {
     renderTaskCenter();
     renderUpdates();
     return true;
+  }, {
+    className: "task-form-dialog",
+    subtitle: "Organize demandas internas e vincule a um cliente quando fizer sentido.",
+    saveLabel: "Salvar tarefa",
+    saveIcon: "save",
   });
 }
 
 function openMeetingDialog(meetingId = null) {
   const meeting = state.meetings.find((item) => item.id === meetingId) || null;
+  const clientOptions = [
+    { value: "", label: "Sem cliente vinculado" },
+    ...state.clients
+      .slice()
+      .sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""))
+      .map((client) => ({ value: client.id, label: client.clientName || "Cliente sem nome" })),
+  ];
   openSimpleDialog(meeting ? "Editar reunião" : "Nova reunião", [
-    { label: "Reunião", name: "title", type: "text", value: meeting?.title || "" },
-    { label: "Pauta/descrição", name: "description", type: "textarea", rows: 4, value: meeting?.description || "" },
+    { label: "1. Informações principais", type: "section" },
+    { label: "Cliente vinculado", name: "clientId", type: "select", value: meeting?.clientId || "", options: clientOptions, span: 2 },
+    { label: "Reunião", name: "title", type: "text", value: meeting?.title || "", placeholder: "Ex.: Alinhamento semanal de projetos", span: 2 },
+    { label: "Pauta/descrição", name: "description", type: "textarea", rows: 4, value: meeting?.description || "", placeholder: "Descreva os principais pontos que serão discutidos na reunião...", maxLength: 1000, span: 2 },
+    { label: "2. Agendamento", type: "section" },
     { label: "Responsável", name: "ownerId", type: "select", value: meeting?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
     { label: "Data", name: "date", type: "date", value: meeting?.date || "" },
     { label: "Horário", name: "time", type: "time", value: meeting?.time || "" },
+    { label: "Participantes", name: "participants", type: "text", value: meeting?.participants || "", placeholder: "Ex.: Mayssa, Camilli, cliente" },
+    { label: "Local ou link", name: "location", type: "text", value: meeting?.location || "", placeholder: "Ex.: Sala de reuniões ou link da videochamada", span: 2 },
   ], (values) => {
     if (!values.title) {
       alert("Informe o título da reunião.");
@@ -7160,9 +7380,12 @@ function openMeetingDialog(meetingId = null) {
     const payload = {
       title: values.title,
       description: values.description || "",
+      clientId: values.clientId || "",
       ownerId: values.ownerId || currentUser.id,
       date: values.date,
       time: values.time || "",
+      participants: values.participants || "",
+      location: values.location || "",
       updatedAt: new Date().toISOString(),
     };
 
@@ -7184,15 +7407,29 @@ function openMeetingDialog(meetingId = null) {
     renderTaskCenter();
     renderUpdates();
     return true;
+  }, {
+    className: "task-form-dialog meeting-form-dialog",
+    subtitle: "Agende encontros e organize alinhamentos da equipe.",
+    saveLabel: "Salvar reunião",
+    saveIcon: "calendar-check",
   });
 }
 
-function openSimpleDialog(title, fields, onSave) {
+function openSimpleDialog(title, fields, onSave, options = {}) {
+  el.simpleDialog.className = `simple-dialog ${options.className || ""}`.trim();
   el.simpleDialogTitle.textContent = title;
+  if (el.simpleDialogSubtitle) {
+    el.simpleDialogSubtitle.textContent = options.subtitle || "";
+    el.simpleDialogSubtitle.hidden = !options.subtitle;
+  }
+  el.simpleDialogSave.innerHTML = options.saveLabel ? `<i data-lucide="${options.saveIcon || "save"}"></i> ${escapeHtml(options.saveLabel)}` : "Salvar";
   el.simpleDialogBody.innerHTML = fields
     .map(
-      (field) => `
-        <label>${field.label}
+      (field) =>
+        field.type === "section"
+          ? `<div class="simple-section-title ${field.className || ""}">${escapeHtml(field.label)}</div>`
+          : `
+        <label class="${field.span === 2 ? "span-2" : ""}">${field.label}
           ${simpleFieldControl(field)}
         </label>
       `
@@ -7217,7 +7454,7 @@ function openSimpleDialog(title, fields, onSave) {
 
 function simpleFieldControl(field) {
   if (field.type === "textarea") {
-    return `<textarea rows="${field.rows || 5}" data-simple-field="${field.name}">${escapeHtml(field.value)}</textarea>`;
+    return `<textarea rows="${field.rows || 5}" ${field.maxLength ? `maxlength="${field.maxLength}"` : ""} placeholder="${escapeAttr(field.placeholder || "")}" data-simple-field="${field.name}">${escapeHtml(field.value)}</textarea>`;
   }
 
   if (field.type === "readonly") {
@@ -7234,7 +7471,7 @@ function simpleFieldControl(field) {
     return `<input type="text" inputmode="numeric" value="${escapeAttr(formatCurrencyValue(field.value || ""))}" data-simple-field="${field.name}" data-money-field />`;
   }
 
-  return `<input class="${field.type === "color" ? "color-input" : ""}" type="${field.type}" value="${escapeAttr(field.value)}" data-simple-field="${field.name}" />`;
+  return `<input class="${field.type === "color" ? "color-input" : ""}" type="${field.type}" value="${escapeAttr(field.value)}" placeholder="${escapeAttr(field.placeholder || "")}" data-simple-field="${field.name}" />`;
 }
 
 function switchSection(sectionId) {
