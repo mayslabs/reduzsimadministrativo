@@ -228,7 +228,7 @@ textarea:focus {
   padding: 10px 12px;
   gap: 12px;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1.25;
   min-width: 0;
   text-align: left;
@@ -241,6 +241,7 @@ textarea:focus {
   width: 18px;
   height: 18px;
   color: #6b7280;
+  stroke-width: 1.55;
 }
 
 .nav-badge {
@@ -280,11 +281,11 @@ textarea:focus {
   content: "";
   position: absolute;
   left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
   border-radius: 999px;
-  background: var(--green);
+  background: #00a98a;
 }
 
 .nav-item.active svg,
