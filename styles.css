@@ -353,6 +353,18 @@ h3 {
   color: var(--charcoal);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .section-subtitle {
   margin: 5px 0 0;
   color: var(--muted);
@@ -721,18 +733,50 @@ h3 {
   color: var(--charcoal);
 }
 
-.bills-actions {
+#billsSection .section-heading {
+  align-items: flex-start;
+}
+
+#billsSection .section-heading h2 {
+  font-weight: 650;
+}
+
+.inline-actions.bills-actions {
+  display: grid;
+  grid-template-columns: 110px 110px 128px 190px 190px;
   align-items: end;
+  gap: 10px;
 }
 
 .bills-actions label {
-  min-width: 110px;
-  font-size: 11px;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: #4f5d67;
+  font-size: 11.5px;
+  font-weight: 500;
 }
 
-.bills-actions select {
+.bills-actions select,
+.bills-actions button {
   min-height: 38px;
+  height: 38px;
   padding-block: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.bills-actions button {
+  width: 100%;
+}
+
+.bills-actions .primary-button {
+  min-width: 190px;
+}
+
+.bills-actions .secondary-button {
+  min-width: 190px;
+  padding-inline: 12px;
 }
 
 .bills-summary-grid {
@@ -743,7 +787,7 @@ h3 {
 }
 
 .bill-summary-card {
-  border: 1px solid var(--line);
+  border: 1px solid #d9e6e2;
   border-radius: var(--radius);
   background: #fff;
   display: grid;
@@ -798,13 +842,14 @@ h3 {
   color: var(--muted);
   display: block;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .bill-summary-card strong {
   color: var(--ink);
   display: block;
   font-size: 19px;
+  font-weight: 650;
   margin-top: 5px;
 }
 
@@ -812,12 +857,12 @@ h3 {
   color: var(--muted);
   display: block;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   margin-top: 8px;
 }
 
 .bills-alert {
-  border: 1px solid #ffcaca;
+  border: 1px solid #ffd6d6;
   border-radius: var(--radius);
   background: #fff5f5;
   color: #8f1f1f;
@@ -841,7 +886,7 @@ h3 {
   background: transparent;
   color: var(--red);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 650;
   padding: 0;
 }
 
@@ -853,31 +898,46 @@ h3 {
 
 .bills-table-card,
 .bills-category-card {
-  border: 1px solid var(--line);
+  border: 1px solid #d9e6e2;
   border-radius: var(--radius);
   background: #fff;
   padding: 14px;
 }
 
 .bills-toolbar {
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(260px, 1fr) 176px;
+  align-items: start;
+  gap: 12px;
   margin-bottom: 14px;
 }
 
 .bills-filter-control {
   justify-self: end;
+  width: 176px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-color: #d9e6e2;
+  border-radius: 8px;
 }
 
 .bills-filter-control button {
-  min-width: 84px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.bills-filter-control button.active {
+  box-shadow: none;
 }
 
 .bills-table {
-  min-width: 820px;
+  min-width: 620px;
 }
 
 .bills-table td strong {
   font-size: 12.5px;
+  font-weight: 650;
 }
 
 .bills-table td small {
@@ -894,7 +954,7 @@ h3 {
 
 .bill-row.overdue td:nth-child(3) {
   color: var(--red);
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .bill-status-pill,
@@ -906,7 +966,7 @@ h3 {
   min-width: 62px;
   padding: 4px 9px;
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .bill-status-pill.paid,
@@ -941,21 +1001,28 @@ h3 {
   width: 32px;
 }
 
+.bill-row-actions .icon-button svg,
+.bill-summary-icon svg,
+.bills-alert svg,
+.bills-actions svg {
+  stroke-width: 1.65;
+}
+
 .empty-table-cell {
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 500;
   text-align: center !important;
 }
 
 .bill-donut-wrap {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 178px minmax(0, 1fr);
+  gap: 14px;
   align-items: center;
 }
 
 .bill-donut {
-  width: 190px;
+  width: 164px;
   aspect-ratio: 1;
   border-radius: 50%;
   background: conic-gradient(var(--bill-chart));
@@ -977,7 +1044,7 @@ h3 {
   color: var(--muted);
   display: grid;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   place-items: center;
   position: relative;
   z-index: 1;
@@ -986,6 +1053,7 @@ h3 {
 .bill-donut strong {
   color: var(--ink);
   font-size: 15px;
+  font-weight: 650;
   margin-top: 4px;
 }
 
@@ -997,17 +1065,18 @@ h3 {
 .bill-category-row,
 .bill-category-total {
   display: grid;
-  grid-template-columns: 12px minmax(90px, 1fr) auto 46px;
+  grid-template-columns: 10px minmax(72px, 1fr) auto 38px;
   align-items: center;
   gap: 8px;
   color: var(--charcoal);
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .bill-category-row strong,
 .bill-category-total strong {
   color: var(--ink);
   font-size: 12px;
+  font-weight: 650;
 }
 
 .bill-category-row small,
@@ -1024,7 +1093,7 @@ h3 {
 }
 
 .bill-category-total {
-  grid-template-columns: minmax(90px, 1fr) auto 46px;
+  grid-template-columns: minmax(72px, 1fr) auto 38px;
   border-radius: 7px;
   background: var(--soft);
   margin-top: 8px;
@@ -2791,20 +2860,21 @@ h3 {
 
 .updates-side-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
-  gap: 9px;
+  grid-template-columns: 30px minmax(0, 1fr) 28px;
+  gap: 10px;
   align-items: center;
   border: 0;
   border-radius: 8px;
   background: transparent;
-  padding: 7px 4px;
+  padding: 8px 4px;
 }
 
 .updates-side-icon {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  justify-self: center;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--update-soft, var(--green-soft)) 72%, #fff);
   color: var(--update-color, var(--green-dark));
@@ -2829,8 +2899,8 @@ h3 {
 
 .updates-side-row span {
   color: var(--charcoal);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .updates-side-row small {
@@ -2896,12 +2966,15 @@ button.updates-important-item:hover {
 }
 
 .updates-aside-link {
-  min-height: 34px;
+  justify-self: start;
+  min-height: 30px;
   border: 1px solid var(--green);
   border-radius: 8px;
   background: #fff;
   color: var(--green-dark);
-  font-weight: 800;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -2915,6 +2988,195 @@ button.updates-important-item:hover {
 
 .updates-aside-note {
   text-align: center;
+}
+
+#updatesSection .section-heading h2 {
+  font-weight: 650;
+}
+
+#updatesSection .section-subtitle,
+#updatesSection .updates-toolbar input,
+#updatesSection .updates-toolbar select,
+#updatesSection .updates-toolbar button {
+  font-weight: 400;
+}
+
+#updatesSection .updates-toolbar {
+  grid-template-columns: minmax(320px, 1fr) 132px 150px 180px 176px 210px;
+  align-items: center;
+  gap: 10px;
+}
+
+#updatesSection .updates-toolbar input,
+#updatesSection .updates-toolbar select,
+#updatesSection .updates-toolbar button {
+  min-height: 40px;
+  height: 40px;
+  border-color: #d9e6e2;
+  font-size: 13.5px;
+}
+
+#updatesSection .updates-toolbar button {
+  font-weight: 500;
+}
+
+#updatesSection .search-field input {
+  padding-left: 38px;
+}
+
+#updatesSection .updates-summary {
+  gap: 12px;
+}
+
+#updatesSection .updates-summary-card {
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 11px;
+  min-height: 56px;
+  border-color: #d9e6e2;
+  border-top-width: 2px;
+  padding: 8px 12px;
+}
+
+#updatesSection .updates-summary-card > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+#updatesSection .updates-summary-card span:not(.updates-summary-icon) {
+  color: #5f6f7a;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+#updatesSection .updates-summary-card strong {
+  color: #2f3942;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+#updatesSection .updates-summary-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+
+#updatesSection .updates-summary-icon svg,
+#updatesSection .update-icon svg,
+#updatesSection .updates-side-icon svg,
+#updatesSection .update-meta svg,
+#updatesSection .update-change-list svg,
+#updatesSection .updates-toolbar svg {
+  stroke-width: 1.55;
+}
+
+#updatesSection .update-day-group,
+#updatesSection .updates-side-card,
+#updatesSection .update-item {
+  border-color: #d9e6e2;
+}
+
+#updatesSection .update-day-toggle,
+#updatesSection .update-day-heading > span,
+#updatesSection .update-time strong,
+#updatesSection .update-time span,
+#updatesSection .update-content h3,
+#updatesSection .update-meta span,
+#updatesSection .update-change-field,
+#updatesSection .update-change-after,
+#updatesSection .update-actions .small-button,
+#updatesSection .updates-side-card header p,
+#updatesSection .updates-side-card header h3,
+#updatesSection .updates-side-card header span,
+#updatesSection .updates-side-row strong,
+#updatesSection .updates-side-row span,
+#updatesSection .updates-important-item strong,
+#updatesSection .updates-aside-link {
+  font-weight: 500;
+}
+
+#updatesSection .update-day-toggle {
+  font-size: 14.5px;
+}
+
+#updatesSection .update-day-heading > span {
+  font-size: 12px;
+}
+
+#updatesSection .update-item {
+  border-left-width: 2px;
+}
+
+#updatesSection .update-item.update-priority {
+  border-left-width: 3px;
+}
+
+#updatesSection .update-content h3 {
+  color: #34424c;
+  font-size: 13.5px;
+}
+
+#updatesSection .update-content p,
+#updatesSection .update-change-list li {
+  font-weight: 400;
+}
+
+#updatesSection .update-meta span {
+  font-size: 10.5px;
+}
+
+#updatesSection .updates-side-card header p {
+  font-size: 11px;
+}
+
+#updatesSection .updates-side-card header h3 {
+  font-size: 15px;
+}
+
+#updatesSection .updates-side-card header span {
+  font-size: 12.5px;
+}
+
+#updatesSection .updates-side-row {
+  grid-template-columns: 30px minmax(0, 1fr) 28px;
+  gap: 10px;
+  padding: 8px 3px;
+}
+
+#updatesSection .updates-side-row span {
+  font-size: 14px;
+}
+
+#updatesSection .updates-side-row small {
+  font-size: 11px;
+}
+
+#updatesSection .updates-side-row strong {
+  justify-self: end;
+  color: #3a4650;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#updatesSection .updates-important-item strong {
+  font-size: 12px;
+}
+
+#updatesSection .updates-important-criteria,
+#updatesSection .updates-important-item small,
+#updatesSection .updates-aside-note,
+#updatesSection .updates-side-empty {
+  font-weight: 400;
+}
+
+#updatesSection .updates-aside-link {
+  width: auto;
+  min-height: 30px;
+  padding-inline: 14px;
+  font-size: 12.5px;
+  font-weight: 500;
 }
 
 @media (max-width: 1180px) {
@@ -4558,6 +4820,63 @@ button.updates-important-item:hover {
 
 .task-form-dialog .dialog-footer .primary-button {
   font-weight: 650;
+}
+
+.bill-form-dialog {
+  width: min(540px, calc(100vw - 28px));
+}
+
+.bill-form-dialog .dialog-header {
+  border-bottom-color: #e4ece9;
+}
+
+.bill-form-dialog .dialog-header h2 {
+  font-size: 23px;
+  font-weight: 650;
+}
+
+.bill-form-dialog .dialog-header .section-subtitle {
+  max-width: 380px;
+  color: #61717c;
+  font-size: 12.5px;
+  font-weight: 400;
+}
+
+.bill-form-dialog .field-stack {
+  display: grid;
+  gap: 11px;
+  padding: 16px 18px;
+}
+
+.bill-form-dialog label {
+  color: #46545f;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.bill-form-dialog input,
+.bill-form-dialog select,
+.bill-form-dialog textarea {
+  border-color: #d9e6e2;
+  color: #1f2933;
+  font-weight: 400;
+}
+
+.bill-form-dialog textarea {
+  min-height: 82px;
+}
+
+.bill-form-dialog .dialog-footer {
+  border-top-color: #e4ece9;
+}
+
+.bill-form-dialog .dialog-footer button {
+  font-weight: 600;
+}
+
+.bill-categories-dialog textarea {
+  min-height: 230px;
+  line-height: 1.55;
 }
 
 @media (max-width: 1220px) {

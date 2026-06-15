@@ -22,7 +22,7 @@ const DEFAULT_GOAL_SETTINGS = {
 };
 
 const BILL_YEAR = "2026";
-const BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
+const DEFAULT_BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
 const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
 
 function makeId() {
@@ -355,6 +355,7 @@ const el = {
   billsMonthSelect: document.getElementById("billsMonthSelect"),
   exportBillsButton: document.getElementById("exportBillsButton"),
   copyPreviousBillsButton: document.getElementById("copyPreviousBillsButton"),
+  manageBillCategoriesButton: document.getElementById("manageBillCategoriesButton"),
   addBillButton: document.getElementById("addBillButton"),
   billsSummary: document.getElementById("billsSummary"),
   billsAlert: document.getElementById("billsAlert"),
@@ -511,6 +512,7 @@ function loadState() {
     activities: [],
     goals: normalizeGoalSettings(),
     companyBills: [],
+    companyBillCategories: DEFAULT_BILL_CATEGORIES,
   };
   state = initial;
   initial.clients = [defaultClient()];
@@ -546,6 +548,7 @@ function migrateState(savedState = {}, persist = true) {
     goals: normalizeGoalSettings(savedState.goals),
     companyBills: Array.isArray(savedState.companyBills) ? savedState.companyBills.map(normalizeCompanyBill) : [],
   };
+  migrated.companyBillCategories = normalizeBillCategories(savedState.companyBillCategories, migrated.companyBills);
   migrated.statuses = migrated.statuses.map((status) => ({
     ...status,
     name: localizeLabel(status.name),
@@ -708,7 +711,7 @@ function normalizeCompanyBill(bill = {}) {
     year: year === BILL_YEAR ? BILL_YEAR : year,
     month: month >= "01" && month <= "12" ? month : "01",
     description: bill.description || bill.title || bill.name || "",
-    category: normalizeSelectValue(bill.category, BILL_CATEGORIES) || "Outros",
+    category: normalizeBillCategory(bill.category),
     amount: formatFlexibleCurrencyValue(bill.amount || bill.value || ""),
     dueDate,
     status: normalizeSelectValue(bill.status, BILL_STATUS_OPTIONS) || "A pagar",
@@ -718,6 +721,33 @@ function normalizeCompanyBill(bill = {}) {
     createdAt: bill.createdAt || new Date().toISOString(),
     updatedAt: bill.updatedAt || bill.createdAt || new Date().toISOString(),
   };
+}
+
+function normalizeBillCategory(value) {
+  const category = localizeLabel(String(value || "").trim());
+  return category || "Outros";
+}
+
+function normalizeBillCategories(categories = [], bills = []) {
+  const source = [
+    ...DEFAULT_BILL_CATEGORIES,
+    ...(Array.isArray(categories) ? categories : []),
+    ...(Array.isArray(bills) ? bills.map((bill) => bill.category) : []),
+  ];
+  const seen = new Set();
+  return source
+    .map(normalizeBillCategory)
+    .filter((category) => {
+      const key = normalize(category);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function billCategories() {
+  state.companyBillCategories = normalizeBillCategories(state.companyBillCategories, state.companyBills);
+  return state.companyBillCategories;
 }
 
 function normalizeGoalSettings(goals = {}) {
@@ -1178,6 +1208,7 @@ function bindEvents() {
   el.billsSearchInput.addEventListener("input", renderBillsDashboard);
   el.exportBillsButton.addEventListener("click", exportBillsCsv);
   el.copyPreviousBillsButton.addEventListener("click", copyPreviousMonthBills);
+  el.manageBillCategoriesButton?.addEventListener("click", openBillCategoriesDialog);
   el.addBillButton.addEventListener("click", () => openBillDialog());
   document.querySelectorAll("[data-bill-filter]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2470,6 +2501,7 @@ function exportDataDashboardCsv() {
 function renderBillsDashboard() {
   if (!el.billsSummary || currentUser?.role !== "admin") return;
   state.companyBills = Array.isArray(state.companyBills) ? state.companyBills.map(normalizeCompanyBill) : [];
+  state.companyBillCategories = normalizeBillCategories(state.companyBillCategories, state.companyBills);
   activeBillsYear = BILL_YEAR;
   if (!activeBillsMonth || activeBillsMonth < "01" || activeBillsMonth > "12") activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
   el.billsYearSelect.value = BILL_YEAR;
@@ -2680,6 +2712,7 @@ function bindBillDashboardActions() {
 function openBillDialog(billId) {
   if (currentUser?.role !== "admin") return;
   const existing = state.companyBills.find((bill) => bill.id === billId);
+  const categories = billCategories();
   const current = normalizeCompanyBill(
     existing || {
       year: activeBillsYear,
@@ -2692,8 +2725,8 @@ function openBillDialog(billId) {
 
   openSimpleDialog(existing ? "Editar conta" : "Adicionar conta", [
     { label: "Conta", name: "description", type: "text", value: current.description },
-    { label: "Categoria", name: "category", type: "select", value: current.category, options: BILL_CATEGORIES.map((value) => ({ value, label: value })) },
-    { label: "Valor", name: "amount", type: "text", value: current.amount },
+    { label: "Categoria", name: "category", type: "select", value: current.category, options: categories.map((value) => ({ value, label: value })) },
+    { label: "Valor", name: "amount", type: "money", value: current.amount },
     { label: "Vencimento", name: "dueDate", type: "date", value: current.dueDate },
     { label: "Status", name: "status", type: "select", value: current.status, options: BILL_STATUS_OPTIONS.map((value) => ({ value, label: value })) },
     { label: "Data de pagamento", name: "paidAt", type: "date", value: current.paidAt },
@@ -2720,7 +2753,7 @@ function openBillDialog(billId) {
     const payload = normalizeCompanyBill({
       ...current,
       description,
-      category: normalizeSelectValue(values.category, BILL_CATEGORIES) || "Outros",
+      category: normalizeBillCategory(values.category),
       amount,
       dueDate,
       year: BILL_YEAR,
@@ -2744,6 +2777,42 @@ function openBillDialog(billId) {
     renderBillsDashboard();
     renderUpdates();
     return true;
+  }, {
+    className: "bill-form-dialog",
+    subtitle: "Registre despesas, vencimentos e recorrência mensal.",
+    saveLabel: "Salvar",
+    saveIcon: "save",
+  });
+}
+
+function openBillCategoriesDialog() {
+  if (currentUser?.role !== "admin") return;
+  const currentCategories = billCategories();
+  openSimpleDialog("Categorias", [
+    {
+      label: "Categorias de contas",
+      name: "categories",
+      type: "textarea",
+      rows: 9,
+      value: currentCategories.join("\n"),
+      placeholder: "Uma categoria por linha",
+      span: 2,
+    },
+  ], (values) => {
+    const nextCategories = normalizeBillCategories(String(values.categories || "").split(/\n+/), state.companyBills);
+    if (!nextCategories.length) {
+      alert("Informe pelo menos uma categoria.");
+      return false;
+    }
+    state.companyBillCategories = nextCategories;
+    saveState();
+    renderBillsDashboard();
+    return true;
+  }, {
+    className: "bill-form-dialog bill-categories-dialog",
+    subtitle: "Edite uma categoria por linha. Categorias já usadas em contas continuam preservadas.",
+    saveLabel: "Salvar categorias",
+    saveIcon: "save",
   });
 }
 

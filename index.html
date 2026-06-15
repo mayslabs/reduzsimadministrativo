@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=109" />
+    <link rel="stylesheet" href="./styles.css?v=112" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -72,7 +72,7 @@
       <section class="content-shell">
         <header class="topbar">
           <div>
-            <h1>Fluxo de trabalho</h1>
+            <h1 class="sr-only">ReduzSim Gestão</h1>
           </div>
           <button id="newClientButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo cliente</button>
         </header>
@@ -436,6 +436,7 @@
             <section class="bills-category-card">
               <div class="mini-heading">
                 <h3>Gastos por categoria</h3>
+                <button id="manageBillCategoriesButton" class="small-button" type="button"><i data-lucide="tags"></i> Categorias</button>
               </div>
               <div id="billsCategoryChart" class="bills-category-chart"></div>
             </section>
@@ -792,7 +793,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=109"></script>
+    <script src="./app.js?v=112"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
