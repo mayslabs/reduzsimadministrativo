@@ -658,6 +658,7 @@ function normalizeActivity(activity = {}) {
     actorId: activity.actorId || "",
     ownerId: activity.ownerId || "",
     clientId: activity.clientId || "",
+    clientSource: activity.clientSource || activity.sourceType || "inss",
     clientName: activity.clientName || "",
     internalTaskId: activity.internalTaskId || "",
     visibility: activity.visibility === "admin" ? "admin" : "team",
@@ -689,6 +690,7 @@ function normalizeMeeting(meeting) {
     title: meeting.title || meeting.name || "",
     description: meeting.description || meeting.notes || "",
     clientId: meeting.clientId || "",
+    clientSource: meeting.clientSource || "inss",
     participants: meeting.participants || "",
     location: meeting.location || "",
     ownerId: meeting.ownerId || "",
@@ -772,6 +774,7 @@ function normalizeRegularizationClient(process = {}) {
     feeValue: formatFlexibleCurrencyValue(process.feeValue || ""),
     nextAction: process.nextAction || "",
     notes: process.notes || "",
+    tasks: Array.isArray(process.tasks) ? process.tasks.map((task) => normalizeClientTask(task, process, currentUser?.id || "")) : [],
     createdAt: process.createdAt || new Date().toISOString(),
     updatedAt: process.updatedAt || process.createdAt || new Date().toISOString(),
   };
@@ -1019,6 +1022,13 @@ function remapUserReferences(migrated, idMap) {
     });
   });
 
+  (migrated.regularizationClients || []).forEach((process) => {
+    (process.tasks || []).forEach((task) => {
+      task.ownerId = idMap[task.ownerId] || task.ownerId;
+      task.createdBy = idMap[task.createdBy] || task.createdBy;
+    });
+  });
+
   (migrated.internalTasks || []).forEach((task) => {
     task.ownerId = idMap[task.ownerId] || task.ownerId;
     task.createdBy = idMap[task.createdBy] || task.createdBy;
@@ -1050,6 +1060,7 @@ function recordActivity(type, title, detail = "", options = {}) {
     actorId: currentUser.id,
     ownerId: options.ownerId || "",
     clientId: options.clientId || "",
+    clientSource: options.clientSource || "inss",
     clientName: options.clientName || "",
     internalTaskId: options.internalTaskId || "",
     visibility: options.visibility === "admin" ? "admin" : "team",
@@ -3447,7 +3458,7 @@ function renderUpdates() {
   document.querySelectorAll("[data-open-update-client]").forEach((button) => {
     button.addEventListener("click", () => {
       markActivityRead(button.dataset.activityId, false);
-      openClientById(button.dataset.openUpdateClient);
+      openLinkedClientRecord(button.dataset.openUpdateClient, button.dataset.clientSource || "inss");
       renderUpdates();
     });
   });
@@ -3603,7 +3614,7 @@ function renderUpdatesImportantItem(activity) {
   `;
   if (activity.clientId) {
     return `
-      <button class="updates-important-item update-type-${displayType}" type="button" data-open-update-client="${escapeAttr(activity.clientId)}" data-activity-id="${escapeAttr(activity.id)}">
+      <button class="updates-important-item update-type-${displayType}" type="button" data-open-update-client="${escapeAttr(activity.clientId)}" data-client-source="${escapeAttr(activity.clientSource || "inss")}" data-activity-id="${escapeAttr(activity.id)}">
         ${content}
       </button>
     `;
@@ -4571,7 +4582,7 @@ function taskDateText(item) {
 function taskPrimaryAction(item) {
   if (item.internalTaskId) return `<button class="icon-button" type="button" data-edit-internal-task="${escapeAttr(item.internalTaskId)}" aria-label="Editar tarefa"><i data-lucide="pencil"></i></button>`;
   if (item.internalMeetingId) return `<button class="icon-button" type="button" data-edit-meeting="${escapeAttr(item.internalMeetingId)}" aria-label="Editar reunião"><i data-lucide="pencil"></i></button>`;
-  if (item.clientId) return `<button class="small-button" type="button" data-open-task-client="${escapeAttr(item.clientId)}"><i data-lucide="external-link"></i> Abrir</button>`;
+  if (item.clientId) return `<button class="small-button" type="button" data-open-task-client="${escapeAttr(item.clientId)}" data-client-source="${escapeAttr(item.clientSource || "inss")}"><i data-lucide="external-link"></i> Abrir</button>`;
   return "";
 }
 
@@ -4582,13 +4593,13 @@ function taskSecondaryActions(item) {
   if (item.internalMeetingId) {
     return `<button class="icon-button danger-icon" type="button" data-remove-meeting="${escapeAttr(item.internalMeetingId)}" aria-label="Remover reunião"><i data-lucide="trash-2"></i></button>`;
   }
-  if (item.clientId) return `<button class="small-button" type="button" data-open-task-client="${escapeAttr(item.clientId)}"><i data-lucide="external-link"></i> Abrir card</button>`;
+  if (item.clientId) return `<button class="small-button" type="button" data-open-task-client="${escapeAttr(item.clientId)}" data-client-source="${escapeAttr(item.clientSource || "inss")}"><i data-lucide="external-link"></i> Abrir card</button>`;
   return "";
 }
 
 function taskStatusControl(item, statusLabel) {
   if (!item.kind.includes("Tarefa")) return `<span class="task-type-pill">${escapeHtml(statusLabel)}</span>`;
-  return `<select class="task-status-select" data-center-task-status="${escapeAttr(item.id)}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${escapeAttr(item.clientId || "")}" data-task-id="${escapeAttr(item.id)}">${taskStatusOptions(statusLabel)}</select>`;
+  return `<select class="task-status-select" data-center-task-status="${escapeAttr(item.id)}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${escapeAttr(item.clientId || "")}" data-client-source="${escapeAttr(item.clientSource || "inss")}" data-task-id="${escapeAttr(item.id)}">${taskStatusOptions(statusLabel)}</select>`;
 }
 
 function isWaitingReturnItem(item, referenceDay = localDateKey()) {
@@ -4750,7 +4761,7 @@ function bindTaskCenterActions() {
   });
 
   document.querySelectorAll("[data-open-task-client]").forEach((button) => {
-    button.addEventListener("click", () => openClientById(button.dataset.openTaskClient));
+    button.addEventListener("click", () => openLinkedClientRecord(button.dataset.openTaskClient, button.dataset.clientSource || "inss"));
   });
 
   document.querySelectorAll("[data-center-task-status]").forEach((select) => {
@@ -4772,7 +4783,8 @@ function bindTaskCenterActions() {
         return;
       }
 
-      const client = state.clients.find((item) => item.id === select.dataset.clientId);
+      const linked = findLinkedClientRecord(select.dataset.clientId, select.dataset.clientSource || "inss");
+      const client = linked?.record;
       const task = client?.tasks?.find((item) => item.id === select.dataset.taskId);
       if (!task) return;
       const oldStatus = localizeLabel(task.status || "Pendente");
@@ -4784,6 +4796,7 @@ function bindTaskCenterActions() {
       ]);
       recordActivity("task", `Alterou tarefa em ${client.clientName || "cliente"}.`, `${task.title || "Tarefa sem título"}: ${oldStatus} -> ${select.value}.`, {
         clientId: client.id,
+        clientSource: linked.source,
         clientName: client.clientName,
         ownerId: task.ownerId,
       });
@@ -4843,13 +4856,66 @@ function renderTaskOwnerFilter() {
 function renderTaskClientFilter() {
   if (!el.taskClientFilter) return;
   const selected = el.taskClientFilter.value;
-  const clients = state.clients
-    .slice()
-    .sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""));
-  el.taskClientFilter.innerHTML = `<option value="">Todos os clientes</option><option value="internal">Equipe interna</option>${clients
-    .map((client) => `<option value="${client.id}">${escapeHtml(client.clientName || "Cliente sem nome")}</option>`)
+  el.taskClientFilter.innerHTML = `<option value="">Todos os clientes</option><option value="internal">Equipe interna</option>${linkedClientRecords()
+    .map((record) => `<option value="${escapeAttr(record.value)}">${escapeHtml(record.label)}</option>`)
     .join("")}`;
   el.taskClientFilter.value = selected;
+}
+
+function linkedClientRecords() {
+  const inss = (state.clients || []).map((client) => ({
+    id: client.id,
+    source: "inss",
+    value: linkedClientValue("inss", client.id),
+    label: `${client.clientName || "Cliente sem nome"} | INSS de obras`,
+    clientName: client.clientName || "Cliente sem nome",
+    record: client,
+  }));
+  const regularizations = (state.regularizationClients || []).map((process) => ({
+    id: process.id,
+    source: "regularization",
+    value: linkedClientValue("regularization", process.id),
+    label: `${process.clientName || "Cliente sem nome"} | Regularização de imóvel`,
+    clientName: process.clientName || "Cliente sem nome",
+    record: process,
+  }));
+  return [...inss, ...regularizations].sort((a, b) => a.clientName.localeCompare(b.clientName));
+}
+
+function linkedClientValue(source, clientId) {
+  return `${source || "inss"}:${clientId || ""}`;
+}
+
+function parseLinkedClientValue(value = "") {
+  const [source, ...idParts] = String(value).split(":");
+  if (source === "regularization") return { source, id: idParts.join(":") };
+  if (source === "inss") return { source, id: idParts.join(":") };
+  return { source: "inss", id: value };
+}
+
+function findLinkedClientRecord(valueOrId = "", source = "") {
+  const parsed = source ? { source, id: valueOrId } : parseLinkedClientValue(valueOrId);
+  if (parsed.source === "regularization") {
+    const record = state.regularizationClients.find((process) => process.id === parsed.id);
+    return record ? { source: "regularization", id: record.id, clientName: record.clientName || "Cliente sem nome", record } : null;
+  }
+  const record = state.clients.find((client) => client.id === parsed.id);
+  return record ? { source: "inss", id: record.id, clientName: record.clientName || "Cliente sem nome", record } : null;
+}
+
+function linkedClientOptions() {
+  return [
+    { value: "", label: "Sem cliente vinculado" },
+    ...linkedClientRecords().map((record) => ({ value: record.value, label: record.label })),
+  ];
+}
+
+function openLinkedClientRecord(clientId, source = "inss") {
+  if (source === "regularization") {
+    openRegularizationDialog(clientId);
+    return;
+  }
+  openClientById(clientId);
 }
 
 function renderTaskOverview(items) {
@@ -4919,6 +4985,29 @@ function taskCenterItems() {
     return [...tasks, ...deadlines];
   });
 
+  const regularizationItems = (state.regularizationClients || []).flatMap((process) => {
+    return (process.tasks || []).map((task) => {
+      const item = {
+        id: task.id,
+        source: "Regularização",
+        clientSource: "regularization",
+        kind: "Tarefa",
+        title: task.title || "Tarefa sem título",
+        description: task.description || "",
+        followUpNotes: task.followUpNotes || "",
+        ownerId: task.ownerId,
+        createdBy: task.createdBy || "",
+        date: task.dueDate || "",
+        status: localizeLabel(task.status || "Pendente"),
+        priority: normalizeTaskPriority(task.priority),
+        clientId: process.id,
+        clientName: process.clientName || "Cliente sem nome",
+      };
+      item.urgency = taskUrgency(item);
+      return item;
+    });
+  });
+
   const internalItems = (state.internalTasks || [])
     .filter((task) => task.visibility !== "admin" || currentUser.role === "admin")
     .map((task) => {
@@ -4943,7 +5032,7 @@ function taskCenterItems() {
     });
 
   const meetingItems = (state.meetings || []).map((meeting) => {
-    const linkedClient = meeting.clientId ? state.clients.find((client) => client.id === meeting.clientId) : null;
+    const linkedClient = meeting.clientId ? findLinkedClientRecord(meeting.clientId, meeting.clientSource || "inss") : null;
     const item = {
       id: meeting.id,
       source: "Agenda",
@@ -4962,13 +5051,14 @@ function taskCenterItems() {
       priority: "Normal",
       internalMeetingId: meeting.id,
       clientId: meeting.clientId || "",
+      clientSource: meeting.clientSource || "inss",
       clientName: linkedClient?.clientName || "Reunião",
     };
     item.urgency = taskUrgency(item);
     return item;
   });
 
-  return [...clientItems, ...internalItems, ...meetingItems];
+  return [...clientItems, ...regularizationItems, ...internalItems, ...meetingItems];
 }
 
 function filterTaskCenterItems(items) {
@@ -4995,6 +5085,7 @@ function filterTaskCenterItems(items) {
       const matchesOwner = (!ownerId || item.ownerId === ownerId) && (!taskMineOnly || item.ownerId === currentUser.id);
       const matchesClient =
         !clientFilter ||
+        linkedClientValue(item.clientSource || "inss", item.clientId) === clientFilter ||
         item.clientId === clientFilter ||
         (clientFilter === "internal" && !item.clientId);
       const statusLabel = localizeLabel(item.status || "");
@@ -5034,7 +5125,7 @@ function renderTaskCalendarCard(item, compact = false, options = {}) {
   const showDate = options.showDate === true;
   const statusLabel = localizeLabel(item.status || (item.kind.includes("Tarefa") ? "Pendente" : item.kind));
   const statusControl = item.kind.includes("Tarefa")
-    ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-task-id="${item.id}">${taskStatusOptions(statusLabel)}</select>`
+    ? `<select class="task-status-select" data-center-task-status="${item.id}" data-task-source="${item.internalTaskId ? "internal" : "client"}" data-client-id="${item.clientId || ""}" data-client-source="${item.clientSource || "inss"}" data-task-id="${item.id}">${taskStatusOptions(statusLabel)}</select>`
     : `<span class="task-type-pill">${escapeHtml(statusLabel)}</span>`;
   const sourceClass = item.visibility === "admin" ? " admin-only" : "";
   const priority = normalizeTaskPriority(item.priority);
@@ -5048,7 +5139,7 @@ function renderTaskCalendarCard(item, compact = false, options = {}) {
           <button class="icon-button" type="button" data-edit-meeting="${item.internalMeetingId}" title="Editar reunião" aria-label="Editar reunião"><i data-lucide="pencil"></i></button>
           <button class="icon-button" type="button" data-remove-meeting="${item.internalMeetingId}" title="Remover reunião" aria-label="Remover reunião"><i data-lucide="trash-2"></i></button>
         </div>`
-    : `<button class="icon-button" type="button" data-open-task-client="${item.clientId}" title="Abrir card do cliente" aria-label="Abrir card do cliente"><i data-lucide="external-link"></i></button>`;
+    : `<button class="icon-button" type="button" data-open-task-client="${item.clientId}" data-client-source="${item.clientSource || "inss"}" title="Abrir card do cliente" aria-label="Abrir card do cliente"><i data-lucide="external-link"></i></button>`;
 
   return `
     <article class="task-calendar-card ${taskTypeClass(item)} priority-${normalize(priority)} status-${taskStatusClass(statusLabel)} ${item.urgency} ${ownerClass} ${compact ? "compact" : ""} ${expanded ? "expanded" : ""}" data-toggle-task-card="${escapeAttr(key)}">
@@ -5086,7 +5177,7 @@ function renderTaskCalendarCard(item, compact = false, options = {}) {
 function taskItemKey(item = {}) {
   if (item.internalTaskId) return `internal-task:${item.internalTaskId}`;
   if (item.internalMeetingId) return `meeting:${item.internalMeetingId}`;
-  return `client:${item.clientId || "none"}:${item.kind}:${item.id}`;
+  return `client:${item.clientSource || "inss"}:${item.clientId || "none"}:${item.kind}:${item.id}`;
 }
 
 function taskTypeClass(item = {}) {
@@ -5182,7 +5273,7 @@ function updateTimelineItem(activity) {
         ${detailHtml}
       </div>
       <div class="inline-actions update-actions">
-        ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}" data-activity-id="${activity.id}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
+        ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}" data-client-source="${activity.clientSource || "inss"}" data-activity-id="${activity.id}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
         ${
           hasDetails
             ? `<button class="small-button" type="button" data-toggle-update-details="${activity.id}" aria-expanded="${expanded}"><i data-lucide="${expanded ? "chevron-up" : "chevron-down"}"></i> ${expanded ? "Recolher" : "Ver detalhes"}</button>`
@@ -7306,13 +7397,7 @@ function openInternalTaskDialog(taskId = null) {
         { value: "admin", label: "Somente admin" },
       ]
     : [{ value: "team", label: "Equipe" }];
-  const clientOptions = [
-    { value: "", label: "Sem cliente vinculado" },
-    ...state.clients
-      .slice()
-      .sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""))
-      .map((client) => ({ value: client.id, label: client.clientName || "Cliente sem nome" })),
-  ];
+  const clientOptions = linkedClientOptions();
   const userOptions = state.users.map((user) => ({ value: user.id, label: user.name }));
 
   openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa", [
@@ -7356,7 +7441,8 @@ function openInternalTaskDialog(taskId = null) {
         visibility: task.visibility,
       });
     } else if (values.clientId) {
-      const client = state.clients.find((item) => item.id === values.clientId);
+      const linked = findLinkedClientRecord(values.clientId);
+      const client = linked?.record;
       if (!client) {
         alert("Cliente vinculado não encontrado.");
         return false;
@@ -7384,6 +7470,7 @@ function openInternalTaskDialog(taskId = null) {
       ]);
       recordActivity("task", `Criou tarefa em ${client.clientName || "cliente"}.`, newTask.title || "Tarefa sem título", {
         clientId: client.id,
+        clientSource: linked.source,
         clientName: client.clientName,
         ownerId: newTask.ownerId,
       });
@@ -7418,16 +7505,10 @@ function openInternalTaskDialog(taskId = null) {
 
 function openMeetingDialog(meetingId = null) {
   const meeting = state.meetings.find((item) => item.id === meetingId) || null;
-  const clientOptions = [
-    { value: "", label: "Sem cliente vinculado" },
-    ...state.clients
-      .slice()
-      .sort((a, b) => (a.clientName || "").localeCompare(b.clientName || ""))
-      .map((client) => ({ value: client.id, label: client.clientName || "Cliente sem nome" })),
-  ];
+  const clientOptions = linkedClientOptions();
   openSimpleDialog(meeting ? "Editar reunião" : "Nova reunião", [
     { label: "1. Informações principais", type: "section" },
-    { label: "Cliente vinculado", name: "clientId", type: "select", value: meeting?.clientId || "", options: clientOptions, span: 2 },
+    { label: "Cliente vinculado", name: "clientId", type: "select", value: meeting?.clientId ? linkedClientValue(meeting.clientSource || "inss", meeting.clientId) : "", options: clientOptions, span: 2 },
     { label: "Reunião", name: "title", type: "text", value: meeting?.title || "", placeholder: "Ex.: Alinhamento semanal de projetos", span: 2 },
     { label: "Pauta/descrição", name: "description", type: "textarea", rows: 4, value: meeting?.description || "", placeholder: "Descreva os principais pontos que serão discutidos na reunião...", maxLength: 1000, span: 2 },
     { label: "2. Agendamento", type: "section" },
@@ -7449,7 +7530,8 @@ function openMeetingDialog(meetingId = null) {
     const payload = {
       title: values.title,
       description: values.description || "",
-      clientId: values.clientId || "",
+      clientId: parseLinkedClientValue(values.clientId).id || "",
+      clientSource: parseLinkedClientValue(values.clientId).source || "inss",
       ownerId: values.ownerId || currentUser.id,
       date: values.date,
       time: values.time || "",
