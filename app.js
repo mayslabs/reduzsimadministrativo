@@ -4543,9 +4543,11 @@ function renderTaskTableRow(item) {
 }
 
 function renderTaskSideRow(item) {
+  const key = taskItemKey(item);
+  const expanded = expandedTaskCardIds.has(key);
   const statusLabel = localizeLabel(item.status || (item.kind.includes("Tarefa") ? "Pendente" : item.kind));
   return `
-    <article class="task-side-row ${taskTypeClass(item)} ${taskOwnerClass(item.ownerId)} ${item.urgency}">
+    <article class="task-side-row ${taskTypeClass(item)} ${taskOwnerClass(item.ownerId)} ${item.urgency} ${expanded ? "expanded" : ""}" data-toggle-task-card="${escapeAttr(key)}">
       <div>
         <strong>${escapeHtml(item.title)}</strong>
         <small>${escapeHtml(taskItemContext(item))}</small>
@@ -4555,7 +4557,15 @@ function renderTaskSideRow(item) {
         <span>${escapeHtml(ownerName(item.ownerId))}</span>
         <span><i data-lucide="calendar"></i>${escapeHtml(taskDateText(item))}</span>
       </div>
-      <span class="task-status-pill">${escapeHtml(statusLabel)}</span>
+      <div class="task-side-actions">
+        ${taskStatusControl(item, statusLabel)}
+        ${taskPrimaryAction(item)}
+      </div>
+      <div class="task-side-details" ${expanded ? "" : "hidden"}>
+        ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
+        ${item.followUpNotes ? `<p><strong>Acompanhamento:</strong> ${escapeHtml(item.followUpNotes)}</p>` : ""}
+        ${taskSecondaryActions(item)}
+      </div>
     </article>
   `;
 }
