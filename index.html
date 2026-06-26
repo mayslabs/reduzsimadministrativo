@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=116" />
+    <link rel="stylesheet" href="./styles.css?v=117" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -87,18 +87,26 @@
             </label>
             <select id="statusFilter" aria-label="Filtrar por status"></select>
             <select id="clientSort" aria-label="Ordenar clientes">
+              <option value="recent" selected>Mais recentes</option>
               <option value="">Ordem atual</option>
-              <option value="recent">Mais recentes</option>
               <option value="active">Obras ativas</option>
               <option value="finished">Obras finalizadas</option>
             </select>
             <div class="segmented-control" role="group" aria-label="Modo de visualização">
-              <button id="listModeButton" class="active" type="button"><i data-lucide="layout-grid"></i> Card</button>
-              <button id="compactModeButton" type="button"><i data-lucide="rows-3"></i> Compacta</button>
+              <button id="compactModeButton" class="active" type="button"><i data-lucide="rows-3"></i> Lista</button>
+              <button id="listModeButton" type="button"><i data-lucide="layout-grid"></i> Detalhado</button>
             </div>
+          </div>
+          <div class="client-quick-filters" role="group" aria-label="Filtros rápidos de clientes">
+            <button class="active" type="button" data-client-quick-filter="active">Ativos</button>
+            <button type="button" data-client-quick-filter="tasks">Com tarefa</button>
+            <button type="button" data-client-quick-filter="deadlines">Com prazo</button>
+            <button type="button" data-client-quick-filter="no-status">Sem status</button>
+            <button type="button" data-client-quick-filter="finished">Finalizados</button>
           </div>
           <div id="listView" class="client-grid"></div>
           <div id="compactView" class="compact-client-list" hidden></div>
+          <div id="clientPagination" class="client-pagination" aria-live="polite"></div>
         </section>
 
         <section id="regularizationSection" class="app-section" hidden>
@@ -793,7 +801,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=116"></script>
+    <script src="./app.js?v=117"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

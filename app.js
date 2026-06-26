@@ -24,6 +24,7 @@ const DEFAULT_GOAL_SETTINGS = {
 const BILL_YEAR = "2026";
 const DEFAULT_BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
 const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
+const CLIENTS_PER_PAGE = 20;
 
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -247,7 +248,9 @@ let state;
 state = loadState();
 let currentUser = null;
 let activeClient = null;
-let activeViewMode = "list";
+let activeViewMode = "compact";
+let activeClientQuickFilter = "active";
+let activeClientPage = 1;
 let activeTaskCalendarMode = "day";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
@@ -381,6 +384,7 @@ const el = {
   compactModeButton: document.getElementById("compactModeButton"),
   listView: document.getElementById("listView"),
   compactView: document.getElementById("compactView"),
+  clientPagination: document.getElementById("clientPagination"),
   clientDialog: document.getElementById("clientDialog"),
   clientDialogTitle: document.getElementById("clientDialogTitle"),
   deleteClientButton: document.getElementById("deleteClientButton"),
@@ -1155,10 +1159,10 @@ function bindEvents() {
   el.taskDayModeButton.addEventListener("click", () => setTaskCalendarMode("day"));
   el.taskWeekModeButton.addEventListener("click", () => setTaskCalendarMode("week"));
   el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
-  el.searchInput.addEventListener("input", renderClients);
+  el.searchInput.addEventListener("input", resetClientPageAndRender);
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
-  el.statusFilter.addEventListener("change", renderClients);
-  el.clientSort.addEventListener("change", renderClients);
+  el.statusFilter.addEventListener("change", resetClientPageAndRender);
+  el.clientSort.addEventListener("change", resetClientPageAndRender);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskClientFilter.addEventListener("change", renderTaskCenter);
@@ -1229,6 +1233,12 @@ function bindEvents() {
   });
   el.listModeButton.addEventListener("click", () => setViewMode("list"));
   el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
+  document.querySelectorAll("[data-client-quick-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeClientQuickFilter = button.dataset.clientQuickFilter || "active";
+      resetClientPageAndRender();
+    });
+  });
   el.saveClientButton.addEventListener("click", saveActiveClient);
   el.deleteClientButton.addEventListener("click", deleteActiveClient);
   el.openStatusPicker.addEventListener("click", () => {
@@ -5214,21 +5224,89 @@ function destinationLabel(client = {}) {
 
 function renderClients() {
   const clients = filteredClients();
+  const pageCount = Math.max(1, Math.ceil(clients.length / CLIENTS_PER_PAGE));
+  if (activeClientPage > pageCount) activeClientPage = pageCount;
+  if (activeClientPage < 1) activeClientPage = 1;
+  const startIndex = (activeClientPage - 1) * CLIENTS_PER_PAGE;
+  const visibleClients = clients.slice(startIndex, startIndex + CLIENTS_PER_PAGE);
+
   el.listView.hidden = activeViewMode !== "list";
   el.compactView.hidden = activeViewMode !== "compact";
 
   if (activeViewMode === "list") {
-    el.listView.innerHTML = clients.length
-      ? clients.map((client) => renderClientCard(client)).join("")
+    el.listView.innerHTML = visibleClients.length
+      ? visibleClients.map((client) => renderClientCard(client)).join("")
       : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
   } else {
-    renderCompactClients(clients);
+    renderCompactClients(visibleClients);
   }
 
+  renderClientQuickFilters();
+  renderClientPagination(clients.length, startIndex, visibleClients.length, pageCount);
   document.querySelectorAll("[data-open-client]").forEach((card) => {
     card.addEventListener("click", () => openClientById(card.dataset.openClient));
   });
   refreshIcons();
+}
+
+function resetClientPageAndRender() {
+  activeClientPage = 1;
+  renderClients();
+}
+
+function renderClientQuickFilters() {
+  document.querySelectorAll("[data-client-quick-filter]").forEach((button) => {
+    const isActive = (button.dataset.clientQuickFilter || "active") === activeClientQuickFilter;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function renderClientPagination(total, startIndex, visibleCount, pageCount) {
+  if (!el.clientPagination) return;
+  if (!total) {
+    el.clientPagination.innerHTML = "";
+    return;
+  }
+  const first = startIndex + 1;
+  const last = startIndex + visibleCount;
+  const pages = clientPaginationPages(pageCount);
+  el.clientPagination.innerHTML = `
+    <span>Mostrando ${first}-${last} de ${total} cliente${total === 1 ? "" : "s"}</span>
+    ${
+      pageCount > 1
+        ? `<div class="client-page-controls">
+            <button class="icon-button" type="button" data-client-page="${activeClientPage - 1}" ${activeClientPage === 1 ? "disabled" : ""} aria-label="Página anterior"><i data-lucide="chevron-left"></i></button>
+            ${pages
+              .map((page) =>
+                page === "gap"
+                  ? `<span class="client-page-gap">...</span>`
+                  : `<button class="client-page-button ${page === activeClientPage ? "active" : ""}" type="button" data-client-page="${page}">${page}</button>`
+              )
+              .join("")}
+            <button class="icon-button" type="button" data-client-page="${activeClientPage + 1}" ${activeClientPage === pageCount ? "disabled" : ""} aria-label="Próxima página"><i data-lucide="chevron-right"></i></button>
+          </div>`
+        : ""
+    }
+  `;
+  el.clientPagination.querySelectorAll("[data-client-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextPage = Number(button.dataset.clientPage);
+      if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage > pageCount || nextPage === activeClientPage) return;
+      activeClientPage = nextPage;
+      renderClients();
+    });
+  });
+}
+
+function clientPaginationPages(pageCount) {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
+  const pages = new Set([1, pageCount, activeClientPage - 1, activeClientPage, activeClientPage + 1]);
+  const ordered = [...pages].filter((page) => page >= 1 && page <= pageCount).sort((a, b) => a - b);
+  return ordered.flatMap((page, index) => {
+    const previous = ordered[index - 1];
+    return previous && page - previous > 1 ? ["gap", page] : [page];
+  });
 }
 
 function groupedActivitiesByDay(activities) {
@@ -5714,9 +5792,17 @@ function filteredClients() {
     ].join(" "));
     const matchesQuery = !query || haystack.includes(query);
     const matchesStatus = !statusId || (client.statusIds || []).includes(statusId);
-    return matchesQuery && matchesStatus;
+    return matchesQuery && matchesStatus && clientMatchesQuickFilter(client);
   });
   return sortClients(clients, el.clientSort.value);
+}
+
+function clientMatchesQuickFilter(client) {
+  if (activeClientQuickFilter === "finished") return isClientFinished(client);
+  if (activeClientQuickFilter === "tasks") return clientOpenTasks(client).length > 0;
+  if (activeClientQuickFilter === "deadlines") return (client.deadlines || []).length > 0;
+  if (activeClientQuickFilter === "no-status") return !getClientStatuses(client).length;
+  return !isClientFinished(client);
 }
 
 function sortClients(clients, sortMode) {
@@ -5734,6 +5820,10 @@ function sortClients(clients, sortMode) {
 
 function clientCreatedTime(client) {
   return new Date(client.createdAt || client.updatedAt || 0).getTime();
+}
+
+function clientOpenTasks(client = {}) {
+  return (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
 }
 
 function renderClientCard(client) {
@@ -5777,32 +5867,62 @@ function renderClientCard(client) {
 function renderCompactClients(clients) {
   el.compactView.innerHTML = clients.length
     ? `
-      <div class="compact-client-head">
-        <span>Cliente e obra</span>
-        <span>Status</span>
-        <span>Pendências</span>
+      <div class="compact-client-table">
+        <div class="compact-client-head">
+          <span>Cliente</span>
+          <span>UF</span>
+          <span>Área</span>
+          <span>Status</span>
+          <span>Tarefas</span>
+          <span>Prazos</span>
+          <span>Próxima ação</span>
+          <span></span>
+        </div>
+        ${clients.map((client) => renderCompactClientRow(client)).join("")}
       </div>
-      ${clients.map((client) => renderCompactClientRow(client)).join("")}
     `
     : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
 }
 
 function renderCompactClientRow(client) {
-  const statuses = getClientStatuses(client).slice(0, 3).map((status) => chip(status)).join("");
-  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
+  const statuses = getClientStatuses(client);
+  const openTasks = clientOpenTasks(client);
   const deadlines = client.deadlines || [];
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
-  const workLine = [destinationLabel(client), client.state, client.area].filter(Boolean).join(" | ");
+  const workLine = [workTitle ? workTitle.slice(0, -3) : "", destinationLabel(client)].filter(Boolean).join(" | ");
+  const nextAction = String(client.nextAction || "").trim();
+  const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
+  const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
       <span class="compact-client-main">
         <strong>${escapeHtml(client.clientName || "Cliente sem nome")}</strong>
-        <small>${escapeHtml(`${workTitle}${workLine}`)}</small>
+        <small>${escapeHtml(workLine)}</small>
       </span>
-      <span class="compact-client-status">${statuses || `<span class="chip neutral">Sem status</span>`}</span>
-      <span>${openTasks.length} tarefa(s) | ${deadlines.length} prazo(s)</span>
+      <span class="compact-client-state">${escapeHtml(client.state || "--")}</span>
+      <span class="compact-client-area">${escapeHtml(client.area || "--")}</span>
+      <span class="compact-client-status">${compactStatusChips(statuses)}</span>
+      <span class="compact-client-count ${openTasks.length ? "attention" : ""}">
+        <i data-lucide="list-checks"></i>
+        <strong>${openTasks.length}</strong>
+        <small>${openTasks.length ? escapeHtml(taskOwners) : "Sem tarefa"}</small>
+      </span>
+      <span class="compact-client-count ${deadlines.length ? "deadline" : ""}">
+        <i data-lucide="calendar-clock"></i>
+        <strong>${deadlines.length}</strong>
+        <small>${deadlines.length ? escapeHtml(deadlineOwners) : "Sem prazo"}</small>
+      </span>
+      <span class="compact-client-next">${escapeHtml(nextAction || "Sem próxima ação")}</span>
+      <span class="compact-open-pill">Abrir</span>
     </button>
   `;
+}
+
+function compactStatusChips(statuses) {
+  if (!statuses.length) return `<span class="chip neutral">Sem status</span>`;
+  const visible = statuses.slice(0, 2).map((status) => chip(status)).join("");
+  const remaining = statuses.length - 2;
+  return `${visible}${remaining > 0 ? `<span class="chip neutral compact-overflow">+${remaining}</span>` : ""}`;
 }
 
 function bindClientQuickActions() {
