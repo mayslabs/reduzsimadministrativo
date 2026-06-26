@@ -287,6 +287,7 @@ const el = {
   currentUserLabel: document.getElementById("currentUserLabel"),
   systemVersionLabel: document.getElementById("systemVersionLabel"),
   logoutButton: document.getElementById("logoutButton"),
+  clientsTopbar: document.getElementById("clientsTopbar"),
   newClientButton: document.getElementById("newClientButton"),
   newRegularizationButton: document.getElementById("newRegularizationButton"),
   metricsGrid: document.getElementById("metricsGrid"),
@@ -7767,6 +7768,7 @@ function switchSection(sectionId) {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sectionId);
   });
+  el.clientsTopbar.hidden = sectionId !== "clientsSection";
   el.newClientButton.hidden = sectionId !== "clientsSection";
   if (sectionId === "tasksSection") {
     activeTaskCalendarMode = "day";
