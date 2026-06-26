@@ -449,9 +449,9 @@ h3 {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(4, minmax(145px, 190px));
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .data-summary-grid {
@@ -502,7 +502,7 @@ h3 {
 .data-total {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 12px 14px;
+  padding: 9px 12px;
   background: var(--surface);
 }
 
@@ -510,14 +510,14 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 58px;
+  gap: 10px;
+  min-height: 46px;
 }
 
 .metric span,
 .data-total span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -525,7 +525,7 @@ h3 {
 .data-total strong {
   display: block;
   color: var(--charcoal);
-  font-size: 24px;
+  font-size: 22px;
   margin-top: 0;
 }
 
@@ -6191,23 +6191,26 @@ button.updates-important-item:hover {
 }
 
 .metrics-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 18px;
+  grid-template-columns: repeat(4, minmax(145px, 190px));
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .metric,
 .data-total {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   min-height: 0;
-  padding: 16px;
+  padding: 9px 12px;
 }
 
 .metric strong,
 .data-total strong {
   display: block;
-  font-size: 26px;
-  margin-top: 4px;
+  font-size: 22px;
+  margin-top: 0;
 }
 
 .client-grid {
