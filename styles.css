@@ -5293,7 +5293,34 @@ button.updates-important-item:hover {
 .summary-layout {
   display: grid;
   grid-template-columns: minmax(320px, 0.9fr) minmax(300px, 1.1fr);
+  align-items: start;
   gap: 20px;
+}
+
+.summary-layout > .field-stack {
+  align-content: start;
+  align-self: start;
+}
+
+.summary-layout > .field-stack textarea {
+  min-height: 104px;
+  max-height: 180px;
+}
+
+.client-dialog #activeStatusList .chip {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.client-dialog #activeStatusList .empty-state {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.client-dialog .dialog-footer button {
+  font-weight: 600;
 }
 
 .form-grid {
@@ -5599,7 +5626,10 @@ button.updates-important-item:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   margin-top: 12px;
-  padding: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+  scrollbar-gutter: stable;
   display: block;
 }
 
@@ -5620,13 +5650,13 @@ button.updates-important-item:hover {
 
 .status-editor-list {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .status-editor-row {
   display: grid;
-  grid-template-columns: 86px minmax(150px, 1fr) 64px auto;
-  gap: 8px;
+  grid-template-columns: 74px minmax(150px, 1fr) 56px 34px;
+  gap: 6px;
   align-items: center;
 }
 
@@ -5636,18 +5666,34 @@ button.updates-important-item:hover {
   gap: 6px;
   color: var(--charcoal);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .status-toggle input {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   accent-color: var(--green);
 }
 
+.status-editor-row > input:not([type="checkbox"]) {
+  height: 34px;
+  padding: 6px 9px;
+}
+
+.status-editor-row > .color-input {
+  padding: 3px;
+}
+
+.status-editor-row > .icon-button {
+  width: 34px;
+  min-height: 34px;
+  height: 34px;
+}
+
 .new-status-row {
+  grid-template-columns: 74px minmax(150px, 1fr) 56px 88px;
   border-top: 1px solid var(--line);
-  padding-top: 10px;
+  padding-top: 8px;
 }
 
 .table-wrap {
