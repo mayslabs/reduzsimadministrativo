@@ -3768,9 +3768,10 @@ button.updates-important-item:hover {
 }
 
 .compact-client-status .chip {
-  padding: 4px 7px;
+  padding: 3px 7px;
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .compact-overflow {
