@@ -597,6 +597,39 @@ h3 {
   margin-top: 5px;
 }
 
+.data-summary-grid .report-metric {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 112px;
+  padding: 14px 16px;
+}
+
+.data-summary-grid .report-metric > div {
+  display: grid;
+  grid-template-rows: 16px 32px minmax(30px, auto);
+  align-content: center;
+  min-width: 0;
+}
+
+.data-summary-grid .report-metric > div > span,
+.data-summary-grid .report-metric > div > strong,
+.data-summary-grid .report-metric > div > small {
+  margin: 0;
+  align-self: center;
+}
+
+.data-summary-grid .report-metric > div > strong {
+  line-height: 1.15;
+}
+
+.data-summary-grid .report-metric > div > small {
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.35;
+}
+
 .data-ticket-panels {
   margin: 14px 0 0;
 }
