@@ -244,6 +244,10 @@ textarea:focus {
   stroke-width: 1.55;
 }
 
+.nav-item[hidden] {
+  display: none;
+}
+
 .nav-badge {
   min-width: 21px;
   border-radius: 999px;
