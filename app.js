@@ -5867,7 +5867,7 @@ function renderClientCard(client) {
           <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
         </div>
       </header>
-      <div class="chip-list">${statuses || `<span class="chip" style="background:#6b7280">Sem status</span>`}</div>
+      <div class="chip-list">${statuses}</div>
       <div class="card-alerts">
         <span class="card-alert ${openTasks.length ? "active" : ""}">
           <i data-lucide="list-checks"></i>
@@ -5938,7 +5938,7 @@ function renderCompactClientRow(client) {
 }
 
 function compactStatusChips(statuses) {
-  if (!statuses.length) return `<span class="chip neutral">Sem status</span>`;
+  if (!statuses.length) return "";
   const visible = statuses.slice(0, 2).map((status) => chip(status)).join("");
   const remaining = statuses.length - 2;
   return `${visible}${remaining > 0 ? `<span class="chip neutral compact-overflow">+${remaining}</span>` : ""}`;
