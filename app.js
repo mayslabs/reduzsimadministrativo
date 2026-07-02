@@ -1994,13 +1994,19 @@ function regularizationStateLabel(process = {}) {
 
 function matchesDataPeriod(client, period) {
   if (!period) return true;
-  if (String(period).startsWith("month:")) return dataMonthKey(client.contractClosedDate) === String(period).slice(6);
-  const date = new Date(client.contractClosedDate || "");
-  if (Number.isNaN(date.getTime())) return false;
+  const monthKey = dataMonthKey(client.contractClosedDate);
+  if (!monthKey) return false;
+  if (String(period).startsWith("month:")) return monthKey === String(period).slice(6);
   const now = new Date();
-  if (period === "month") return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  if (period === "year") return date.getFullYear() === now.getFullYear();
+  if (period === "month") return monthKey === currentMonthKey(now);
+  if (period === "year") return monthKey.startsWith(`${now.getFullYear()}-`);
   if (period === "last12") {
+    const value = String(client.contractClosedDate || "");
+    const localDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const date = localDateMatch
+      ? new Date(Number(localDateMatch[1]), Number(localDateMatch[2]) - 1, Number(localDateMatch[3]))
+      : new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
     const start = new Date(now);
     start.setFullYear(start.getFullYear() - 1);
     return date >= start;
