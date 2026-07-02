@@ -1729,7 +1729,7 @@ function renderDataFilterOptions() {
 
 function renderDataPeriodOptions(records = dataAllRecords()) {
   const selected = el.dataPeriodFilter.value;
-  const monthKeys = new Set(dataReportMonths().map((month) => month.key));
+  const monthKeys = new Set();
   records.forEach((record) => {
     const monthKey = dataMonthKey(record.contractClosedDate);
     if (monthKey) monthKeys.add(monthKey);
