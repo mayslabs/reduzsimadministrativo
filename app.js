@@ -2479,7 +2479,7 @@ function exportDataDashboardCsv() {
     [
       "Cliente",
       "Título da obra",
-      "Fechamento do contrato",
+      "Data do fechamento (pagamento)",
       "Estado",
       "Destinação",
       "PF/PJ",
@@ -5607,7 +5607,7 @@ function openRegularizationDialog(processId = null) {
       options: [{ value: "", label: "Selecionar" }, ...brazilianStates().map((stateValue) => ({ value: stateValue, label: stateValue }))],
     },
     { label: "Endereço", name: "address", type: "text", value: current.address },
-    { label: "Fechamento do contrato", name: "contractClosedDate", type: "date", value: current.contractClosedDate },
+    { label: "Data do fechamento (pagamento)", name: "contractClosedDate", type: "date", value: current.contractClosedDate },
     { label: "Valor dos honorários", name: "feeValue", type: "money", value: current.feeValue },
     {
       label: "Status",
@@ -7033,7 +7033,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     workType: "Tipo de obra",
     concrete: "Concreto usinado",
     state: "Estado",
-    contractClosedDate: "Fechamento do contrato",
+    contractClosedDate: "Data do fechamento (pagamento)",
     startDate: "Início da obra",
     endDate: "Fim da obra",
     area: "Área",
