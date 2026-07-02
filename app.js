@@ -265,6 +265,7 @@ let taskMineOnly = false;
 let advancedClientFiltersOpen = false;
 const expandedUpdateIds = new Set();
 const collapsedUpdateDays = new Set();
+const expandedPastUpdateDays = new Set();
 const expandedTaskCardIds = new Set();
 const expandedCompletedTaskGroups = new Set();
 let firebaseApp = null;
@@ -3487,8 +3488,14 @@ function renderUpdates() {
   document.querySelectorAll("[data-toggle-update-day]").forEach((button) => {
     button.addEventListener("click", () => {
       const day = button.dataset.toggleUpdateDay;
-      if (collapsedUpdateDays.has(day)) collapsedUpdateDays.delete(day);
-      else collapsedUpdateDays.add(day);
+      if (day === activityDayKey(new Date())) {
+        if (collapsedUpdateDays.has(day)) collapsedUpdateDays.delete(day);
+        else collapsedUpdateDays.add(day);
+      } else if (expandedPastUpdateDays.has(day)) {
+        expandedPastUpdateDays.delete(day);
+      } else {
+        expandedPastUpdateDays.add(day);
+      }
       renderUpdates();
     });
   });
@@ -5321,7 +5328,8 @@ function groupedActivitiesByDay(activities) {
 }
 
 function updateDayGroup(day, activities) {
-  const collapsed = collapsedUpdateDays.has(day);
+  const isToday = day === activityDayKey(new Date());
+  const collapsed = isToday ? collapsedUpdateDays.has(day) : !expandedPastUpdateDays.has(day);
   return `
     <section class="update-day-group ${collapsed ? "collapsed" : ""}">
       <div class="update-day-heading">
@@ -5457,11 +5465,21 @@ function matchesActivityPeriod(activity, periodFilter) {
   const date = new Date(activity.createdAt);
   if (Number.isNaN(date.getTime())) return false;
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   if (periodFilter === "today") return activityDayKey(date) === activityDayKey(today);
-  if (periodFilter === "week") {
+  if (periodFilter === "yesterday") {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return activityDayKey(date) === activityDayKey(yesterday);
+  }
+  if (periodFilter === "7days" || periodFilter === "week") {
     const start = new Date(today);
-    start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - 6);
+    return date >= start;
+  }
+  if (periodFilter === "30days") {
+    const start = new Date(today);
+    start.setDate(start.getDate() - 29);
     return date >= start;
   }
   return true;
@@ -5482,8 +5500,8 @@ function activityDayLabel(dayKey) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayKey = activityDayKey(yesterday);
-  if (dayKey === today) return "Hoje";
-  if (dayKey === yesterdayKey) return "Ontem";
+  if (dayKey === today) return `Hoje - ${formatDate(dayKey)}`;
+  if (dayKey === yesterdayKey) return `Ontem - ${formatDate(dayKey)}`;
   return formatDate(dayKey);
 }
 
@@ -7775,6 +7793,12 @@ function switchSection(sectionId) {
     activeTaskDate = new Date();
     markNewTaskActivitiesRead();
     renderTaskCenter();
+  }
+  if (sectionId === "updatesSection") {
+    el.updatesPeriodFilter.value = "today";
+    expandedPastUpdateDays.clear();
+    collapsedUpdateDays.delete(activityDayKey(new Date()));
+    renderUpdates();
   }
   if (sectionId === "goalsSection") {
     renderGoalsDashboard();

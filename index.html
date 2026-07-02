@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=122" />
+    <link rel="stylesheet" href="./styles.css?v=123" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -203,9 +203,11 @@
               <option value="unread">Não lidas</option>
             </select>
             <select id="updatesPeriodFilter" aria-label="Filtrar atualizações por período">
+              <option value="today" selected>Hoje</option>
+              <option value="yesterday">Ontem</option>
+              <option value="7days">Últimos 7 dias</option>
+              <option value="30days">Últimos 30 dias</option>
               <option value="">Todo período</option>
-              <option value="today">Hoje</option>
-              <option value="week">Esta semana</option>
             </select>
             <select id="updatesUserFilter" aria-label="Filtrar atualizações por usuário"></select>
             <select id="updatesTypeFilter" aria-label="Filtrar atualizações por tipo">
@@ -801,7 +803,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="./app.js?v=122"></script>
+    <script src="./app.js?v=123"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
