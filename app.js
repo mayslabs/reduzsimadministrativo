@@ -254,8 +254,8 @@ let activeClientPage = 1;
 let activeTaskCalendarMode = "day";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
-let activeGoalsYear = "2026";
-let activeGoalsMonth = "2026-06";
+let activeGoalsYear = String(new Date().getFullYear());
+let activeGoalsMonth = currentMonthKey();
 let activeBillsYear = BILL_YEAR;
 let activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 let activeBillsStatusFilter = "";
@@ -7801,6 +7801,8 @@ function switchSection(sectionId) {
     renderUpdates();
   }
   if (sectionId === "goalsSection") {
+    activeGoalsMonth = currentMonthKey();
+    activeGoalsYear = activeGoalsMonth.slice(0, 4);
     renderGoalsDashboard();
   }
   if (sectionId === "billsSection") {
