@@ -4757,9 +4757,9 @@ button.updates-important-item:hover {
   --task-owner-text: #334155;
   --task-type-color: #009f7f;
   display: grid;
-  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px 240px 88px;
+  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px 92px 140px 88px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   border: 1px solid #e3ece8;
   border-left: 3px solid var(--task-type-color);
   border-radius: 9px;
@@ -4887,21 +4887,15 @@ button.updates-important-item:hover {
   font-weight: 650;
 }
 
-.task-row-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.task-dashboard-main .task-row-chips {
+.task-row-priority,
+.task-row-status {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
-  gap: 11px;
   justify-content: flex-start;
+  min-width: 0;
 }
 
-.task-dashboard-main .task-status-pill {
+.task-row-status .task-status-pill {
   border: 1px solid #bfdbfe;
   border-radius: 6px;
   background: #f8fbff;
@@ -4909,40 +4903,35 @@ button.updates-important-item:hover {
   white-space: nowrap;
 }
 
-.task-dashboard-main .task-status-pill::before {
-  content: "Status";
-  margin-right: 6px;
-  padding-right: 6px;
-  border-right: 1px solid currentColor;
-  color: #64748b;
-  font-size: 8.5px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  opacity: 0.8;
+.task-row-status .task-status-pill::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
-.task-dashboard-main .task-table-row.status-em-andamento .task-status-pill {
+.task-table-row.status-em-andamento .task-row-status .task-status-pill {
   border-color: #99ddcf;
   background: #f2fbf8;
   color: #087f69;
 }
 
-.task-dashboard-main .task-table-row.status-aguardando-cliente .task-status-pill,
-.task-dashboard-main .task-table-row.status-aguardando-terceiro .task-status-pill {
+.task-table-row.status-aguardando-cliente .task-row-status .task-status-pill,
+.task-table-row.status-aguardando-terceiro .task-row-status .task-status-pill {
   border-color: #e7c77b;
   background: #fffaf0;
   color: #8a5b00;
 }
 
-.task-dashboard-main .task-table-row.status-concluida .task-status-pill {
+.task-table-row.status-concluida .task-row-status .task-status-pill {
   border-color: #a9d5b7;
   background: #f3faf5;
   color: #166534;
 }
 
-.task-row-chips .priority-pill,
-.task-row-chips .task-status-pill,
+.task-row-priority .priority-pill,
+.task-row-status .task-status-pill,
 .task-side-row .task-status-pill {
   font-size: 10.5px;
   font-weight: 600;
@@ -5117,11 +5106,7 @@ button.updates-important-item:hover {
 }
 
 .task-list-board .task-table-row {
-  grid-template-columns: 22px minmax(260px, 1.4fr) 140px 150px 190px 88px;
-}
-
-.task-list-board .task-row-chips {
-  display: flex;
+  grid-template-columns: 22px minmax(260px, 1.4fr) 140px 150px 96px 150px 88px;
 }
 
 @media (max-width: 1500px) {
@@ -5266,7 +5251,8 @@ button.updates-important-item:hover {
     grid-template-columns: 22px minmax(220px, 1fr) 120px 130px 88px;
   }
 
-  .task-row-chips {
+  .task-row-priority,
+  .task-row-status {
     display: none;
   }
 }

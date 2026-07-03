@@ -4549,8 +4549,10 @@ function renderTaskTableRow(item) {
         <span>${escapeHtml(ownerName(item.ownerId))}</span>
       </div>
       <div class="task-row-date"><i data-lucide="calendar"></i>${escapeHtml(taskDateText(item))}</div>
-      <div class="task-row-chips">
+      <div class="task-row-priority">
         <span class="priority-pill">${escapeHtml(priority)}</span>
+      </div>
+      <div class="task-row-status">
         <span class="task-status-pill">${escapeHtml(statusLabel)}</span>
       </div>
       <div class="task-row-control">${taskPrimaryAction(item)}</div>
