@@ -4757,7 +4757,7 @@ button.updates-important-item:hover {
   --task-owner-text: #334155;
   --task-type-color: #009f7f;
   display: grid;
-  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px 92px 88px;
+  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px 184px 88px;
   align-items: center;
   gap: 10px;
   border: 1px solid #e3ece8;
@@ -4895,11 +4895,8 @@ button.updates-important-item:hover {
 
 .task-dashboard-main .task-row-chips {
   display: flex;
+  flex-wrap: nowrap;
   justify-content: flex-start;
-}
-
-.task-dashboard-main .task-row-chips .task-status-pill {
-  display: none;
 }
 
 .task-row-chips .priority-pill,
