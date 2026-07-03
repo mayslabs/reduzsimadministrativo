@@ -4757,7 +4757,7 @@ button.updates-important-item:hover {
   --task-owner-text: #334155;
   --task-type-color: #009f7f;
   display: grid;
-  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px auto;
+  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px 92px 88px;
   align-items: center;
   gap: 10px;
   border: 1px solid #e3ece8;
@@ -4894,6 +4894,11 @@ button.updates-important-item:hover {
 }
 
 .task-dashboard-main .task-row-chips {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.task-dashboard-main .task-row-chips .task-status-pill {
   display: none;
 }
 
@@ -5073,7 +5078,7 @@ button.updates-important-item:hover {
 }
 
 .task-list-board .task-table-row {
-  grid-template-columns: 22px minmax(260px, 1.4fr) 140px 150px 190px auto;
+  grid-template-columns: 22px minmax(260px, 1.4fr) 140px 150px 190px 88px;
 }
 
 .task-list-board .task-row-chips {
@@ -5219,7 +5224,7 @@ button.updates-important-item:hover {
 
   .task-table-row,
   .task-list-board .task-table-row {
-    grid-template-columns: 22px minmax(220px, 1fr) 120px 130px auto;
+    grid-template-columns: 22px minmax(220px, 1fr) 120px 130px 88px;
   }
 
   .task-row-chips {
@@ -5348,6 +5353,12 @@ button.updates-important-item:hover {
   padding: 4px 8px;
   font-size: 11px;
   font-weight: 500;
+}
+
+.task-row-owner,
+.task-row-date {
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .client-dialog #activeStatusList .empty-state {
