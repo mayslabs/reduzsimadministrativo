@@ -4757,7 +4757,7 @@ button.updates-important-item:hover {
   --task-owner-text: #334155;
   --task-type-color: #009f7f;
   display: grid;
-  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px 184px 88px;
+  grid-template-columns: 22px minmax(180px, 1fr) 112px 108px 240px 88px;
   align-items: center;
   gap: 10px;
   border: 1px solid #e3ece8;
@@ -4895,8 +4895,50 @@ button.updates-important-item:hover {
 
 .task-dashboard-main .task-row-chips {
   display: flex;
+  align-items: center;
   flex-wrap: nowrap;
+  gap: 11px;
   justify-content: flex-start;
+}
+
+.task-dashboard-main .task-status-pill {
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #f8fbff;
+  color: #1d4ed8;
+  white-space: nowrap;
+}
+
+.task-dashboard-main .task-status-pill::before {
+  content: "Status";
+  margin-right: 6px;
+  padding-right: 6px;
+  border-right: 1px solid currentColor;
+  color: #64748b;
+  font-size: 8.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.task-dashboard-main .task-table-row.status-em-andamento .task-status-pill {
+  border-color: #99ddcf;
+  background: #f2fbf8;
+  color: #087f69;
+}
+
+.task-dashboard-main .task-table-row.status-aguardando-cliente .task-status-pill,
+.task-dashboard-main .task-table-row.status-aguardando-terceiro .task-status-pill {
+  border-color: #e7c77b;
+  background: #fffaf0;
+  color: #8a5b00;
+}
+
+.task-dashboard-main .task-table-row.status-concluida .task-status-pill {
+  border-color: #a9d5b7;
+  background: #f3faf5;
+  color: #166534;
 }
 
 .task-row-chips .priority-pill,
