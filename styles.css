@@ -1010,10 +1010,14 @@ h3 {
   font-weight: 600;
 }
 
-.bill-status-pill.paid,
-.bill-recurring-pill.yes {
+.bill-status-pill.paid {
   background: #e4f7ec;
   color: #15803d;
+}
+
+.bill-recurring-pill.yes {
+  background: #edf3f8;
+  color: #456176;
 }
 
 .bill-status-pill.pending {
@@ -1027,8 +1031,8 @@ h3 {
 }
 
 .bill-recurring-pill.no {
-  background: #f2f4f5;
-  color: var(--muted);
+  background: #f5f6f7;
+  color: #7b8790;
 }
 
 .bill-row-actions {
