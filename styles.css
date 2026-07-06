@@ -3356,6 +3356,20 @@ button.updates-important-item:hover {
   background: #fff;
 }
 
+.toolbar.bills-toolbar {
+  grid-template-columns: minmax(280px, 1fr) 332px;
+  align-items: center;
+}
+
+.toolbar.bills-toolbar .search-field {
+  min-width: 0;
+}
+
+.toolbar.bills-toolbar .bills-filter-control {
+  width: 332px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .segmented-control button {
   border-radius: 6px;
   background: transparent;
@@ -6510,6 +6524,15 @@ button.updates-important-item:hover {
   .compact-client-head,
   .compact-client-row {
     min-width: 980px;
+  }
+
+  .toolbar.bills-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar.bills-toolbar .bills-filter-control {
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
