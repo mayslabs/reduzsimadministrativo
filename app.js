@@ -7977,7 +7977,7 @@ function getClientStatuses(client) {
 }
 
 function isClientFinished(client) {
-  return getClientStatuses(client).some((status) => normalize(status.name).includes("finaliz"));
+  return getClientStatuses(client).some((status) => normalize(status.name) === "finalizado");
 }
 
 function chip(status) {
