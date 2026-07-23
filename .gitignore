@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env
+.env.*
+*.local
+firebase-service-account*.json
+service-account*.json
+exports/
+backups/
+app-Mayssa.js
+index-Mayssa.html
+styles-Mayssa.css

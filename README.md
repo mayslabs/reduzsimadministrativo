@@ -1,27 +1,84 @@
-# ReduzSim - Clientes ativos
+# ReduzSim Gestao
 
-Painel interno para acompanhamento de clientes ativos da ReduzSim no fluxo de reducao de INSS de obras.
+CRM interno da ReduzSim para INSS de obras, regularizacao de imoveis, tarefas,
+atualizacoes, indicadores, metas e financeiro administrativo.
 
-## Como abrir localmente
+## Arquitetura
 
-Abra o arquivo `index.html` no navegador.
+- Frontend estatico publicado pelo Cloudflare Pages.
+- Rotas e arquivos protegidos por Cloudflare Pages Functions.
+- Login por Firebase Authentication no projeto `reduzsim-2a6f2`.
+- Sessao do servidor em cookie assinado, `HttpOnly`, `Secure` e
+  `SameSite=Strict`.
+- Dados armazenados no Cloudflare D1, separados por tipo de registro.
+- GitHub usado como repositorio do codigo, sem dados operacionais.
 
-## Como publicar no GitHub Pages
+O site oficial do GitHub Pages deve permanecer ativo durante a validacao da
+migracao. A troca definitiva so deve ocorrer depois de conferir os dois perfis
+e os fluxos principais no endereco paralelo.
 
-1. Crie um repositorio no GitHub.
-2. Envie estes arquivos para a branch principal.
-3. No GitHub, acesse `Settings > Pages`.
-4. Em `Build and deployment`, selecione `Deploy from a branch`.
-5. Escolha a branch principal e a pasta `/root`.
-6. Salve. O GitHub vai gerar uma URL publica.
+## Desenvolvimento
 
-## Acessos
+Requisitos: Node.js 20 ou superior.
 
-- E-mail: `mayssa@reduzsiminss.com.br`
-- E-mail: `contato@reduzsiminss.com.br`
-- Senhas gerenciadas pelo Firebase Authentication.
+```text
+npm ci
+npm run check
+npm test
+npm run build
+npx wrangler pages dev
+```
 
-## Observacao importante
+O ambiente local exige `SESSION_SECRET` em `.dev.vars`. Esse arquivo e
+ignorado pelo Git e nunca deve ser publicado.
 
-Esta versao usa Firebase Authentication para login e Cloud Firestore para sincronizar os dados entre computadores.
-O `localStorage` continua sendo usado apenas como apoio local e migracao dos dados antigos.
+## Banco de dados
+
+O schema inicial esta em `migrations/0001_crm.sql`. O banco remoto configurado
+em `wrangler.toml` e `reduzsim-gestao-db`.
+
+O export do Firebase e o SQL gerado ficam em `exports/`, pasta ignorada pelo
+Git:
+
+```text
+npm run prepare:import -- exports/firestore-state.json exports/d1-import.sql
+npx wrangler d1 execute reduzsim-gestao-db --remote --file exports/d1-import.sql
+```
+
+Antes de importar, confira o hash e as contagens exibidas pelo gerador. Uma
+fotografia final do Firebase deve ser importada imediatamente antes da troca
+definitiva para evitar perda de alteracoes feitas durante a validacao.
+
+## Publicacao paralela
+
+```text
+npm run build
+npx wrangler pages deploy dist --project-name reduzsim-gestao
+```
+
+O segredo de sessao deve ser configurado diretamente no Cloudflare e nunca em
+arquivo versionado.
+
+## Controles de seguranca
+
+- Todo o painel e toda a API exigem sessao validada no servidor.
+- Somente os dois e-mails previamente cadastrados podem vincular um UID do
+  Firebase.
+- Financeiro interno e categorias de contas sao retornados apenas para a
+  administradora.
+- Historicos existentes nao podem ser editados ou removidos pela colaboradora.
+- Atualizacoes sao imutaveis; a leitura por usuario fica em tabela separada.
+- Gravacoes usam versoes para impedir sobrescrita silenciosa entre
+  computadores.
+- A base completa nao e salva em `localStorage`.
+- Respostas privadas usam `no-store`, CSP, bloqueio de iframe e `noindex`.
+
+## Recuperacao
+
+Enquanto a migracao nao for concluida, o ambiente oficial continua sendo:
+
+`https://mayslabs.github.io/reduzsimadministrativo/`
+
+O backup exportado do Firebase deve ser mantido localmente ate a validacao
+final. Em caso de problema no ambiente paralelo, nenhuma mudanca precisa ser
+feita no site oficial.

@@ -1,0 +1,8 @@
+name = "reduzsim-gestao"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-07-23"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "reduzsim-gestao-db"
+database_id = "f4a0942c-ca21-4f48-8169-e49fd2ded2ac"

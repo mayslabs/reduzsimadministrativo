@@ -1,0 +1,14 @@
+{
+  "name": "reduzsim-gestao",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "check": "node --check app.js && node --check cloudflare-sync.js && node --check login.js",
+    "prepare:import": "node scripts/prepare-import.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.114.0"
+  }
+}

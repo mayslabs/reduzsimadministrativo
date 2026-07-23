@@ -2,8 +2,6 @@ const STORAGE_KEY = "reduzsim_client_flow_v2";
 const LEGACY_STORAGE_KEYS = ["reduzsim_client_flow_v1"];
 const SESSION_KEY = "reduzsim_current_user_v2";
 const GUIDANCE_COLLAPSE_KEY = "reduzsim_collapsed_guidance_v1";
-const FIRESTORE_COLLECTION = "reduzsim_admin";
-const FIRESTORE_STATE_DOC = "shared_state";
 const APP_VERSION = currentAppVersion();
 
 const firebaseConfig = {
@@ -270,11 +268,13 @@ const expandedTaskCardIds = new Set();
 const expandedCompletedTaskGroups = new Set();
 let firebaseApp = null;
 let firebaseAuth = null;
-let firebaseDb = null;
-let firebaseStateRef = null;
-let unsubscribeCloudState = null;
 let cloudSaveTimer = null;
 let isApplyingCloudState = false;
+let cloudPollTimer = null;
+let cloudSaveInFlight = false;
+let cloudChangeGeneration = 0;
+let cloudSessionUser = null;
+let lastCloudStateJson = "";
 
 const el = {
   loginView: document.getElementById("loginView"),
@@ -447,20 +447,21 @@ bootstrap();
 function bootstrap() {
   bindEvents();
   if (initializeFirebaseServices()) {
-    el.loginStatus.textContent = "Conectando ao Firebase...";
+    el.loginStatus.textContent = "Conectando ao acesso seguro...";
     firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
       if (!firebaseUser) {
         stopCloudStateListener();
         sessionStorage.removeItem(SESSION_KEY);
         currentUser = null;
-        showLogin();
-        el.loginStatus.textContent = "";
+        await window.ReduzSimCloud?.logout();
+        window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
         return;
       }
 
       try {
         await loadCloudState();
-        currentUser = userForFirebaseUser(firebaseUser);
+        currentUser = state.users.find((user) => user.id === cloudSessionUser?.id)
+          || userForFirebaseUser(firebaseUser);
         if (!currentUser) {
           await firebaseAuth.signOut();
           el.loginError.hidden = false;
@@ -479,10 +480,7 @@ function bootstrap() {
     return;
   }
 
-  const userId = sessionStorage.getItem(SESSION_KEY);
-  currentUser = state.users.find((user) => user.id === userId) || null;
-  if (currentUser) showApp();
-  else showLogin();
+  window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
 }
 
 function initializeFirebaseServices() {
@@ -491,8 +489,7 @@ function initializeFirebaseServices() {
   try {
     firebaseApp = window.firebase.apps?.length ? window.firebase.app() : window.firebase.initializeApp(firebaseConfig);
     firebaseAuth = window.firebase.auth();
-    firebaseDb = window.firebase.firestore();
-    firebaseStateRef = firebaseDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_STATE_DOC);
+    firebaseAuth.setPersistence(window.firebase.auth.Auth.Persistence.SESSION);
     return true;
   } catch (error) {
     console.error(error);
@@ -501,14 +498,9 @@ function initializeFirebaseServices() {
 }
 
 function loadState() {
-  const saved = readStoredState();
-  if (saved) {
-    return migrateState(saved);
-  }
-
-  const initial = {
-    statuses: defaultStatuses,
-    users: defaultUsers,
+  return {
+    statuses: defaultStatuses.map((status) => ({ ...status })),
+    users: defaultUsers.map((user) => ({ ...user })),
     clients: [],
     regularizationClients: [],
     guidanceItems: [],
@@ -518,27 +510,15 @@ function loadState() {
     activities: [],
     goals: normalizeGoalSettings(),
     companyBills: [],
-    companyBillCategories: DEFAULT_BILL_CATEGORIES,
+    companyBillCategories: [...DEFAULT_BILL_CATEGORIES],
   };
-  state = initial;
-  initial.clients = [defaultClient()];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-  return initial;
 }
 
 function readStoredState() {
-  const current = localStorage.getItem(STORAGE_KEY);
-  if (current) return JSON.parse(current);
-
-  for (const key of LEGACY_STORAGE_KEYS) {
-    const legacy = localStorage.getItem(key);
-    if (legacy) return JSON.parse(legacy);
-  }
-
   return null;
 }
 
-function migrateState(savedState = {}, persist = true) {
+function migrateState(savedState = {}, persist = false) {
   const migrated = {
     statuses: Array.isArray(savedState.statuses) && savedState.statuses.length ? savedState.statuses : defaultStatuses,
     users: Array.isArray(savedState.users) ? savedState.users : [],
@@ -635,7 +615,6 @@ function migrateState(savedState = {}, persist = true) {
 
   remapUserReferences(migrated, userCleanup.idMap);
 
-  if (persist) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
   return migrated;
 }
 
@@ -1051,7 +1030,8 @@ function remapUserReferences(migrated, idMap) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (isApplyingCloudState) return;
+  cloudChangeGeneration += 1;
   scheduleCloudSave();
 }
 
@@ -1077,75 +1057,122 @@ function recordActivity(type, title, detail = "", options = {}) {
 }
 
 function scheduleCloudSave() {
-  if (!firebaseStateRef || !firebaseAuth?.currentUser || isApplyingCloudState) return;
+  if (!window.ReduzSimCloud || !firebaseAuth?.currentUser || isApplyingCloudState) return;
   window.clearTimeout(cloudSaveTimer);
   cloudSaveTimer = window.setTimeout(() => {
+    cloudSaveTimer = null;
     saveCloudStateNow().catch((error) => {
       console.error(error);
-      if (el.loginStatus) el.loginStatus.textContent = "NÃ£o foi possÃ­vel sincronizar com o Firebase.";
+      showSyncError(error);
     });
   }, 350);
 }
 
 async function saveCloudStateNow() {
-  if (!firebaseStateRef || !firebaseAuth?.currentUser) return;
-  await firebaseStateRef.set(
-    {
-      state: cloneData(state),
-      updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy: firebaseAuth.currentUser.uid,
-      updatedByEmail: firebaseAuth.currentUser.email || "",
-    },
-    { merge: true }
-  );
+  if (!window.ReduzSimCloud || !firebaseAuth?.currentUser || cloudSaveInFlight) return;
+
+  const generation = cloudChangeGeneration;
+  const stateToSave = cloneData(state);
+  cloudSaveInFlight = true;
+
+  try {
+    const payload = await window.ReduzSimCloud.save(stateToSave);
+    cloudSessionUser = payload.currentUser || cloudSessionUser;
+    lastCloudStateJson = JSON.stringify(migrateState(payload.state, false));
+
+    if (generation === cloudChangeGeneration) {
+      isApplyingCloudState = true;
+      state = migrateState(payload.state, false);
+      currentUser = state.users.find((user) => user.id === cloudSessionUser?.id) || currentUser;
+      isApplyingCloudState = false;
+    }
+  } catch (error) {
+    if (error instanceof window.ReduzSimCloud.SyncConflictError) {
+      await loadCloudState({ render: true });
+      window.alert(
+        "Os dados foram atualizados em outro computador. A versao mais recente foi carregada para evitar sobrescrita."
+      );
+      return;
+    }
+    throw error;
+  } finally {
+    cloudSaveInFlight = false;
+    if (generation !== cloudChangeGeneration) scheduleCloudSave();
+  }
 }
 
-async function loadCloudState() {
-  const localState = migrateState(state);
-  const snapshot = await firebaseStateRef.get();
-  if (snapshot.exists && snapshot.data()?.state) {
-    state = migrateState(snapshot.data().state);
-    return;
+async function loadCloudState(options = {}) {
+  if (!window.ReduzSimCloud) {
+    throw new Error("O modulo de sincronizacao segura nao foi carregado.");
   }
-
-  state = localState;
-  await saveCloudStateNow();
+  const payload = await window.ReduzSimCloud.load();
+  applyCloudPayload(payload, options);
+  return payload;
 }
 
 function subscribeCloudState() {
-  if (unsubscribeCloudState || !firebaseStateRef) return;
-  unsubscribeCloudState = firebaseStateRef.onSnapshot((snapshot) => {
-    if (!snapshot.exists || !snapshot.data()?.state) return;
-    const remoteState = migrateState(snapshot.data().state, false);
-    if (JSON.stringify(remoteState) === JSON.stringify(state)) return;
-
-    isApplyingCloudState = true;
-    state = remoteState;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    currentUser = currentUser ? state.users.find((user) => user.id === currentUser.id) || null : null;
-    if (!currentUser && firebaseAuth?.currentUser) {
-      currentUser = userForFirebaseUser(firebaseAuth.currentUser);
-    }
-    if (currentUser) renderAll();
-    isApplyingCloudState = false;
-  });
+  if (cloudPollTimer || !window.ReduzSimCloud) return;
+  cloudPollTimer = window.setInterval(() => {
+    pollCloudState().catch((error) => {
+      console.error("Cloud poll failed", error);
+    });
+  }, 15000);
 }
 
 function stopCloudStateListener() {
-  if (!unsubscribeCloudState) return;
-  unsubscribeCloudState();
-  unsubscribeCloudState = null;
+  window.clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = null;
+  if (cloudPollTimer) window.clearInterval(cloudPollTimer);
+  cloudPollTimer = null;
+}
+
+async function pollCloudState() {
+  if (
+    cloudSaveInFlight
+    || cloudSaveTimer
+    || !currentUser
+    || JSON.stringify(state) !== lastCloudStateJson
+  ) return;
+
+  const payload = await window.ReduzSimCloud.load();
+  const remoteState = migrateState(payload.state, false);
+  if (JSON.stringify(remoteState) === lastCloudStateJson) {
+    cloudSessionUser = payload.currentUser || cloudSessionUser;
+    return;
+  }
+  applyCloudPayload(payload, { render: true });
+}
+
+function applyCloudPayload(payload, options = {}) {
+  const remoteState = migrateState(payload?.state || {}, false);
+  isApplyingCloudState = true;
+  state = remoteState;
+  cloudSessionUser = payload?.currentUser || window.ReduzSimCloud?.getCurrentUser() || null;
+  lastCloudStateJson = JSON.stringify(remoteState);
+  currentUser = cloudSessionUser
+    ? state.users.find((user) => user.id === cloudSessionUser.id) || cloudSessionUser
+    : currentUser;
+  isApplyingCloudState = false;
+  if (options.render && currentUser) renderAll();
+}
+
+function showSyncError(error) {
+  const message = error?.message || "Nao foi possivel sincronizar os dados.";
+  if (el.loginStatus) el.loginStatus.textContent = message;
+  window.alert(`${message}\n\nA alteracao continua nesta tela. Tente salvar novamente.`);
 }
 
 function userForFirebaseUser(firebaseUser) {
+  if (cloudSessionUser) {
+    return state.users.find((user) => user.id === cloudSessionUser.id) || cloudSessionUser;
+  }
   const email = firebaseUser?.email?.toLowerCase() || "";
   return state.users.find((user) => user.email?.toLowerCase() === email) || null;
 }
 
 function bindEvents() {
-  window.addEventListener("storage", handleStorageSync);
   el.loginForm.addEventListener("submit", handleLogin);
-  el.repairAccessButton.addEventListener("click", repairAccess);
+  el.repairAccessButton?.addEventListener("click", repairAccess);
   el.logoutButton.addEventListener("click", handleLogout);
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.newRegularizationButton.addEventListener("click", () => openRegularizationDialog());
@@ -1336,74 +1363,28 @@ function syncReferralCommissionFields() {
   if (commissionPaidInput) commissionPaidInput.value = "";
 }
 
-function handleStorageSync(event) {
-  if (event.key !== STORAGE_KEY || !event.newValue) return;
-  state = migrateState(JSON.parse(event.newValue), false);
-  if (currentUser) {
-    currentUser = state.users.find((user) => user.id === currentUser.id) || null;
-    if (!currentUser) {
-      handleLogout();
-      return;
-    }
-    renderAll();
-  }
-}
-
 async function handleLogin(event) {
   event.preventDefault();
-  el.loginStatus.textContent = "Verificando acesso...";
-  const email = el.loginEmail.value.trim().toLowerCase();
-  const password = el.loginPassword.value;
-
-  if (firebaseAuth) {
-    try {
-      await firebaseAuth.signInWithEmailAndPassword(email, password);
-      el.loginError.hidden = true;
-      el.loginStatus.textContent = "Acesso liberado.";
-    } catch (error) {
-      console.error(error);
-      el.loginError.hidden = false;
-      el.loginStatus.textContent = "Confira se o usuÃ¡rio existe no Firebase e se a senha estÃ¡ correta.";
-    }
-    return;
-  }
-
-  state = migrateState(state);
-  const user = state.users.find((item) => item.email?.toLowerCase() === email && item.password === password);
-
-  if (!user) {
-    el.loginError.hidden = false;
-    el.loginStatus.textContent = "";
-    return;
-  }
-
-  currentUser = user;
-  sessionStorage.setItem(SESSION_KEY, user.id);
-  el.loginError.hidden = true;
-  el.loginStatus.textContent = "Acesso liberado.";
-  showApp();
+  window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
 }
 
 function repairAccess() {
-  state = migrateState(state);
-  state.users = defaultUsers.map((user) => ({ ...user }));
-  saveState();
-  el.loginEmail.value = "mayssa@reduzsiminss.com.br";
-  el.loginPassword.value = "123456";
-  el.loginError.hidden = true;
-  el.loginStatus.textContent = firebaseAuth
-    ? "Acessos locais reparados. No Firebase, confirme os usuÃ¡rios em Authentication."
-    : "Acessos oficiais reparados. Clique em Entrar.";
+  window.location.replace("/login");
 }
 
-function handleLogout() {
-  if (firebaseAuth?.currentUser) {
-    firebaseAuth.signOut();
-  }
+async function handleLogout() {
   stopCloudStateListener();
+  if (firebaseAuth?.currentUser) {
+    await firebaseAuth.signOut().catch(() => {});
+  }
+  await window.ReduzSimCloud?.logout();
+  localStorage.removeItem(STORAGE_KEY);
+  LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
   sessionStorage.removeItem(SESSION_KEY);
   currentUser = null;
-  showLogin();
+  cloudSessionUser = null;
+  lastCloudStateJson = "";
+  window.location.replace("/login");
 }
 
 function showLogin() {
@@ -3672,19 +3653,41 @@ function markActivityRead(activityId, shouldRender = true) {
   const activity = state.activities.find((item) => item.id === activityId);
   if (!activity || activityIsRead(activity)) return;
   activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
-  saveState();
+  window.ReduzSimCloud
+    ?.markActivitiesRead([activityId])
+    .then(() => updateActivityReadBaseline([activityId]))
+    .catch(showSyncError);
   if (!shouldRender) return;
   renderTaskNavSignals();
   renderUpdates();
 }
 
 function markAllActivitiesRead() {
-  visibleActivitiesForCurrentUser().forEach((activity) => {
+  const activities = visibleActivitiesForCurrentUser();
+  activities.forEach((activity) => {
     activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
   });
-  saveState();
+  window.ReduzSimCloud
+    ?.markAllActivitiesRead()
+    .then(() => updateActivityReadBaseline(activities.map((activity) => activity.id)))
+    .catch(showSyncError);
   renderTaskNavSignals();
   renderUpdates();
+}
+
+function updateActivityReadBaseline(activityIds) {
+  if (!lastCloudStateJson || !currentUser) return;
+  try {
+    const baseline = JSON.parse(lastCloudStateJson);
+    const ids = new Set(activityIds.map(String));
+    (baseline.activities || []).forEach((activity) => {
+      if (!ids.has(String(activity.id))) return;
+      activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
+    });
+    lastCloudStateJson = JSON.stringify(baseline);
+  } catch (error) {
+    console.error("Unable to update activity read baseline", error);
+  }
 }
 
 function guidanceStages() {
@@ -7827,7 +7830,10 @@ function markNewTaskActivitiesRead() {
   activities.forEach((activity) => {
     activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
   });
-  saveState();
+  window.ReduzSimCloud
+    ?.markActivitiesRead(activities.map((activity) => activity.id))
+    .then(() => updateActivityReadBaseline(activities.map((activity) => activity.id)))
+    .catch(showSyncError);
   renderTaskNavSignals();
   renderUpdates();
 }

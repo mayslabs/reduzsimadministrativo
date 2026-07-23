@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <title>Acesso interno | ReduzSim Gestão</title>
+    <link rel="icon" type="image/png" href="./assets/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --green: #008f72;
+        --green-dark: #00745d;
+        --ink: #29333d;
+        --muted: #667085;
+        --border: #d9e2e0;
+        --surface: #ffffff;
+        --background: #f5f8f7;
+        --danger: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--background);
+        color: var(--ink);
+        font-family: "Poppins", Arial, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      body::before {
+        background: var(--green);
+        content: "";
+        display: block;
+        height: 4px;
+        width: 100%;
+      }
+
+      main {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        min-height: calc(100vh - 4px);
+        padding: 24px;
+      }
+
+      .login-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 8px 30px rgba(24, 45, 39, 0.08);
+        max-width: 420px;
+        padding: 34px;
+        width: 100%;
+      }
+
+      .logo {
+        display: block;
+        height: auto;
+        margin: 0 auto 28px;
+        max-width: 230px;
+        width: 70%;
+      }
+
+      h1 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        margin: 0 0 6px;
+        text-align: center;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin: 0 0 26px;
+        text-align: center;
+      }
+
+      label {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 500;
+        margin-bottom: 7px;
+      }
+
+      .field + .field {
+        margin-top: 17px;
+      }
+
+      input {
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        color: var(--ink);
+        font: inherit;
+        min-height: 46px;
+        padding: 10px 12px;
+        width: 100%;
+      }
+
+      input:focus {
+        border-color: var(--green);
+        box-shadow: 0 0 0 3px rgba(0, 143, 114, 0.12);
+        outline: 0;
+      }
+
+      button {
+        background: var(--green);
+        border: 0;
+        border-radius: 7px;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        margin-top: 22px;
+        min-height: 46px;
+        padding: 10px 18px;
+        width: 100%;
+      }
+
+      button:hover,
+      button:focus-visible {
+        background: var(--green-dark);
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+
+      .message {
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin: 16px 0 0;
+        min-height: 20px;
+        text-align: center;
+      }
+
+      .message.error {
+        color: var(--danger);
+      }
+
+      .internal {
+        color: var(--muted);
+        font-size: 0.74rem;
+        margin: 20px 0 0;
+        text-align: center;
+      }
+
+      @media (max-width: 480px) {
+        main {
+          align-items: flex-start;
+          padding: 18px 14px;
+        }
+
+        .login-panel {
+          padding: 28px 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="login-panel" aria-labelledby="loginTitle">
+        <img class="logo" src="./assets/reduzsim-logo.png" alt="ReduzSim Gestão" />
+        <h1 id="loginTitle">Acesso interno</h1>
+        <p class="subtitle">Entre com o acesso já utilizado no Firebase.</p>
+        <form id="cloudLoginForm">
+          <div class="field">
+            <label for="cloudLoginEmail">E-mail</label>
+            <input
+              id="cloudLoginEmail"
+              type="email"
+              inputmode="email"
+              autocomplete="username"
+              maxlength="254"
+              required
+              autofocus
+            />
+          </div>
+          <div class="field">
+            <label for="cloudLoginPassword">Senha</label>
+            <input
+              id="cloudLoginPassword"
+              type="password"
+              autocomplete="current-password"
+              maxlength="128"
+              required
+            />
+          </div>
+          <button id="cloudLoginButton" type="submit">Entrar</button>
+          <p id="cloudLoginMessage" class="message" aria-live="polite"></p>
+        </form>
+        <p class="internal">Uso exclusivo da equipe ReduzSim.</p>
+      </section>
+    </main>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="./login.js?v=1"></script>
+  </body>
+</html>
+
