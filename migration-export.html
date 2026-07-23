@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <title>Exportacao temporaria | ReduzSim</title>
+    <style>
+      body {
+        color: #27323c;
+        font: 16px Arial, sans-serif;
+        margin: 40px;
+      }
+
+      textarea {
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+        position: fixed;
+        width: 1px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Exportacao temporaria</h1>
+    <p id="status" aria-live="polite">Validando a sessao da administradora...</p>
+    <textarea id="exportData" readonly></textarea>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyAwgOrvq2QGUEPObgkAPXyG_KyJ3l-305w",
+        authDomain: "reduzsim-2a6f2.firebaseapp.com",
+        projectId: "reduzsim-2a6f2",
+        storageBucket: "reduzsim-2a6f2.firebasestorage.app",
+        messagingSenderId: "350622536875",
+        appId: "1:350622536875:web:ed0f9bf3f11b32c894d3ee",
+      };
+
+      const status = document.getElementById("status");
+      const output = document.getElementById("exportData");
+      const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+      const auth = app.auth();
+
+      auth.onAuthStateChanged(async (user) => {
+        if (user?.email?.toLowerCase() !== "mayssa@reduzsiminss.com.br") {
+          status.textContent = "A sessao da administradora nao esta disponivel.";
+          document.body.dataset.ready = "denied";
+          return;
+        }
+
+        try {
+          const snapshot = await app
+            .firestore()
+            .collection("reduzsim_admin")
+            .doc("shared_state")
+            .get();
+          const state = snapshot.data()?.state;
+          if (!snapshot.exists || !state) throw new Error("Estado nao encontrado.");
+
+          output.value = JSON.stringify({
+            state,
+            source: "firestore:reduzsim_admin/shared_state",
+            exportedAt: new Date().toISOString(),
+          });
+          status.textContent = "Backup preparado e pronto para conferencia.";
+          document.body.dataset.ready = "true";
+        } catch (error) {
+          console.error(error);
+          status.textContent = "Nao foi possivel preparar o backup.";
+          document.body.dataset.ready = "error";
+        }
+      });
+    </script>
+  </body>
+</html>
