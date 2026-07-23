@@ -27,7 +27,7 @@ export async function onRequest(context) {
   const url = new URL(context.request.url);
 
   try {
-    if (url.pathname === "/auth/session") return handleSessionExchange(context);
+    if (url.pathname === "/auth/session") return await handleSessionExchange(context);
     if (url.pathname === "/auth/logout") return handleLogout(context.request);
 
     if (PUBLIC_PATHS.has(url.pathname)) {
@@ -81,7 +81,13 @@ async function handleSessionExchange(context) {
     return jsonResponse({ error: "Token de acesso invalido.", code: "INVALID_TOKEN" }, 400);
   }
 
-  const user = await exchangeFirebaseToken(idToken, env);
+  let user;
+  try {
+    user = await exchangeFirebaseToken(idToken, env);
+  } catch (error) {
+    console.warn("Firebase token verification failed");
+    return jsonResponse({ error: "Token de acesso invalido.", code: "INVALID_TOKEN" }, 401);
+  }
   if (!user) {
     return jsonResponse({ error: "Este usuario nao esta autorizado.", code: "FORBIDDEN" }, 403);
   }

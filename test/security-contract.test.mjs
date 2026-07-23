@@ -18,6 +18,8 @@ test("application pages are protected by server middleware", () => {
   assert.match(middleware, /readSession/);
   assert.match(middleware, /url\.pathname\.startsWith\("\/api\/"\)/);
   assert.match(middleware, /login\.html/);
+  assert.match(middleware, /return await handleSessionExchange\(context\)/);
+  assert.match(middleware, /code: "INVALID_TOKEN" \}, 401/);
   assert.doesNotMatch(middleware, /PUBLIC_PATHS[\s\S]*"\/index\.html"/);
 });
 
