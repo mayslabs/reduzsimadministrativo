@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test",
-    "check": "node --check app.js && node --check cloudflare-sync.js && node --check login.js",
+    "check": "node --check app.js && node --check cloudflare-sync.js && node --check legacy-redirect.js && node --check login.js",
     "prepare:import": "node scripts/prepare-import.mjs"
   },
   "devDependencies": {

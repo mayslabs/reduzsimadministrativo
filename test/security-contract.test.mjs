@@ -4,6 +4,7 @@ import test from "node:test";
 
 const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+const legacyRedirect = await readFile(new URL("../legacy-redirect.js", import.meta.url), "utf8");
 const middleware = await readFile(new URL("../functions/_middleware.js", import.meta.url), "utf8");
 const schema = await readFile(new URL("../migrations/0001_crm.sql", import.meta.url), "utf8");
 
@@ -12,6 +13,12 @@ test("frontend no longer stores the CRM state in localStorage or loads Firestore
   assert.doesNotMatch(app, /firebaseStateRef|firebaseDb|unsubscribeCloudState/);
   assert.doesNotMatch(index, /firebase-firestore-compat/);
   assert.match(index, /cloudflare-sync\.js/);
+});
+
+test("legacy GitHub Pages address redirects to the protected deployment", () => {
+  assert.match(index, /legacy-redirect\.js/);
+  assert.match(legacyRedirect, /mayslabs\.github\.io/);
+  assert.match(legacyRedirect, /https:\/\/reduzsim-gestao\.pages\.dev\//);
 });
 
 test("application pages are protected by server middleware", () => {

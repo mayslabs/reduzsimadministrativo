@@ -13,9 +13,11 @@ atualizacoes, indicadores, metas e financeiro administrativo.
 - Dados armazenados no Cloudflare D1, separados por tipo de registro.
 - GitHub usado como repositorio do codigo, sem dados operacionais.
 
-O site oficial do GitHub Pages deve permanecer ativo durante a validacao da
-migracao. A troca definitiva so deve ocorrer depois de conferir os dois perfis
-e os fluxos principais no endereco paralelo.
+O ambiente de producao fica em:
+
+`https://reduzsim-gestao.pages.dev/`
+
+O endereco anterior do GitHub Pages encaminha para o ambiente de producao.
 
 ## Desenvolvimento
 
@@ -49,7 +51,7 @@ Antes de importar, confira o hash e as contagens exibidas pelo gerador. Uma
 fotografia final do Firebase deve ser importada imediatamente antes da troca
 definitiva para evitar perda de alteracoes feitas durante a validacao.
 
-## Publicacao paralela
+## Publicacao
 
 ```text
 npm run build
@@ -75,10 +77,6 @@ arquivo versionado.
 
 ## Recuperacao
 
-Enquanto a migracao nao for concluida, o ambiente oficial continua sendo:
-
-`https://mayslabs.github.io/reduzsimadministrativo/`
-
-O backup exportado do Firebase deve ser mantido localmente ate a validacao
-final. Em caso de problema no ambiente paralelo, nenhuma mudanca precisa ser
-feita no site oficial.
+O ultimo backup exportado do Firebase deve ser mantido localmente como
+contingencia. Em caso de incidente, o banco D1 e o historico do Git permitem
+restaurar uma versao anterior sem expor os dados no repositorio.

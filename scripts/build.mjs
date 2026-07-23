@@ -23,6 +23,7 @@ const publicFiles = [
   "goals-patch.css",
   "goals-patch.js",
   "index.html",
+  "legacy-redirect.js",
   "login.html",
   "login.js",
   "styles.css",
