@@ -1035,6 +1035,59 @@ function saveState() {
   scheduleCloudSave();
 }
 
+function cloudDirtyRecordKeys(currentState) {
+  if (!lastCloudStateJson) return null;
+
+  let baseline;
+  try {
+    baseline = JSON.parse(lastCloudStateJson);
+  } catch (error) {
+    return null;
+  }
+
+  const keys = [];
+  const collections = [
+    "statuses",
+    "clients",
+    "regularizationClients",
+    "guidanceItems",
+    "guidanceQuestions",
+    "internalTasks",
+    "meetings",
+    "activities",
+    "companyBills",
+    "users",
+  ];
+
+  collections.forEach((stateKey) => {
+    const previousById = new Map(
+      (Array.isArray(baseline[stateKey]) ? baseline[stateKey] : [])
+        .filter((item) => item?.id)
+        .map((item) => [String(item.id), item]),
+    );
+    const currentById = new Map(
+      (Array.isArray(currentState[stateKey]) ? currentState[stateKey] : [])
+        .filter((item) => item?.id)
+        .map((item) => [String(item.id), item]),
+    );
+    new Set([...previousById.keys(), ...currentById.keys()]).forEach((recordId) => {
+      if (
+        JSON.stringify(previousById.get(recordId))
+        !== JSON.stringify(currentById.get(recordId))
+      ) {
+        keys.push(`${stateKey}:${recordId}`);
+      }
+    });
+  });
+
+  ["goals", "companyBillCategories"].forEach((settingKey) => {
+    if (JSON.stringify(baseline[settingKey]) !== JSON.stringify(currentState[settingKey])) {
+      keys.push(`settings:${settingKey}`);
+    }
+  });
+  return keys;
+}
+
 function recordActivity(type, title, detail = "", options = {}) {
   if (!currentUser) return;
   state.activities = Array.isArray(state.activities) ? state.activities : [];
@@ -1073,10 +1126,15 @@ async function saveCloudStateNow() {
 
   const generation = cloudChangeGeneration;
   const stateToSave = cloneData(state);
+  const dirtyKeys = cloudDirtyRecordKeys(stateToSave);
+  if (dirtyKeys && !dirtyKeys.length) {
+    lastCloudStateJson = JSON.stringify(stateToSave);
+    return;
+  }
   cloudSaveInFlight = true;
 
   try {
-    const payload = await window.ReduzSimCloud.save(stateToSave);
+    const payload = await window.ReduzSimCloud.save(stateToSave, dirtyKeys);
     cloudSessionUser = payload.currentUser || cloudSessionUser;
     lastCloudStateJson = JSON.stringify(migrateState(payload.state, false));
 
@@ -1089,15 +1147,33 @@ async function saveCloudStateNow() {
   } catch (error) {
     if (error instanceof window.ReduzSimCloud.SyncConflictError) {
       await loadCloudState({ render: true });
-      window.alert(
-        "Os dados foram atualizados em outro computador. A versao mais recente foi carregada para evitar sobrescrita."
+      const conflictError = new Error(
+        "Este mesmo registro foi atualizado em outro computador. A versao mais recente foi carregada; revise e salve novamente."
       );
-      return;
+      conflictError.code = "SYNC_CONFLICT";
+      throw conflictError;
     }
     throw error;
   } finally {
     cloudSaveInFlight = false;
     if (generation !== cloudChangeGeneration) scheduleCloudSave();
+  }
+}
+
+async function flushCloudState() {
+  if (!window.ReduzSimCloud || !firebaseAuth?.currentUser) {
+    throw new Error("A sincronizacao segura nao esta disponivel nesta sessao.");
+  }
+  window.clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = null;
+
+  while (cloudSaveInFlight) {
+    await new Promise((resolve) => window.setTimeout(resolve, 25));
+  }
+
+  await saveCloudStateNow();
+  if (JSON.stringify(state) !== lastCloudStateJson) {
+    return flushCloudState();
   }
 }
 
@@ -2742,7 +2818,7 @@ function openBillDialog(billId) {
     { label: "Data de pagamento", name: "paidAt", type: "date", value: current.paidAt },
     { label: "Recorrente", name: "recurring", type: "select", value: current.recurring ? "Sim" : "Não", options: [{ value: "Sim", label: "Sim" }, { value: "Não", label: "Não" }] },
     { label: "Observação", name: "notes", type: "textarea", rows: 3, value: current.notes },
-  ], (values) => {
+  ], async (values) => {
     const description = values.description.trim();
     const amount = formatFlexibleCurrencyValue(values.amount);
     const dueDate = values.dueDate || "";
@@ -6271,10 +6347,11 @@ function renderActiveStatuses() {
     : `<p class="empty-state">Nenhum status ativo.</p>`;
 
   document.querySelectorAll("[data-remove-status]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       activeClient.statusIds = activeClient.statusIds.filter((idValue) => idValue !== button.dataset.removeStatus);
       renderActiveStatuses();
       renderStatusPicker();
+      await persistActiveClient();
     });
   });
 }
@@ -6308,13 +6385,14 @@ function renderStatusPicker() {
   `;
 
   document.querySelectorAll("[data-toggle-status]").forEach((checkbox) => {
-    checkbox.addEventListener("change", () => {
+    checkbox.addEventListener("change", async () => {
       if (checkbox.checked) {
         activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), checkbox.dataset.toggleStatus])];
       } else {
         activeClient.statusIds = (activeClient.statusIds || []).filter((idValue) => idValue !== checkbox.dataset.toggleStatus);
       }
       renderActiveStatuses();
+      await persistActiveClient();
     });
   });
 
@@ -6332,21 +6410,21 @@ function renderStatusPicker() {
   });
 
   document.querySelectorAll("[data-remove-global-status]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       state.statuses = state.statuses.filter((status) => status.id !== button.dataset.removeGlobalStatus);
       state.clients.forEach((client) => {
         client.statusIds = (client.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
       });
       activeClient.statusIds = (activeClient.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
-      saveState();
       renderStatusFilter();
       renderClients();
       renderActiveStatuses();
       renderStatusPicker();
+      await persistActiveClient();
     });
   });
 
-  document.getElementById("createStatusFromCard")?.addEventListener("click", () => {
+  document.getElementById("createStatusFromCard")?.addEventListener("click", async () => {
     const nameInput = document.getElementById("newStatusName");
     const colorInput = document.getElementById("newStatusColor");
     const name = nameInput.value.trim();
@@ -6354,11 +6432,11 @@ function renderStatusPicker() {
     const status = { id: id(), name, color: colorInput.value || "#009f7f" };
     state.statuses.push(status);
     activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), status.id])];
-    saveState();
     renderStatusFilter();
     renderClients();
     renderActiveStatuses();
     renderStatusPicker();
+    await persistActiveClient();
   });
   refreshIcons();
 }
@@ -6460,9 +6538,10 @@ function renderTasks() {
     button.addEventListener("click", () => openClientTaskDialog(button.dataset.editTask));
   });
   document.querySelectorAll("[data-remove-task]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       activeClient.tasks = activeClient.tasks.filter((task) => task.id !== button.dataset.removeTask);
       renderTasks();
+      await persistActiveClient();
     });
   });
   refreshIcons();
@@ -6495,9 +6574,10 @@ function renderDeadlines() {
     button.addEventListener("click", () => openClientDeadlineDialog(button.dataset.editDeadline));
   });
   document.querySelectorAll("[data-remove-deadline]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       activeClient.deadlines = activeClient.deadlines.filter((deadline) => deadline.id !== button.dataset.removeDeadline);
       renderDeadlines();
+      await persistActiveClient();
     });
   });
   refreshIcons();
@@ -6535,19 +6615,21 @@ function renderNotes() {
   });
 
   document.querySelectorAll("[data-save-note]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const note = activeClient.notes.find((item) => item.id === button.dataset.saveNote);
       const box = document.querySelector(`[data-note="${note.id}"] [data-note-field="text"]`);
       note.text = box.value.trim();
       note.updatedAt = new Date().toISOString();
       renderNotes();
+      await persistActiveClient();
     });
   });
 
   document.querySelectorAll("[data-remove-note]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       activeClient.notes = activeClient.notes.filter((note) => note.id !== button.dataset.removeNote);
       renderNotes();
+      await persistActiveClient();
     });
   });
   refreshIcons();
@@ -6586,19 +6668,21 @@ function renderWorkerMessages() {
   });
 
   document.querySelectorAll("[data-save-worker-message]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const message = activeClient.workerMessages.find((item) => item.id === button.dataset.saveWorkerMessage);
       const box = document.querySelector(`[data-worker-message="${message.id}"] [data-worker-message-field="text"]`);
       message.text = box.value.trim();
       message.updatedAt = new Date().toISOString();
       renderWorkerMessages();
+      await persistActiveClient();
     });
   });
 
   document.querySelectorAll("[data-remove-worker-message]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       activeClient.workerMessages = activeClient.workerMessages.filter((message) => message.id !== button.dataset.removeWorkerMessage);
       renderWorkerMessages();
+      await persistActiveClient();
     });
   });
   refreshIcons();
@@ -6637,19 +6721,21 @@ function renderFinanceMessages() {
   });
 
   document.querySelectorAll("[data-save-finance-message]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const message = activeClient.financeMessages.find((item) => item.id === button.dataset.saveFinanceMessage);
       const box = document.querySelector(`[data-finance-message="${message.id}"] [data-finance-message-field="text"]`);
       message.text = box.value.trim();
       message.updatedAt = new Date().toISOString();
       renderFinanceMessages();
+      await persistActiveClient();
     });
   });
 
   document.querySelectorAll("[data-remove-finance-message]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       activeClient.financeMessages = activeClient.financeMessages.filter((message) => message.id !== button.dataset.removeFinanceMessage);
       renderFinanceMessages();
+      await persistActiveClient();
     });
   });
   refreshIcons();
@@ -6698,10 +6784,11 @@ function renderHistory() {
   });
 
   document.querySelectorAll("[data-remove-history]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       if (currentUser.role !== "admin") return;
       activeClient.history = activeClient.history.filter((entry) => entry.id !== button.dataset.removeHistory);
       renderHistory();
+      await persistActiveClient();
     });
   });
 
@@ -6787,7 +6874,7 @@ function bindCollectionFields(type, collection, rerender) {
   refreshIcons();
 }
 
-function addNote() {
+async function addNote() {
   const text = el.newNoteText.value.trim();
   if (!text) return;
   activeClient.notes.unshift({
@@ -6799,9 +6886,10 @@ function addNote() {
   });
   el.newNoteText.value = "";
   renderNotes();
+  await persistActiveClient();
 }
 
-function addWorkerMessage() {
+async function addWorkerMessage() {
   const text = el.newWorkerMessageText.value.trim();
   if (!text) return;
   activeClient.workerMessages = Array.isArray(activeClient.workerMessages) ? activeClient.workerMessages : [];
@@ -6814,9 +6902,10 @@ function addWorkerMessage() {
   });
   el.newWorkerMessageText.value = "";
   renderWorkerMessages();
+  await persistActiveClient();
 }
 
-function addFinanceMessage() {
+async function addFinanceMessage() {
   const text = el.newFinanceMessageText.value.trim();
   if (!text) return;
   activeClient.financeMessages = Array.isArray(activeClient.financeMessages) ? activeClient.financeMessages : [];
@@ -6829,15 +6918,17 @@ function addFinanceMessage() {
   });
   el.newFinanceMessageText.value = "";
   renderFinanceMessages();
+  await persistActiveClient();
 }
 
-function addManualHistory() {
+async function addManualHistory() {
   if (currentUser.role !== "admin") return;
   const text = el.newHistoryText.value.trim();
   if (!text) return;
   addHistoryEntry(activeClient, "Registro manual", text.split("\n").map((line) => line.trim()).filter(Boolean), "manual");
   el.newHistoryText.value = "";
   renderHistory();
+  await persistActiveClient();
 }
 
 function openHistoryEditDialog(historyId) {
@@ -6847,7 +6938,7 @@ function openHistoryEditDialog(historyId) {
   const details = Array.isArray(entry.details) ? entry.details : [];
   openSimpleDialog("Editar histórico", [
     { label: "Informação do histórico", name: "details", type: "textarea", value: details.join("\n"), rows: 7 },
-  ], (values) => {
+  ], async (values) => {
     const detailsValue = values.details.split("\n").map((line) => line.trim()).filter(Boolean);
     if (!detailsValue.length) {
       alert("Informe pelo menos uma linha do histórico.");
@@ -6857,11 +6948,11 @@ function openHistoryEditDialog(historyId) {
     entry.details = detailsValue;
     entry.updatedAt = new Date().toISOString();
     renderHistory();
-    return true;
+    return persistActiveClient();
   });
 }
 
-function saveActiveClient() {
+function commitActiveClientToState() {
   if (!activeClient.clientName.trim()) {
     activeClient.clientName = activeClient.fullName || "Cliente sem nome";
   }
@@ -6885,9 +6976,43 @@ function saveActiveClient() {
     });
     state.clients.unshift(cloneData(activeClient));
   }
+  return activeClient.id;
+}
+
+async function persistActiveClient(options = {}) {
+  const closeDialog = Boolean(options.closeDialog);
+  const clientId = commitActiveClientToState();
   saveState();
-  el.clientDialog.close();
+
+  try {
+    await flushCloudState();
+  } catch (error) {
+    console.error(error);
+    showSyncError(error);
+    return false;
+  }
+
+  const savedClient = state.clients.find((client) => client.id === clientId);
+  if (savedClient && activeClient?.id === clientId) {
+    activeClient = cloneData(savedClient);
+  }
+
+  if (closeDialog) {
+    el.clientDialog.close();
+  } else if (activeClient) {
+    renderActiveStatuses();
+    renderStatusPicker();
+    renderNotes();
+    renderWorkerMessages();
+    renderFinanceMessages();
+    renderHistory();
+  }
   renderAll();
+  return true;
+}
+
+function saveActiveClient() {
+  return persistActiveClient({ closeDialog: true });
 }
 
 function addHistoryEntry(client, title, details, type = "system") {
@@ -7456,7 +7581,7 @@ function openClientTaskDialog(taskId = null) {
     }
 
     renderTasks();
-    return true;
+    return persistActiveClient();
   }, {
     className: "task-form-dialog",
     subtitle: "Organize demandas do cliente e acompanhe prazos.",
@@ -7473,7 +7598,7 @@ function openClientDeadlineDialog(deadlineId = null) {
     { label: "Tipo", name: "type", type: "select", value: draft.type || "Interno", options: deadlineTypeValues().map((value) => ({ value, label: value })) },
     { label: "Data", name: "date", type: "date", value: draft.date || "" },
     { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
-  ], (values) => {
+  ], async (values) => {
     if (!values.title) {
       alert("Informe o nome do prazo.");
       return false;
@@ -7496,7 +7621,7 @@ function openClientDeadlineDialog(deadlineId = null) {
     }
 
     renderDeadlines();
-    return true;
+    return persistActiveClient();
   });
 }
 
@@ -7746,13 +7871,21 @@ function openSimpleDialog(title, fields, onSave, options = {}) {
       `
     )
     .join("");
-  el.simpleDialogSave.onclick = () => {
+  el.simpleDialogSave.onclick = async () => {
     const values = {};
     el.simpleDialogBody.querySelectorAll("[data-simple-field]").forEach((input) => {
       values[input.dataset.simpleField] = input.value.trim();
     });
-    const shouldClose = onSave(values);
-    if (shouldClose !== false) el.simpleDialog.close();
+    el.simpleDialogSave.disabled = true;
+    try {
+      const shouldClose = await onSave(values);
+      if (shouldClose !== false) el.simpleDialog.close();
+    } catch (error) {
+      console.error(error);
+      showSyncError(error);
+    } finally {
+      el.simpleDialogSave.disabled = false;
+    }
   };
   el.simpleDialogBody.querySelectorAll("[data-money-field]").forEach((input) => {
     input.addEventListener("input", () => {

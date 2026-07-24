@@ -6,6 +6,7 @@ const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const legacyRedirect = await readFile(new URL("../legacy-redirect.js", import.meta.url), "utf8");
 const middleware = await readFile(new URL("../functions/_middleware.js", import.meta.url), "utf8");
+const stateApi = await readFile(new URL("../functions/api/state.js", import.meta.url), "utf8");
 const schema = await readFile(new URL("../migrations/0001_crm.sql", import.meta.url), "utf8");
 
 test("frontend no longer stores the CRM state in localStorage or loads Firestore", () => {
@@ -34,4 +35,10 @@ test("database separates private finance and activity read state", () => {
   assert.match(schema, /CREATE TABLE IF NOT EXISTS company_bills/);
   assert.match(schema, /CREATE TABLE IF NOT EXISTS activity_reads/);
   assert.match(schema, /scope TEXT NOT NULL DEFAULT 'admin'/);
+});
+
+test("multi-user saves are scoped to records changed in the browser", () => {
+  assert.match(app, /cloudDirtyRecordKeys/);
+  assert.match(stateApi, /normalizeDirtyKeys/);
+  assert.match(stateApi, /dirtyKeys\.has\(recordKey\)/);
 });

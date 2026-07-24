@@ -17,11 +17,15 @@
     return payload;
   }
 
-  async function save(state) {
+  async function save(state, dirtyKeys = null) {
     const payload = await request("/api/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state, versions }),
+      body: JSON.stringify({
+        state,
+        versions,
+        ...(Array.isArray(dirtyKeys) ? { dirtyKeys } : {}),
+      }),
     });
     remember(payload);
     return payload;

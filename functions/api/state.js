@@ -2,8 +2,9 @@ import { isTrustedMutation, jsonResponse } from "../lib/http.js";
 
 const MAX_REQUEST_BYTES = 8_000_000;
 const MAX_RECORD_BYTES = 900_000;
-const MAX_MUTATIONS_PER_SAVE = 20;
+const MAX_MUTATIONS_PER_SAVE = 50;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const DIRTY_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9]*:[A-Za-z0-9_-]{1,128}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const encoder = new TextEncoder();
 
@@ -85,7 +86,8 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: "Estado de sincronizacao invalido.", code: "INVALID_STATE" }, 400);
     }
 
-    const result = await prepareMutations(env.DB, user, body.state, body.versions);
+    const dirtyKeys = normalizeDirtyKeys(body.dirtyKeys);
+    const result = await prepareMutations(env.DB, user, body.state, body.versions, dirtyKeys);
     if (result.conflicts.length) {
       return jsonResponse({
         error: "Os dados foram alterados em outro computador.",
@@ -225,7 +227,7 @@ async function readState(db, user) {
   };
 }
 
-async function prepareMutations(db, user, desiredState, clientVersions) {
+async function prepareMutations(db, user, desiredState, clientVersions, dirtyKeys = null) {
   const writableCollections = COLLECTIONS.filter((config) => !config.adminOnly || user.role === "admin");
   const queries = writableCollections.map((config) => db.prepare(`
     SELECT id, payload, version, scope, created_at, created_by, deleted_at
@@ -254,11 +256,15 @@ async function prepareMutations(db, user, desiredState, clientVersions) {
         throw new ValidationError(`Identificador invalido em ${config.stateKey}.`);
       }
 
+      const recordKey = versionKey(config.stateKey, id);
       const existing = existingById.get(id);
+      desiredById.set(id, item);
+      if (dirtyKeys && !dirtyKeys.has(recordKey)) return;
+
       if (config.protectHistory && user.role !== "admin" && existing && !existing.deleted_at) {
         item = protectExistingHistory(parsePayload(existing.payload), item, user, now);
+        desiredById.set(id, item);
       }
-      desiredById.set(id, item);
 
       const scope = scopeFor(config, item);
       if (scope === "admin" && user.role !== "admin") {
@@ -305,6 +311,7 @@ async function prepareMutations(db, user, desiredState, clientVersions) {
       .forEach((row) => {
         if (row.scope === "admin" && user.role !== "admin") return;
         const id = String(row.id);
+        if (dirtyKeys && !dirtyKeys.has(versionKey(config.stateKey, id))) return;
         const expectedVersion = Number(clientVersions[versionKey(config.stateKey, id)] || 0);
         if (expectedVersion !== Number(row.version || 0)) {
           conflicts.push(versionKey(config.stateKey, id));
@@ -335,12 +342,26 @@ async function prepareMutations(db, user, desiredState, clientVersions) {
   });
 
   if (user.role === "admin") {
-    const settingsResult = await prepareSettings(db, user, desiredState, clientVersions, now);
+    const settingsResult = await prepareSettings(
+      db,
+      user,
+      desiredState,
+      clientVersions,
+      now,
+      dirtyKeys,
+    );
     statements.push(...settingsResult.statements);
     conflicts.push(...settingsResult.conflicts);
     mutationCount += settingsResult.mutationCount;
 
-    const usersResult = await prepareUsers(db, user, desiredState.users, clientVersions, now);
+    const usersResult = await prepareUsers(
+      db,
+      user,
+      desiredState.users,
+      clientVersions,
+      now,
+      dirtyKeys,
+    );
     statements.push(...usersResult.statements);
     conflicts.push(...usersResult.conflicts);
     mutationCount += usersResult.mutationCount;
@@ -361,7 +382,7 @@ async function prepareMutations(db, user, desiredState, clientVersions) {
   return { statements, conflicts: [...new Set(conflicts)], error: null };
 }
 
-async function prepareSettings(db, user, desiredState, clientVersions, now) {
+async function prepareSettings(db, user, desiredState, clientVersions, now, dirtyKeys = null) {
   const rows = await db.prepare(`
     SELECT key, value_json, version, scope
     FROM app_settings
@@ -380,6 +401,7 @@ async function prepareSettings(db, user, desiredState, clientVersions, now) {
   let mutationCount = 0;
 
   desired.forEach((value, key) => {
+    if (dirtyKeys && !dirtyKeys.has(versionKey("settings", key))) return;
     const payload = JSON.stringify(value);
     const existing = existingByKey.get(key);
     if (existing && String(existing.value_json) === payload) return;
@@ -419,7 +441,7 @@ async function prepareSettings(db, user, desiredState, clientVersions, now) {
   return { statements, conflicts, mutationCount };
 }
 
-async function prepareUsers(db, actor, desiredUsers, clientVersions, now) {
+async function prepareUsers(db, actor, desiredUsers, clientVersions, now, dirtyKeys = null) {
   if (!Array.isArray(desiredUsers) || desiredUsers.length > 20) {
     throw new ValidationError("A lista de usuarios e invalida.");
   }
@@ -442,6 +464,7 @@ async function prepareUsers(db, actor, desiredUsers, clientVersions, now) {
     if (!ID_PATTERN.test(id) || !EMAIL_PATTERN.test(email) || !name) {
       throw new ValidationError("Dados de usuario invalidos.");
     }
+    if (dirtyKeys && !dirtyKeys.has(versionKey("users", id))) return;
 
     const existing = existingById.get(id);
     if (
@@ -514,22 +537,31 @@ function normalizeItem(rawItem, config, user, now) {
   return item;
 }
 
-function protectExistingHistory(existingClient, nextClient, user, now) {
+export function protectExistingHistory(existingClient, nextClient, user, now) {
   if (!isObject(existingClient)) return nextClient;
   const existingHistory = Array.isArray(existingClient.history) ? existingClient.history : [];
   const nextHistory = Array.isArray(nextClient.history) ? nextClient.history : [];
+  const existingById = new Map(
+    existingHistory.map((entry) => [String(entry?.id || ""), entry]),
+  );
   const nextById = new Map(nextHistory.map((entry) => [String(entry?.id || ""), entry]));
 
   existingHistory.forEach((entry) => {
     const current = nextById.get(String(entry?.id || ""));
-    if (!current || JSON.stringify(current) !== JSON.stringify(entry)) {
+    if (!current || !sameProtectedHistoryEntry(entry, current)) {
       throw new PermissionError("Somente a administradora pode editar ou remover o historico.");
     }
   });
 
   nextClient.history = nextHistory.map((entry) => {
     const id = String(entry?.id || "");
-    if (existingHistory.some((existing) => String(existing?.id || "") === id)) return entry;
+    const existing = existingById.get(id);
+    if (existing) {
+      return {
+        ...existing,
+        ...normalizeProtectedHistoryEntry(existing, entry),
+      };
+    }
     return {
       ...entry,
       userId: user.id,
@@ -538,6 +570,47 @@ function protectExistingHistory(existingClient, nextClient, user, now) {
     };
   });
   return nextClient;
+}
+
+function sameProtectedHistoryEntry(existing, current) {
+  return JSON.stringify(normalizeProtectedHistoryEntry(existing, current))
+    === JSON.stringify(normalizeProtectedHistoryEntry(current));
+}
+
+function normalizeProtectedHistoryEntry(entry = {}, fallback = {}) {
+  const hasEntryDetails = Array.isArray(entry.details)
+    || Boolean(entry.text || entry.detail);
+  const entryDetails = Array.isArray(entry.details)
+    ? entry.details
+    : [entry.text || entry.detail || ""].filter(Boolean);
+  const fallbackDetails = Array.isArray(fallback.details)
+    ? fallback.details
+    : [fallback.text || fallback.detail || ""].filter(Boolean);
+  return {
+    id: String(entry.id || fallback.id || ""),
+    title: String(entry.title || fallback.title || "Registro do hist\u00f3rico"),
+    details: (hasEntryDetails ? entryDetails : fallbackDetails)
+      .map((detail) => String(detail)),
+    userId: String(entry.userId || fallback.userId || ""),
+    type: String(entry.type || fallback.type || "manual"),
+    createdAt: String(entry.createdAt || fallback.createdAt || ""),
+    updatedAt: Object.prototype.hasOwnProperty.call(entry, "updatedAt")
+      ? (entry.updatedAt ? String(entry.updatedAt) : null)
+      : (fallback.updatedAt ? String(fallback.updatedAt) : null),
+  };
+}
+
+function normalizeDirtyKeys(value) {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value) || value.length > 1000) {
+    throw new ValidationError("A lista de alteracoes e invalida.");
+  }
+
+  const keys = value.map((key) => String(key || ""));
+  if (keys.some((key) => !DIRTY_KEY_PATTERN.test(key))) {
+    throw new ValidationError("A lista de alteracoes e invalida.");
+  }
+  return new Set(keys);
 }
 
 function upsertStatement(db, config, item, payload, scope, existing, user, now) {
