@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=137" />
+    <link rel="stylesheet" href="./styles.css?v=140" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -225,6 +225,11 @@
             </select>
             <button id="updatesImportantFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="star"></i> Somente importantes</button>
           </div>
+
+          <p class="updates-retention-note">
+            <i data-lucide="clock-3"></i>
+            Atualizações ficam disponíveis por 30 dias. O histórico permanente permanece no card do cliente.
+          </p>
 
           <div class="updates-content-grid">
             <div id="updatesList" class="updates-list"></div>
@@ -803,7 +808,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=139"></script>
+    <script src="./app.js?v=140"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

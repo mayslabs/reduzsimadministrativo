@@ -1,4 +1,5 @@
 import { isTrustedMutation, jsonResponse } from "../lib/http.js";
+import { activityRetentionCutoff } from "../lib/activity-retention.js";
 
 const MAX_REQUEST_BYTES = 8_000_000;
 const MAX_RECORD_BYTES = 900_000;
@@ -99,6 +100,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: result.error.message, code: result.error.code }, result.error.status);
     }
 
+    await env.DB.batch(activityCleanupStatements(env.DB, activityRetentionCutoff()));
     if (result.statements.length) {
       await env.DB.batch(result.statements);
     }
@@ -126,13 +128,23 @@ export async function onRequestPost(context) {
 
 async function readState(db, user) {
   const readableCollections = COLLECTIONS.filter((config) => !config.adminOnly || user.role === "admin");
-  const statements = readableCollections.map((config) => db.prepare(`
-    SELECT id, payload, version, scope
-    FROM ${config.table}
-    WHERE deleted_at IS NULL
-      AND (? = 'admin' OR scope = 'team')
-    ORDER BY updated_at DESC
-  `).bind(user.role));
+  const retentionCutoff = activityRetentionCutoff();
+  const statements = readableCollections.map((config) => {
+    const retentionClause = config.stateKey === "activities"
+      ? "AND created_at >= ?"
+      : "";
+    const statement = db.prepare(`
+      SELECT id, payload, version, scope
+      FROM ${config.table}
+      WHERE deleted_at IS NULL
+        ${retentionClause}
+        AND (? = 'admin' OR scope = 'team')
+      ORDER BY updated_at DESC
+    `);
+    return config.stateKey === "activities"
+      ? statement.bind(retentionCutoff, user.role)
+      : statement.bind(user.role);
+  });
   statements.push(db.prepare(`
     SELECT id, email, name, role, enabled, session_version
     FROM app_users
@@ -146,10 +158,12 @@ async function readState(db, user) {
   `).bind(user.role));
   statements.push(db.prepare("SELECT COALESCE(MAX(seq), 0) AS last_seq FROM sync_log"));
   statements.push(db.prepare(`
-    SELECT activity_id
+    SELECT activity_reads.activity_id
     FROM activity_reads
-    WHERE user_id = ?
-  `).bind(user.id));
+    INNER JOIN activities ON activities.id = activity_reads.activity_id
+    WHERE activity_reads.user_id = ?
+      AND activities.created_at >= ?
+  `).bind(user.id, retentionCutoff));
 
   const results = await db.batch(statements);
   const state = {
@@ -225,6 +239,28 @@ async function readState(db, user) {
     },
     serverTime: new Date().toISOString(),
   };
+}
+
+function activityCleanupStatements(db, cutoff) {
+  return [
+    db.prepare(`
+      DELETE FROM activity_reads
+      WHERE activity_id IN (
+        SELECT id
+        FROM activities
+        WHERE created_at < ?
+      )
+    `).bind(cutoff),
+    db.prepare(`
+      DELETE FROM activities
+      WHERE created_at < ?
+    `).bind(cutoff),
+    db.prepare(`
+      DELETE FROM sync_log
+      WHERE record_type = 'activities'
+        AND changed_at < ?
+    `).bind(cutoff),
+  ];
 }
 
 async function prepareMutations(db, user, desiredState, clientVersions, dirtyKeys = null) {

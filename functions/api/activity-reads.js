@@ -1,4 +1,5 @@
 import { isTrustedMutation, jsonResponse } from "../lib/http.js";
+import { activityRetentionCutoff } from "../lib/activity-retention.js";
 
 const MAX_IDS = 500;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -21,6 +22,7 @@ export async function onRequestPost(context) {
   try {
     const body = await request.json();
     const now = new Date().toISOString();
+    const retentionCutoff = activityRetentionCutoff();
     let result;
 
     if (body?.all === true) {
@@ -29,8 +31,9 @@ export async function onRequestPost(context) {
         SELECT id, ?, ?
         FROM activities
         WHERE deleted_at IS NULL
+          AND created_at >= ?
           AND (? = 'admin' OR scope = 'team')
-      `).bind(user.id, now, user.role).run();
+      `).bind(user.id, now, retentionCutoff, user.role).run();
     } else {
       const ids = [...new Set(Array.isArray(body?.ids) ? body.ids.map(String) : [])];
       if (!ids.length || ids.length > MAX_IDS || ids.some((id) => !ID_PATTERN.test(id))) {
@@ -43,8 +46,9 @@ export async function onRequestPost(context) {
         FROM activities
         INNER JOIN json_each(?) requested ON requested.value = activities.id
         WHERE activities.deleted_at IS NULL
+          AND activities.created_at >= ?
           AND (? = 'admin' OR activities.scope = 'team')
-      `).bind(user.id, now, JSON.stringify(ids), user.role).run();
+      `).bind(user.id, now, JSON.stringify(ids), retentionCutoff, user.role).run();
     }
 
     return jsonResponse({
