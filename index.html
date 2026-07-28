@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=140" />
+    <link rel="stylesheet" href="./styles.css?v=141" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -112,20 +112,44 @@
         <section id="regularizationSection" class="app-section" hidden>
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Processos independentes</p>
+              <p class="eyebrow">Regularização de imóvel</p>
               <h2>Regularização de imóvel</h2>
+              <p class="section-subtitle">Acompanhe clientes, documentos, etapas e pendências do processo.</p>
             </div>
-            <button id="newRegularizationButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo processo</button>
+            <button id="newRegularizationButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo cliente</button>
           </div>
+
+          <div id="regularizationMetricsGrid" class="metrics-grid regularization-metrics-grid"></div>
 
           <div class="toolbar regularization-toolbar">
             <label class="search-field">
               <i data-lucide="search"></i>
-              <input id="regularizationSearchInput" type="search" placeholder="Buscar cliente, imóvel, origem ou status" />
+              <input id="regularizationSearchInput" type="search" placeholder="Buscar cliente, CPF, imóvel, origem ou status" />
             </label>
+            <select id="regularizationStatusFilter" aria-label="Filtrar por status">
+              <option value="">Todos os status</option>
+            </select>
+            <select id="regularizationSort" aria-label="Ordenar clientes">
+              <option value="recent">Mais recentes</option>
+              <option value="name">Nome do cliente</option>
+              <option value="active">Processos ativos</option>
+              <option value="finished">Processos finalizados</option>
+            </select>
+            <div class="segmented-control" role="group" aria-label="Modo de visualização da regularização">
+              <button id="regularizationCompactModeButton" class="active" type="button"><i data-lucide="rows-3"></i> Lista</button>
+              <button id="regularizationDetailedModeButton" type="button"><i data-lucide="layout-grid"></i> Detalhado</button>
+            </div>
           </div>
 
-          <div id="regularizationList" class="regularization-grid"></div>
+          <div class="client-quick-filters regularization-quick-filters" role="group" aria-label="Filtros rápidos da regularização">
+            <button class="active" type="button" data-regularization-quick-filter="active">Ativos</button>
+            <button type="button" data-regularization-quick-filter="tasks">Com tarefa</button>
+            <button type="button" data-regularization-quick-filter="deadlines">Com prazo</button>
+            <button type="button" data-regularization-quick-filter="no-status">Sem status</button>
+            <button type="button" data-regularization-quick-filter="finished">Finalizados</button>
+          </div>
+
+          <div id="regularizationList" class="regularization-list"></div>
         </section>
 
         <section id="tasksSection" class="app-section" hidden>
@@ -280,6 +304,15 @@
           </div>
 
           <div class="toolbar data-toolbar">
+            <label class="data-filter-field">
+              <i data-lucide="layers-3"></i>
+              <span>Serviço</span>
+              <select id="dataServiceFilter" aria-label="Filtrar dados por serviço">
+                <option value="">Todos</option>
+                <option value="inss">INSS de obras</option>
+                <option value="regularization">Regularização</option>
+              </select>
+            </label>
             <label class="data-filter-field">
               <i data-lucide="calendar"></i>
               <span>Período</span>
@@ -788,6 +821,206 @@
       </form>
     </dialog>
 
+    <dialog id="regularizationDialog" class="client-dialog regularization-dialog">
+      <form method="dialog" class="dialog-frame">
+        <header class="dialog-header">
+          <div>
+            <p class="eyebrow">Card da regularização</p>
+            <h2 id="regularizationDialogTitle">Novo cliente</h2>
+          </div>
+          <button class="icon-button" value="close" aria-label="Fechar" type="submit"><i data-lucide="x"></i></button>
+        </header>
+
+        <div class="tab-bar regularization-tab-bar" role="tablist">
+          <button class="regularization-tab-button active" type="button" data-regularization-tab="regularizationClientTab">Cliente e imóvel</button>
+          <button class="regularization-tab-button" type="button" data-regularization-tab="regularizationChecklistTab">Check-list</button>
+          <button class="regularization-tab-button" type="button" data-regularization-tab="regularizationTasksTab">Tarefas e prazos</button>
+          <button class="regularization-tab-button" type="button" data-regularization-tab="regularizationFinanceTab">Financeiro</button>
+          <button class="regularization-tab-button" type="button" data-regularization-tab="regularizationHistoryTab">Histórico</button>
+        </div>
+
+        <section id="regularizationClientTab" class="regularization-tab-panel active">
+          <div class="regularization-panel-heading">
+            <div>
+              <h3>Cliente e imóvel</h3>
+              <p>Dados que identificam o cliente, o imóvel e o contrato.</p>
+            </div>
+            <div class="inline-actions">
+              <button id="linkRegularizationToInssButton" class="secondary-button" type="button">
+                <i data-lucide="arrow-right-left"></i> Adicionar ao fluxo de INSS
+              </button>
+              <button id="manageRegularizationFieldsButton" class="small-button admin-only-control" type="button">
+                <i data-lucide="settings-2"></i> Campos
+              </button>
+            </div>
+          </div>
+
+          <div class="form-grid regularization-core-fields">
+            <label>Cliente<input data-regularization-field="clientName" type="text" /></label>
+            <label>Tipo de documento
+              <select data-regularization-field="documentType">
+                <option value="cpf">CPF</option>
+                <option value="cnpj">CNPJ</option>
+              </select>
+            </label>
+            <label>CPF/CNPJ<input data-regularization-field="cpf" type="text" inputmode="numeric" maxlength="18" /></label>
+            <label>Estado
+              <select data-regularization-field="state">
+                <option value="">Selecione</option>
+                <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option>
+                <option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option>
+                <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
+                <option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option>
+                <option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option>
+                <option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option>
+                <option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option>
+                <option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option>
+                <option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+              </select>
+            </label>
+            <label>Origem
+              <select data-regularization-field="clientOrigin">
+                <option value="">Selecione</option>
+                <option value="BNI">BNI</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Facebook">Facebook</option>
+                <option value="Outdoor">Outdoor</option>
+                <option value="Panfleto">Panfleto</option>
+                <option value="Prospecção ativa">Prospecção ativa</option>
+                <option value="Site">Site</option>
+                <option value="Indicação">Indicação</option>
+              </select>
+            </label>
+            <label>Data do fechamento (pagamento)<input data-regularization-field="contractClosedDate" type="date" /></label>
+            <fieldset class="checkbox-field destination-field regularization-property-types">
+              <legend>Tipo de imóvel</legend>
+              <label><input type="checkbox" data-regularization-property-type value="Residencial unifamiliar" /> Residencial unifamiliar</label>
+              <label><input type="checkbox" data-regularization-property-type value="Residencial multifamiliar" /> Residencial multifamiliar</label>
+              <label><input type="checkbox" data-regularization-property-type value="Comercial salas e lojas" /> Comercial salas e lojas</label>
+              <label><input type="checkbox" data-regularization-property-type value="Galpão industrial" /> Galpão industrial</label>
+              <label><input type="checkbox" data-regularization-property-type value="Casa popular" /> Casa popular</label>
+              <label><input type="checkbox" data-regularization-property-type value="Conjunto habitacional popular" /> Conjunto habitacional popular</label>
+              <label><input type="checkbox" data-regularization-property-type value="Edifício de garagens" /> Edifício de garagens</label>
+            </fieldset>
+          </div>
+
+          <div id="regularizationDynamicFields" class="form-grid regularization-dynamic-fields"></div>
+
+          <section class="regularization-status-section">
+            <div class="mini-heading">
+              <div>
+                <h3>Status</h3>
+                <p class="section-subtitle">Use apenas os status criados para o fluxo de regularização.</p>
+              </div>
+              <div class="inline-actions">
+                <button id="toggleRegularizationStatusPicker" class="small-button" type="button"><i data-lucide="tags"></i> Alterar status</button>
+                <button id="manageRegularizationStatusesButton" class="small-button admin-only-control" type="button"><i data-lucide="settings-2"></i> Configurar</button>
+              </div>
+            </div>
+            <div id="regularizationActiveStatuses" class="chip-list"></div>
+            <div id="regularizationStatusPicker" class="status-picker" hidden></div>
+          </section>
+        </section>
+
+        <section id="regularizationChecklistTab" class="regularization-tab-panel">
+          <div class="regularization-panel-heading">
+            <div>
+              <h3>Check-list do processo</h3>
+              <p>Etapas documentais em ordem cronológica.</p>
+            </div>
+            <button id="addRegularizationChecklistButton" class="small-button" type="button"><i data-lucide="plus"></i> Nova etapa</button>
+          </div>
+          <div id="regularizationChecklistList" class="regularization-checklist-timeline"></div>
+        </section>
+
+        <section id="regularizationTasksTab" class="regularization-tab-panel">
+          <div class="regularization-work-columns">
+            <section>
+              <div class="mini-heading">
+                <h3>Tarefas</h3>
+                <button id="addRegularizationTaskButton" class="small-button" type="button"><i data-lucide="plus"></i> Nova tarefa</button>
+              </div>
+              <div id="regularizationTasksList" class="item-list"></div>
+            </section>
+            <section>
+              <div class="mini-heading">
+                <h3>Prazos</h3>
+                <button id="addRegularizationDeadlineButton" class="small-button" type="button"><i data-lucide="plus"></i> Novo prazo</button>
+              </div>
+              <div id="regularizationDeadlinesList" class="item-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="regularizationFinanceTab" class="regularization-tab-panel">
+          <div class="form-grid">
+            <label>Honorários<input data-regularization-field="feeValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
+            <label>Forma de pagamento
+              <select data-regularization-field="paymentMethod">
+                <option value="">Selecione</option>
+                <option value="Pix">Pix</option>
+                <option value="Boleto">Boleto</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Cartão de crédito">Cartão de crédito</option>
+              </select>
+            </label>
+            <label>Parcelas
+              <select data-regularization-field="installments">
+                <option value="">Selecione</option>
+                <option value="Sem parcelas">Sem parcelas</option>
+                <option value="1">1 parcela</option><option value="2">2 parcelas</option>
+                <option value="3">3 parcelas</option><option value="4">4 parcelas</option>
+                <option value="5">5 parcelas</option><option value="6">6 parcelas</option>
+                <option value="7">7 parcelas</option><option value="8">8 parcelas</option>
+                <option value="9">9 parcelas</option><option value="10">10 parcelas</option>
+                <option value="11">11 parcelas</option><option value="12">12 parcelas</option>
+              </select>
+            </label>
+            <label>Status financeiro
+              <select data-regularization-field="financeStatus">
+                <option value="">Selecione</option>
+                <option value="Pago">Pago</option>
+                <option value="Em andamento">Em andamento</option>
+                <option value="Atrasado">Atrasado</option>
+              </select>
+            </label>
+            <label class="span-2">Observações financeiras<textarea data-regularization-field="financeNotes" rows="5"></textarea></label>
+          </div>
+          <div id="regularizationFinanceMessages" class="regularization-link-note"></div>
+        </section>
+
+        <section id="regularizationHistoryTab" class="regularization-tab-panel">
+          <div id="regularizationHistoryAdminControls" class="note-composer">
+            <textarea id="regularizationHistoryText" rows="3" placeholder="Registrar complemento interno no histórico"></textarea>
+            <button id="addRegularizationHistoryButton" class="secondary-button" type="button"><i data-lucide="file-clock"></i> Registrar no histórico</button>
+          </div>
+          <div id="regularizationHistoryList" class="timeline-list regularization-history-list"></div>
+        </section>
+
+        <footer class="dialog-footer">
+          <button id="deleteRegularizationButton" class="danger-button" type="button"><i data-lucide="trash-2"></i> Excluir cliente</button>
+          <button id="saveRegularizationButton" class="primary-button" type="button"><i data-lucide="save"></i> Salvar card</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="regularizationManagerDialog" class="simple-dialog regularization-manager-dialog">
+      <form method="dialog" class="simple-form">
+        <header class="dialog-header">
+          <div>
+            <h2 id="regularizationManagerTitle">Configuração</h2>
+            <p class="section-subtitle">As alterações serão usadas em todos os cards de regularização.</p>
+          </div>
+          <button class="icon-button" value="close" type="submit" aria-label="Fechar"><i data-lucide="x"></i></button>
+        </header>
+        <div id="regularizationManagerBody" class="regularization-manager-list"></div>
+        <footer class="dialog-footer">
+          <button value="close" class="secondary-button" type="submit">Fechar</button>
+          <button id="addRegularizationManagerItem" class="primary-button" type="button"><i data-lucide="plus"></i> Adicionar</button>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog id="simpleDialog" class="simple-dialog">
       <form method="dialog" class="simple-form">
         <header class="dialog-header">
@@ -808,7 +1041,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=140"></script>
+    <script src="./app.js?v=141"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

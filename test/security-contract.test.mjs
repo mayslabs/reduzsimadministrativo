@@ -42,3 +42,14 @@ test("multi-user saves are scoped to records changed in the browser", () => {
   assert.match(stateApi, /normalizeDirtyKeys/);
   assert.match(stateApi, /dirtyKeys\.has\(recordKey\)/);
 });
+
+test("regularization history and shared configuration stay protected", () => {
+  assert.match(
+    stateApi,
+    /stateKey:\s*"regularizationClients"[\s\S]*?protectHistory:\s*true/,
+  );
+  assert.match(stateApi, /regularizationFieldDefinitions/);
+  assert.match(stateApi, /regularizationStatusDefinitions/);
+  assert.match(app, /dedupeCommercialRecords/);
+  assert.match(app, /contractId/);
+});

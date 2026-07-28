@@ -204,6 +204,22 @@ VALUES
     1,
     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
     'system'
+  ),
+  (
+    'regularizationFieldDefinitions',
+    '[]',
+    'team',
+    1,
+    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+    'system'
+  ),
+  (
+    'regularizationStatusDefinitions',
+    '[]',
+    'team',
+    1,
+    strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+    'system'
   );
 
 CREATE TABLE IF NOT EXISTS migration_runs (

@@ -84,8 +84,16 @@ INSERT INTO ${table} (
 
 const goals = isObject(state.goals) ? state.goals : {};
 const categories = Array.isArray(state.companyBillCategories) ? state.companyBillCategories : [];
+const regularizationFields = Array.isArray(state.regularizationFieldDefinitions)
+  ? state.regularizationFieldDefinitions
+  : [];
+const regularizationStatuses = Array.isArray(state.regularizationStatusDefinitions)
+  ? state.regularizationStatusDefinitions
+  : [];
 counts.goals = Object.keys(goals).length ? 1 : 0;
 counts.companyBillCategories = categories.length;
+counts.regularizationFieldDefinitions = regularizationFields.length;
+counts.regularizationStatusDefinitions = regularizationStatuses.length;
 
 statements.push(`
 UPDATE app_settings
@@ -101,6 +109,18 @@ SET value_json = ${sql(JSON.stringify(categories))},
     updated_at = ${sql(now)},
     updated_by = 'migration'
 WHERE key = 'companyBillCategories';`.trim());
+statements.push(settingUpsert(
+  "regularizationFieldDefinitions",
+  regularizationFields,
+  "team",
+  now,
+));
+statements.push(settingUpsert(
+  "regularizationStatusDefinitions",
+  regularizationStatuses,
+  "team",
+  now,
+));
 statements.push(`
 INSERT INTO migration_runs (
   id, source, imported_at, imported_by, source_hash, record_counts
@@ -118,6 +138,18 @@ ON CONFLICT(id) DO UPDATE SET
   record_counts = excluded.record_counts;`.trim());
 await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, `${statements.join("\n\n")}\n`, "utf8");
+
+function settingUpsert(key, value, scope, updatedAt) {
+  return `
+INSERT INTO app_settings (key, value_json, scope, version, updated_at, updated_by)
+VALUES (${sql(key)}, ${sql(JSON.stringify(value))}, ${sql(scope)}, 1, ${sql(updatedAt)}, 'migration')
+ON CONFLICT(key) DO UPDATE SET
+  value_json = excluded.value_json,
+  scope = excluded.scope,
+  version = app_settings.version + 1,
+  updated_at = excluded.updated_at,
+  updated_by = excluded.updated_by;`.trim();
+}
 
 console.log(JSON.stringify({
   input: inputPath,

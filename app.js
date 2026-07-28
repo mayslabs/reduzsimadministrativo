@@ -23,6 +23,46 @@ const BILL_YEAR = "2026";
 const DEFAULT_BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
 const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
 const CLIENTS_PER_PAGE = 20;
+const REGULARIZATION_FIXED_FIELD_KEYS = new Set([
+  "clientName",
+  "cpf",
+  "state",
+  "propertyTypes",
+  "clientOrigin",
+  "contractClosedDate",
+  "feeValue",
+]);
+const DEFAULT_REGULARIZATION_FIELD_DEFINITIONS = [
+  { id: "reg-field-address", label: "Endereço", type: "text", options: [], order: 10, active: true },
+  { id: "reg-field-city", label: "Cidade", type: "text", options: [], order: 20, active: true },
+  { id: "reg-field-phone", label: "Celular", type: "text", options: [], order: 30, active: true },
+  { id: "reg-field-next-action", label: "Próxima ação", type: "textarea", options: [], order: 40, active: true },
+  { id: "reg-field-notes", label: "Observações", type: "textarea", options: [], order: 50, active: true },
+];
+const REGULARIZATION_FIELD_TYPES = [
+  ["text", "Texto curto"],
+  ["textarea", "Texto longo"],
+  ["number", "Número"],
+  ["money", "Dinheiro"],
+  ["date", "Data"],
+  ["select", "Lista de opções"],
+  ["boolean", "Sim ou não"],
+];
+const REGULARIZATION_CHECKLIST_STATES = [
+  "Não iniciada",
+  "Em andamento",
+  "Concluída",
+  "Aguardando cliente",
+  "Não se aplica",
+];
+const REGULARIZATION_STATUS_COLORS = [
+  "#0f9f84",
+  "#2f80ed",
+  "#8b5cf6",
+  "#d89000",
+  "#d64545",
+  "#5f6b7a",
+];
 
 function makeId() {
   if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -246,9 +286,13 @@ let state;
 state = loadState();
 let currentUser = null;
 let activeClient = null;
+let activeRegularization = null;
 let activeViewMode = "compact";
 let activeClientQuickFilter = "active";
 let activeClientPage = 1;
+let activeRegularizationQuickFilter = "active";
+let activeRegularizationViewMode = "compact";
+let activeRegularizationManagerType = "";
 let activeTaskCalendarMode = "day";
 let activeTaskDate = new Date();
 let activeDataDrilldown = null;
@@ -335,6 +379,7 @@ const el = {
   guidanceStatusFilter: document.getElementById("guidanceStatusFilter"),
   guidanceLibrary: document.getElementById("guidanceLibrary"),
   dataPeriodFilter: document.getElementById("dataPeriodFilter"),
+  dataServiceFilter: document.getElementById("dataServiceFilter"),
   dataWorkStatusFilter: document.getElementById("dataWorkStatusFilter"),
   dataStateFilter: document.getElementById("dataStateFilter"),
   dataDestinationFilter: document.getElementById("dataDestinationFilter"),
@@ -371,7 +416,38 @@ const el = {
   billsCategoryChart: document.getElementById("billsCategoryChart"),
   searchInput: document.getElementById("searchInput"),
   regularizationSearchInput: document.getElementById("regularizationSearchInput"),
+  regularizationMetricsGrid: document.getElementById("regularizationMetricsGrid"),
+  regularizationStatusFilter: document.getElementById("regularizationStatusFilter"),
+  regularizationSort: document.getElementById("regularizationSort"),
+  regularizationCompactModeButton: document.getElementById("regularizationCompactModeButton"),
+  regularizationDetailedModeButton: document.getElementById("regularizationDetailedModeButton"),
   regularizationList: document.getElementById("regularizationList"),
+  regularizationDialog: document.getElementById("regularizationDialog"),
+  regularizationDialogTitle: document.getElementById("regularizationDialogTitle"),
+  regularizationDynamicFields: document.getElementById("regularizationDynamicFields"),
+  regularizationActiveStatuses: document.getElementById("regularizationActiveStatuses"),
+  regularizationStatusPicker: document.getElementById("regularizationStatusPicker"),
+  toggleRegularizationStatusPicker: document.getElementById("toggleRegularizationStatusPicker"),
+  manageRegularizationFieldsButton: document.getElementById("manageRegularizationFieldsButton"),
+  manageRegularizationStatusesButton: document.getElementById("manageRegularizationStatusesButton"),
+  linkRegularizationToInssButton: document.getElementById("linkRegularizationToInssButton"),
+  regularizationChecklistList: document.getElementById("regularizationChecklistList"),
+  addRegularizationChecklistButton: document.getElementById("addRegularizationChecklistButton"),
+  regularizationTasksList: document.getElementById("regularizationTasksList"),
+  regularizationDeadlinesList: document.getElementById("regularizationDeadlinesList"),
+  addRegularizationTaskButton: document.getElementById("addRegularizationTaskButton"),
+  addRegularizationDeadlineButton: document.getElementById("addRegularizationDeadlineButton"),
+  regularizationFinanceMessages: document.getElementById("regularizationFinanceMessages"),
+  regularizationHistoryAdminControls: document.getElementById("regularizationHistoryAdminControls"),
+  regularizationHistoryText: document.getElementById("regularizationHistoryText"),
+  addRegularizationHistoryButton: document.getElementById("addRegularizationHistoryButton"),
+  regularizationHistoryList: document.getElementById("regularizationHistoryList"),
+  saveRegularizationButton: document.getElementById("saveRegularizationButton"),
+  deleteRegularizationButton: document.getElementById("deleteRegularizationButton"),
+  regularizationManagerDialog: document.getElementById("regularizationManagerDialog"),
+  regularizationManagerTitle: document.getElementById("regularizationManagerTitle"),
+  regularizationManagerBody: document.getElementById("regularizationManagerBody"),
+  addRegularizationManagerItem: document.getElementById("addRegularizationManagerItem"),
   statusFilter: document.getElementById("statusFilter"),
   ownerFilter: document.getElementById("ownerFilter"),
   stateFilter: document.getElementById("stateFilter"),
@@ -513,6 +589,8 @@ function loadState() {
     goals: normalizeGoalSettings(),
     companyBills: [],
     companyBillCategories: [...DEFAULT_BILL_CATEGORIES],
+    regularizationFieldDefinitions: normalizeRegularizationFieldDefinitions(),
+    regularizationStatusDefinitions: [],
   };
 }
 
@@ -535,8 +613,11 @@ function migrateState(savedState = {}, persist = false) {
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
     goals: normalizeGoalSettings(savedState.goals),
     companyBills: Array.isArray(savedState.companyBills) ? savedState.companyBills.map(normalizeCompanyBill) : [],
+    regularizationFieldDefinitions: normalizeRegularizationFieldDefinitions(savedState.regularizationFieldDefinitions),
+    regularizationStatusDefinitions: normalizeRegularizationStatusDefinitions(savedState.regularizationStatusDefinitions),
   };
   migrated.companyBillCategories = normalizeBillCategories(savedState.companyBillCategories, migrated.companyBills);
+  migrateLegacyRegularizationStatuses(migrated);
   migrated.statuses = migrated.statuses.map((status) => ({
     ...status,
     name: localizeLabel(status.name),
@@ -547,6 +628,9 @@ function migrateState(savedState = {}, persist = false) {
 
   migrated.clients = migrated.clients.map((client) => ({
     id: id(),
+    canonicalClientId: "",
+    contractId: "",
+    linkedRegularizationId: "",
     clientName: "",
     fullName: "",
     documentType: documentTypeForClient(client),
@@ -614,10 +698,68 @@ function migrateState(savedState = {}, persist = false) {
   }));
 
   migrated.clients = migrated.clients.flatMap((client) => splitClientWorksIntoCards(client, migrated.users[0]?.id || ""));
+  migrateRegularizationLinks(migrated);
 
   remapUserReferences(migrated, userCleanup.idMap);
 
   return migrated;
+}
+
+function migrateLegacyRegularizationStatuses(migrated) {
+  const definitions = normalizeRegularizationStatusDefinitions(migrated.regularizationStatusDefinitions);
+  const byName = new Map(definitions.map((definition) => [normalize(definition.name), definition]));
+
+  (migrated.regularizationClients || []).forEach((process) => {
+    const legacyName = String(process.legacyStatusName || process.status || "").trim();
+    if (!legacyName || normalize(legacyName) === "em analise") {
+      process.statusIds = Array.isArray(process.statusIds) ? process.statusIds : [];
+      process.status = "";
+      return;
+    }
+
+    let definition = byName.get(normalize(legacyName));
+    if (!definition) {
+      const baseId = `reg-status-${regularizationStatusSlug(legacyName)}`;
+      let statusId = baseId;
+      let suffix = 2;
+      while (definitions.some((item) => item.id === statusId)) {
+        statusId = `${baseId}-${suffix}`;
+        suffix += 1;
+      }
+      definition = normalizeRegularizationStatusDefinition({
+        id: statusId,
+        name: legacyName,
+        color: REGULARIZATION_STATUS_COLORS[definitions.length % REGULARIZATION_STATUS_COLORS.length],
+        order: (definitions.length + 1) * 10,
+      }, definitions.length);
+      definitions.push(definition);
+      byName.set(normalize(legacyName), definition);
+    }
+    process.statusIds = [...new Set([...(process.statusIds || []), definition.id])];
+    process.status = "";
+  });
+
+  migrated.regularizationStatusDefinitions = normalizeRegularizationStatusDefinitions(definitions);
+}
+
+function migrateRegularizationLinks(migrated) {
+  const inssByRegularization = new Map();
+  (migrated.clients || []).forEach((client) => {
+    if (client.linkedRegularizationId) inssByRegularization.set(client.linkedRegularizationId, client);
+  });
+
+  (migrated.regularizationClients || []).forEach((process) => {
+    const linkedClient = (process.linkedInssClientId
+      ? migrated.clients.find((client) => client.id === process.linkedInssClientId)
+      : null) || inssByRegularization.get(process.id);
+    if (!linkedClient) return;
+    process.linkedInssClientId = linkedClient.id;
+    process.canonicalClientId = process.canonicalClientId || linkedClient.canonicalClientId || `regularization-client-${process.id}`;
+    process.contractId = process.contractId || linkedClient.contractId || `regularization-contract-${process.id}`;
+    linkedClient.linkedRegularizationId = process.id;
+    linkedClient.canonicalClientId = process.canonicalClientId;
+    linkedClient.contractId = process.contractId;
+  });
 }
 
 function localizeLabel(value) {
@@ -754,21 +896,142 @@ function normalizeGoalSettings(goals = {}) {
   };
 }
 
-function normalizeRegularizationClient(process = {}) {
+function normalizeRegularizationFieldDefinition(definition = {}, index = 0) {
+  const type = REGULARIZATION_FIELD_TYPES.some(([value]) => value === definition.type)
+    ? definition.type
+    : "text";
   return {
-    id: process.id || id(),
+    id: definition.id || id(),
+    label: String(definition.label || "Campo sem nome").trim(),
+    type,
+    options: Array.isArray(definition.options)
+      ? definition.options.map((option) => String(option).trim()).filter(Boolean)
+      : String(definition.options || "").split("\n").map((option) => option.trim()).filter(Boolean),
+    order: Number.isFinite(Number(definition.order)) ? Number(definition.order) : (index + 1) * 10,
+    active: definition.active !== false,
+    createdAt: definition.createdAt || "",
+    updatedAt: definition.updatedAt || definition.createdAt || "",
+  };
+}
+
+function normalizeRegularizationFieldDefinitions(definitions) {
+  const source = Array.isArray(definitions) && definitions.length
+    ? definitions
+    : DEFAULT_REGULARIZATION_FIELD_DEFINITIONS;
+  return source
+    .map(normalizeRegularizationFieldDefinition)
+    .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label, "pt-BR"));
+}
+
+function regularizationStatusSlug(value = "") {
+  return normalize(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 72) || "status";
+}
+
+function normalizeRegularizationStatusDefinition(definition = {}, index = 0) {
+  return {
+    id: definition.id || `reg-status-${regularizationStatusSlug(definition.name)}-${index + 1}`,
+    name: String(definition.name || "Status sem nome").trim(),
+    color: /^#[0-9a-f]{6}$/i.test(definition.color || "")
+      ? definition.color
+      : REGULARIZATION_STATUS_COLORS[index % REGULARIZATION_STATUS_COLORS.length],
+    order: Number.isFinite(Number(definition.order)) ? Number(definition.order) : (index + 1) * 10,
+    active: definition.active !== false,
+    createdAt: definition.createdAt || "",
+    updatedAt: definition.updatedAt || definition.createdAt || "",
+  };
+}
+
+function normalizeRegularizationStatusDefinitions(definitions = []) {
+  return (Array.isArray(definitions) ? definitions : [])
+    .map(normalizeRegularizationStatusDefinition)
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "pt-BR"));
+}
+
+function normalizeRegularizationChecklistStep(step = {}, index = 0) {
+  const stateValue = REGULARIZATION_CHECKLIST_STATES.includes(step.state)
+    ? step.state
+    : "Não iniciada";
+  return {
+    id: step.id || id(),
+    title: step.title || "",
+    ownerId: step.ownerId || "",
+    dueDate: step.dueDate || "",
+    state: stateValue,
+    notes: step.notes || "",
+    order: Number.isFinite(Number(step.order)) ? Number(step.order) : (index + 1) * 10,
+    createdBy: step.createdBy || "",
+    createdAt: step.createdAt || new Date().toISOString(),
+    updatedAt: step.updatedAt || step.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeRegularizationDeadline(deadline = {}) {
+  return {
+    id: deadline.id || id(),
+    title: deadline.title || "",
+    type: deadline.type || "Interno",
+    ownerId: deadline.ownerId || "",
+    date: deadline.date || "",
+    status: deadline.status || "Pendente",
+    notes: deadline.notes || "",
+    createdBy: deadline.createdBy || "",
+    createdAt: deadline.createdAt || new Date().toISOString(),
+    updatedAt: deadline.updatedAt || deadline.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeRegularizationClient(process = {}) {
+  const processId = process.id || id();
+  const documentType = process.documentType === "cnpj" || onlyDigits(process.cpf || "").length > 11 ? "cnpj" : "cpf";
+  const legacyState = process.state || regularizationStateLabel(process);
+  const legacyPropertyTypes = Array.isArray(process.propertyTypes)
+    ? process.propertyTypes
+    : destinationList(process.propertyType || process.destination || "");
+  const customFields = {
+    ...(process.customFields && typeof process.customFields === "object" ? process.customFields : {}),
+  };
+  if (customFields["reg-field-address"] === undefined) customFields["reg-field-address"] = process.address || "";
+  if (customFields["reg-field-city"] === undefined) customFields["reg-field-city"] = process.city || "";
+  if (customFields["reg-field-phone"] === undefined) customFields["reg-field-phone"] = process.phone || "";
+  if (customFields["reg-field-next-action"] === undefined) customFields["reg-field-next-action"] = process.nextAction || "";
+  if (customFields["reg-field-notes"] === undefined) customFields["reg-field-notes"] = process.notes || "";
+
+  return {
+    id: processId,
+    canonicalClientId: process.canonicalClientId || `regularization-client-${processId}`,
+    contractId: process.contractId || `regularization-contract-${processId}`,
+    linkedInssClientId: process.linkedInssClientId || "",
     clientName: process.clientName || process.name || "",
-    propertyType: normalizeSelectValue(process.propertyType, destinationValues()) || process.propertyType || "",
+    documentType,
+    cpf: formatDocumentNumber(process.cpf || process.document || "", documentType),
+    propertyTypes: legacyPropertyTypes.filter((value) => destinationValues().includes(value)),
+    propertyType: legacyPropertyTypes.filter((value) => destinationValues().includes(value)).join(" + "),
     clientOrigin: process.clientOrigin || process.origin || "",
-    cityState: normalizeSelectValue(String(process.cityState || "").toUpperCase(), brazilianStates()) || process.cityState || "",
+    state: normalizeSelectValue(String(legacyState || "").toUpperCase(), brazilianStates()) || "",
+    cityState: process.cityState || legacyState || "",
     address: process.address || "",
     registryNumber: process.registryNumber || process.registration || "",
-    status: process.status || "Em análise",
+    statusIds: Array.isArray(process.statusIds) ? [...new Set(process.statusIds.filter(Boolean))] : [],
+    legacyStatusName: process.legacyStatusName || process.status || "",
+    status: process.status || "",
     contractClosedDate: process.contractClosedDate || "",
     feeValue: formatFlexibleCurrencyValue(process.feeValue || ""),
     nextAction: process.nextAction || "",
     notes: process.notes || "",
+    customFields,
+    checklist: Array.isArray(process.checklist)
+      ? process.checklist.map(normalizeRegularizationChecklistStep)
+      : [],
     tasks: Array.isArray(process.tasks) ? process.tasks.map((task) => normalizeClientTask(task, process, currentUser?.id || "")) : [],
+    deadlines: Array.isArray(process.deadlines) ? process.deadlines.map(normalizeRegularizationDeadline) : [],
+    paymentMethod: process.paymentMethod || "",
+    installments: normalizeInstallmentsValue(process.installments),
+    financeStatus: normalizeFinanceStatus(process.financeStatus),
+    financeNotes: process.financeNotes || "",
+    history: Array.isArray(process.history) ? process.history.map(normalizeHistoryEntry) : [],
     createdAt: process.createdAt || new Date().toISOString(),
     updatedAt: process.updatedAt || process.createdAt || new Date().toISOString(),
   };
@@ -1021,6 +1284,17 @@ function remapUserReferences(migrated, idMap) {
       task.ownerId = idMap[task.ownerId] || task.ownerId;
       task.createdBy = idMap[task.createdBy] || task.createdBy;
     });
+    (process.deadlines || []).forEach((deadline) => {
+      deadline.ownerId = idMap[deadline.ownerId] || deadline.ownerId;
+      deadline.createdBy = idMap[deadline.createdBy] || deadline.createdBy;
+    });
+    (process.checklist || []).forEach((step) => {
+      step.ownerId = idMap[step.ownerId] || step.ownerId;
+      step.createdBy = idMap[step.createdBy] || step.createdBy;
+    });
+    (process.history || []).forEach((entry) => {
+      entry.userId = idMap[entry.userId] || entry.userId;
+    });
   });
 
   (migrated.internalTasks || []).forEach((task) => {
@@ -1089,7 +1363,12 @@ function cloudDirtyRecordKeys(currentState) {
     });
   });
 
-  ["goals", "companyBillCategories"].forEach((settingKey) => {
+  [
+    "goals",
+    "companyBillCategories",
+    "regularizationFieldDefinitions",
+    "regularizationStatusDefinitions",
+  ].forEach((settingKey) => {
     if (JSON.stringify(baseline[settingKey]) !== JSON.stringify(currentState[settingKey])) {
       keys.push(`settings:${settingKey}`);
     }
@@ -1335,6 +1614,59 @@ function bindEvents() {
   el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
   el.searchInput.addEventListener("input", resetClientPageAndRender);
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
+  el.regularizationStatusFilter.addEventListener("change", renderRegularizationClients);
+  el.regularizationSort.addEventListener("change", renderRegularizationClients);
+  el.regularizationCompactModeButton.addEventListener("click", () => {
+    activeRegularizationViewMode = "compact";
+    renderRegularizationClients();
+  });
+  el.regularizationDetailedModeButton.addEventListener("click", () => {
+    activeRegularizationViewMode = "detailed";
+    renderRegularizationClients();
+  });
+  document.querySelectorAll("[data-regularization-quick-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeRegularizationQuickFilter = button.dataset.regularizationQuickFilter || "active";
+      renderRegularizationClients();
+    });
+  });
+  document.querySelectorAll("[data-regularization-tab]").forEach((button) => {
+    button.addEventListener("click", () => switchRegularizationTab(button.dataset.regularizationTab));
+  });
+  el.toggleRegularizationStatusPicker.addEventListener("click", () => {
+    el.regularizationStatusPicker.hidden = !el.regularizationStatusPicker.hidden;
+  });
+  el.manageRegularizationFieldsButton.addEventListener("click", () => {
+    collectRegularizationDialog();
+    openRegularizationManager("fields");
+  });
+  el.manageRegularizationStatusesButton.addEventListener("click", () => {
+    collectRegularizationDialog();
+    openRegularizationManager("statuses");
+  });
+  el.addRegularizationManagerItem.addEventListener("click", openRegularizationManagerItemDialog);
+  el.linkRegularizationToInssButton.addEventListener("click", linkActiveRegularizationToInss);
+  el.addRegularizationChecklistButton.addEventListener("click", () => openRegularizationChecklistDialog());
+  el.addRegularizationTaskButton.addEventListener("click", () => openRegularizationTaskDialog());
+  el.addRegularizationDeadlineButton.addEventListener("click", () => openRegularizationDeadlineDialog());
+  el.addRegularizationHistoryButton.addEventListener("click", addRegularizationManualHistory);
+  el.saveRegularizationButton.addEventListener("click", saveActiveRegularization);
+  el.deleteRegularizationButton.addEventListener("click", deleteActiveRegularization);
+  el.regularizationDialog.querySelectorAll("[data-regularization-field]").forEach((input) => {
+    input.addEventListener("input", () => {
+      if (input.dataset.regularizationField === "feeValue") {
+        input.value = formatCurrencyValue(input.value);
+      }
+      if (input.dataset.regularizationField === "cpf") {
+        const documentType = el.regularizationDialog.querySelector('[data-regularization-field="documentType"]')?.value || "cpf";
+        input.value = formatDocumentNumber(input.value, documentType);
+      }
+    });
+  });
+  el.regularizationDialog.querySelector('[data-regularization-field="documentType"]').addEventListener("change", (event) => {
+    const cpfInput = el.regularizationDialog.querySelector('[data-regularization-field="cpf"]');
+    cpfInput.value = formatDocumentNumber(cpfInput.value, event.target.value);
+  });
   el.statusFilter.addEventListener("change", resetClientPageAndRender);
   el.clientSort.addEventListener("change", resetClientPageAndRender);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
@@ -1365,7 +1697,7 @@ function bindEvents() {
   el.guidanceSearchInput.addEventListener("input", renderGuidance);
   el.guidanceStageFilter.addEventListener("change", renderGuidance);
   el.guidanceStatusFilter.addEventListener("change", renderGuidance);
-  [el.dataPeriodFilter, el.dataWorkStatusFilter, el.dataStateFilter, el.dataDestinationFilter, el.dataDocumentFilter, el.dataOriginFilter].forEach((input) => {
+  [el.dataServiceFilter, el.dataPeriodFilter, el.dataWorkStatusFilter, el.dataStateFilter, el.dataDestinationFilter, el.dataDocumentFilter, el.dataOriginFilter].forEach((input) => {
     input.addEventListener("change", () => {
       activeDataDrilldown = null;
       renderDataDashboard();
@@ -1575,6 +1907,9 @@ function configureNavigationForRole() {
   el.addUserButton.style.display = "none";
   el.addGuidanceButton.style.display = isAdmin ? "" : "none";
   el.editGoalsButton.style.display = isAdmin ? "" : "none";
+  document.querySelectorAll(".admin-only-control").forEach((control) => {
+    control.hidden = !isAdmin;
+  });
 
   const activeSection = document.querySelector(".nav-item.active")?.dataset.section;
   if ((!isAdmin && ["usersSection", "statusSection", "billsSection"].includes(activeSection)) || (isAdmin && activeSection === "accountSection")) {
@@ -1843,7 +2178,7 @@ function ensureDataTicketPanels() {
 }
 
 function renderDataFilterOptions() {
-  const records = dataAllRecords();
+  const records = dataRecordsForSelectedService();
   renderDataPeriodOptions(records);
   setDataSelectOptions(el.dataStateFilter, "Todos os estados", sortedDataRecordValues(records, (record) => record.state || "Sem estado"));
   setDataSelectOptions(el.dataDestinationFilter, "Todas as destinações", sortedDataRecordValues(records, (record) => {
@@ -2057,6 +2392,8 @@ function dataAllRecords() {
     ...client,
     sourceType: "client",
     sourceLabel: "INSS de obras",
+    serviceType: "inss",
+    commercialKey: client.contractId || `inss:${client.id}`,
     destination: client.destination || "",
     state: client.state || "",
     includeDocumentType: true,
@@ -2067,19 +2404,51 @@ function dataAllRecords() {
     ...process,
     sourceType: "regularization",
     sourceLabel: "Regularização de imóvel",
+    serviceType: "regularization",
+    commercialKey: process.contractId || `regularization:${process.id}`,
     destination: process.propertyType || "",
-    state: regularizationStateLabel(process),
+    state: process.state || regularizationStateLabel(process),
     area: "",
     inssOriginalValue: "",
     inssReducedValue: "",
-    includeDocumentType: false,
-    finished: normalize(process.status) === "finalizado",
+    includeDocumentType: true,
+    finished: regularizationIsFinished(process),
   }));
 
   return [...inssRecords, ...regularizationRecords];
 }
 
+function dataRecordsForSelectedService() {
+  const service = el.dataServiceFilter?.value || "";
+  const records = dataAllRecords().filter((record) => !service || record.serviceType === service);
+  return dedupeCommercialRecords(records);
+}
+
+function dedupeCommercialRecords(records = []) {
+  const byContract = new Map();
+  records.forEach((record) => {
+    const key = record.commercialKey || `${record.sourceType}:${record.id}`;
+    const existing = byContract.get(key);
+    if (!existing) {
+      byContract.set(key, { ...record, serviceTypes: [record.serviceType] });
+      return;
+    }
+    const preferRecord = existing.sourceType !== "client" && record.sourceType === "client";
+    const primary = preferRecord ? record : existing;
+    const secondary = preferRecord ? existing : record;
+    byContract.set(key, {
+      ...secondary,
+      ...primary,
+      serviceTypes: [...new Set([...(existing.serviceTypes || [existing.serviceType]), record.serviceType])],
+      canonicalClientId: primary.canonicalClientId || secondary.canonicalClientId || "",
+      contractId: primary.contractId || secondary.contractId || "",
+    });
+  });
+  return [...byContract.values()];
+}
+
 function filteredDataRecords() {
+  const service = el.dataServiceFilter?.value || "";
   const period = el.dataPeriodFilter.value;
   const workStatus = el.dataWorkStatusFilter.value;
   const stateFilter = el.dataStateFilter.value;
@@ -2087,7 +2456,8 @@ function filteredDataRecords() {
   const documentFilter = el.dataDocumentFilter.value;
   const originFilter = el.dataOriginFilter.value;
 
-  return dataAllRecords().filter((record) => {
+  const records = dataAllRecords().filter((record) => !service || record.serviceType === service);
+  const filtered = records.filter((record) => {
     const destinations = destinationList(record.destination);
     const destinationLabels = destinations.length ? destinations : ["Sem destinação"];
     const documentLabel = record.includeDocumentType ? (documentTypeForClient(record) === "cnpj" ? "PJ" : "PF") : "";
@@ -2104,6 +2474,7 @@ function filteredDataRecords() {
       (!originFilter || originLabel === originFilter)
     );
   });
+  return dedupeCommercialRecords(filtered);
 }
 
 function filteredDataClients() {
@@ -2637,7 +3008,9 @@ function exportDataDashboardCsv() {
       clientGrossEconomy(client) === null ? "" : calculatedCurrency(clientGrossEconomy(client)),
       client.feeValue || "",
       client.clientOrigin || "",
-      client.sourceType === "regularization" ? client.status || "" : getClientStatuses(client).map((status) => status.name).join(" | "),
+      client.sourceType === "regularization"
+        ? getRegularizationStatuses(client).map((status) => status.name).join(" | ")
+        : getClientStatuses(client).map((status) => status.name).join(" | "),
       formatDateTime(client.createdAt || client.updatedAt),
     ]),
   ];
@@ -3440,6 +3813,8 @@ function goalContracts() {
   const clientContracts = state.clients
     .map((client) => ({
       id: client.id,
+      contractId: client.contractId || `inss:${client.id}`,
+      canonicalClientId: client.canonicalClientId || "",
       source: "INSS de obras",
       sourceType: "client",
       clientName: client.clientName,
@@ -3454,6 +3829,8 @@ function goalContracts() {
   const regularizationContracts = state.regularizationClients
     .map((process) => ({
       id: process.id,
+      contractId: process.contractId || `regularization:${process.id}`,
+      canonicalClientId: process.canonicalClientId || "",
       source: "Regularização",
       sourceType: "regularization",
       clientName: process.clientName,
@@ -3461,11 +3838,17 @@ function goalContracts() {
       amount: currencyAmount(process.feeValue),
       origin: process.clientOrigin,
       ownerId: "",
-      financeStatus: process.status,
+      financeStatus: process.financeStatus || getRegularizationStatuses(process).map((status) => status.name).join(", "),
     }))
     .filter((contract) => contract.contractClosedDate && contract.amount !== null);
 
-  return [...clientContracts, ...regularizationContracts].sort((a, b) => a.contractClosedDate.localeCompare(b.contractClosedDate));
+  const deduplicated = new Map();
+  [...regularizationContracts, ...clientContracts].forEach((contract) => {
+    const key = contract.contractId || `${contract.sourceType}:${contract.id}`;
+    const existing = deduplicated.get(key);
+    if (!existing || contract.sourceType === "client") deduplicated.set(key, contract);
+  });
+  return [...deduplicated.values()].sort((a, b) => a.contractClosedDate.localeCompare(b.contractClosedDate));
 }
 
 function goalNumericSettings() {
@@ -5169,7 +5552,7 @@ function taskCenterItems() {
   });
 
   const regularizationItems = (state.regularizationClients || []).flatMap((process) => {
-    return (process.tasks || []).map((task) => {
+    const tasks = (process.tasks || []).map((task) => {
       const item = {
         id: task.id,
         source: "Regularização",
@@ -5189,6 +5572,26 @@ function taskCenterItems() {
       item.urgency = taskUrgency(item);
       return item;
     });
+    const deadlines = (process.deadlines || []).map((deadline) => {
+      const item = {
+        id: deadline.id,
+        source: "Regularização",
+        clientSource: "regularization",
+        kind: "Prazo",
+        title: deadline.title || "Prazo sem título",
+        description: deadline.notes || "",
+        ownerId: deadline.ownerId,
+        createdBy: deadline.createdBy || "",
+        date: deadline.date || "",
+        status: deadline.status || "Pendente",
+        priority: "Importante",
+        clientId: process.id,
+        clientName: process.clientName || "Cliente sem nome",
+      };
+      item.urgency = taskUrgency(item);
+      return item;
+    });
+    return [...tasks, ...deadlines];
   });
 
   const internalItems = (state.internalTasks || [])
@@ -5763,70 +6166,204 @@ function activityTimeLabel(dateValue) {
   return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function regularizationStatusOptions() {
-  return ["Em análise", "Documentos pendentes", "Em andamento", "Aguardando cliente", "Finalizado"];
+function regularizationFieldDefinitions(activeOnly = true) {
+  state.regularizationFieldDefinitions = normalizeRegularizationFieldDefinitions(state.regularizationFieldDefinitions);
+  return state.regularizationFieldDefinitions.filter((definition) => !activeOnly || definition.active);
+}
+
+function regularizationStatusDefinitions(activeOnly = true) {
+  state.regularizationStatusDefinitions = normalizeRegularizationStatusDefinitions(state.regularizationStatusDefinitions);
+  return state.regularizationStatusDefinitions.filter((definition) => !activeOnly || definition.active);
+}
+
+function getRegularizationStatuses(process = {}) {
+  const selected = new Set(process.statusIds || []);
+  return regularizationStatusDefinitions(false).filter((definition) => selected.has(definition.id));
+}
+
+function regularizationIsFinished(process = {}) {
+  return getRegularizationStatuses(process).some((status) => normalize(status.name) === "finalizado");
+}
+
+function regularizationOpenTasks(process = {}) {
+  return (process.tasks || []).filter((task) => localizeLabel(task.status || "Pendente") !== "Concluída");
+}
+
+function regularizationOpenDeadlines(process = {}) {
+  return (process.deadlines || []).filter((deadline) => localizeLabel(deadline.status || "Pendente") !== "Concluído");
+}
+
+function regularizationNextAction(process = {}) {
+  return process.customFields?.["reg-field-next-action"] || process.nextAction || "";
 }
 
 function renderRegularizationClients() {
+  if (!el.regularizationList) return;
+  renderRegularizationStatusFilter();
+  renderRegularizationMetrics();
   const processes = filteredRegularizationClients();
-  el.regularizationList.innerHTML = processes.length
-    ? processes.map(renderRegularizationCard).join("")
-    : `<p class="empty-state">Nenhum processo de regularização cadastrado.</p>`;
 
-  document.querySelectorAll("[data-edit-regularization]").forEach((button) => {
-    button.addEventListener("click", () => openRegularizationDialog(button.dataset.editRegularization));
+  el.regularizationCompactModeButton.classList.toggle("active", activeRegularizationViewMode === "compact");
+  el.regularizationDetailedModeButton.classList.toggle("active", activeRegularizationViewMode === "detailed");
+  document.querySelectorAll("[data-regularization-quick-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.regularizationQuickFilter === activeRegularizationQuickFilter);
   });
-  document.querySelectorAll("[data-delete-regularization]").forEach((button) => {
-    button.addEventListener("click", () => deleteRegularizationProcess(button.dataset.deleteRegularization));
+
+  if (!processes.length) {
+    el.regularizationList.className = "regularization-list";
+    el.regularizationList.innerHTML = `<p class="empty-state">Nenhum cliente de regularização encontrado.</p>`;
+  } else if (activeRegularizationViewMode === "detailed") {
+    el.regularizationList.className = "regularization-grid";
+    el.regularizationList.innerHTML = processes.map(renderRegularizationCard).join("");
+  } else {
+    el.regularizationList.className = "regularization-compact-list";
+    el.regularizationList.innerHTML = `
+      <div class="regularization-list-header" aria-hidden="true">
+        <span>Cliente e imóvel</span>
+        <span>UF</span>
+        <span>Tipo de imóvel</span>
+        <span>Status</span>
+        <span>Tarefas</span>
+        <span>Prazos</span>
+        <span>Próxima ação</span>
+        <span></span>
+      </div>
+      ${processes.map(renderRegularizationCompactRow).join("")}
+    `;
+  }
+
+  el.regularizationList.querySelectorAll("[data-open-regularization]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationDialog(button.dataset.openRegularization));
   });
   refreshIcons();
 }
 
+function renderRegularizationStatusFilter() {
+  const selected = el.regularizationStatusFilter.value;
+  const options = regularizationStatusDefinitions().map((status) => (
+    `<option value="${escapeAttr(status.id)}">${escapeHtml(status.name)}</option>`
+  )).join("");
+  el.regularizationStatusFilter.innerHTML = `<option value="">Todos os status</option>${options}`;
+  el.regularizationStatusFilter.value = regularizationStatusDefinitions().some((status) => status.id === selected) ? selected : "";
+}
+
+function renderRegularizationMetrics() {
+  const all = state.regularizationClients || [];
+  const finished = all.filter(regularizationIsFinished);
+  const open = all.filter((process) => !regularizationIsFinished(process));
+  const openTasks = all.reduce((total, process) => total + regularizationOpenTasks(process).length, 0);
+  const deadlines = all.reduce((total, process) => total + regularizationOpenDeadlines(process).length, 0);
+  el.regularizationMetricsGrid.innerHTML = [
+    ["Clientes ativos", open.length],
+    ["Tarefas abertas", openTasks],
+    ["Prazos registrados", deadlines],
+    ["Clientes finalizados", finished.length],
+  ].map(([label, value]) => `<article class="metric"><span>${escapeHtml(label)}</span><strong>${value}</strong></article>`).join("");
+}
+
 function filteredRegularizationClients() {
   const query = normalize(el.regularizationSearchInput.value);
-  return [...state.regularizationClients]
-    .filter((process) => {
-      const haystack = normalize([
-        process.clientName,
-        process.propertyType,
-        process.clientOrigin,
-        process.cityState,
-        process.address,
-        process.status,
-        process.nextAction,
-        process.notes,
-      ].join(" "));
-      return !query || haystack.includes(query);
-    })
-    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+  const statusFilter = el.regularizationStatusFilter.value;
+  const sort = el.regularizationSort.value || "recent";
+  const filtered = [...(state.regularizationClients || [])].filter((process) => {
+    const statuses = getRegularizationStatuses(process);
+    const hasTasks = regularizationOpenTasks(process).length > 0;
+    const hasDeadlines = regularizationOpenDeadlines(process).length > 0;
+    const finished = regularizationIsFinished(process);
+    const quickMatch = (
+      (activeRegularizationQuickFilter === "active" && !finished) ||
+      (activeRegularizationQuickFilter === "finished" && finished) ||
+      (activeRegularizationQuickFilter === "tasks" && hasTasks) ||
+      (activeRegularizationQuickFilter === "deadlines" && hasDeadlines) ||
+      (activeRegularizationQuickFilter === "no-status" && !statuses.length)
+    );
+    const haystack = normalize([
+      process.clientName,
+      process.cpf,
+      process.propertyType,
+      process.clientOrigin,
+      process.state,
+      ...statuses.map((status) => status.name),
+      ...Object.values(process.customFields || {}),
+    ].join(" "));
+    return quickMatch && (!statusFilter || (process.statusIds || []).includes(statusFilter)) && (!query || haystack.includes(query));
+  });
+
+  return filtered.sort((a, b) => {
+    if (sort === "name") return (a.clientName || "").localeCompare(b.clientName || "", "pt-BR");
+    if (sort === "active") return Number(regularizationIsFinished(a)) - Number(regularizationIsFinished(b));
+    if (sort === "finished") return Number(regularizationIsFinished(b)) - Number(regularizationIsFinished(a));
+    return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
+  });
+}
+
+function renderRegularizationStatusChips(process, compact = false) {
+  const statuses = getRegularizationStatuses(process);
+  if (!statuses.length) return compact ? "" : `<span class="muted-inline">Sem status</span>`;
+  return statuses.map((status) => `
+    <span class="regularization-status-chip" style="--status-color:${escapeAttr(status.color)}">
+      ${escapeHtml(status.name)}
+    </span>
+  `).join("");
+}
+
+function renderRegularizationCompactRow(process) {
+  const tasks = regularizationOpenTasks(process);
+  const deadlines = regularizationOpenDeadlines(process);
+  const propertyTypes = process.propertyTypes?.length ? process.propertyTypes.join(" + ") : "Não informado";
+  return `
+    <article class="regularization-list-row ${regularizationIsFinished(process) ? "finished" : ""}">
+      <div class="regularization-client-cell">
+        <strong>${escapeHtml(process.clientName || "Cliente sem nome")}</strong>
+        <small>${escapeHtml(process.cpf || process.clientOrigin || "Sem CPF/CNPJ")}</small>
+        ${process.linkedInssClientId ? `<span class="service-link-badge"><i data-lucide="link-2"></i> Também no INSS</span>` : ""}
+      </div>
+      <span>${escapeHtml(process.state || "—")}</span>
+      <span class="regularization-property-cell">${escapeHtml(propertyTypes)}</span>
+      <div class="regularization-status-cell">${renderRegularizationStatusChips(process, true)}</div>
+      <span class="compact-client-count ${tasks.length ? "attention" : ""}">
+        <i data-lucide="list-checks"></i><strong>${tasks.length}</strong><small>${tasks.length ? ownerSummary(tasks.map((task) => task.ownerId)) : "Sem tarefa"}</small>
+      </span>
+      <span class="compact-client-count ${deadlines.length ? "attention" : ""}">
+        <i data-lucide="calendar-clock"></i><strong>${deadlines.length}</strong><small>${deadlines.length ? nearestRegularizationDeadline(deadlines) : "Sem prazo"}</small>
+      </span>
+      <span class="regularization-next-action">${escapeHtml(regularizationNextAction(process) || "Sem próxima ação")}</span>
+      <button class="small-button" type="button" data-open-regularization="${escapeAttr(process.id)}">Abrir</button>
+    </article>
+  `;
+}
+
+function nearestRegularizationDeadline(deadlines = []) {
+  const dated = deadlines.filter((deadline) => deadline.date).sort((a, b) => a.date.localeCompare(b.date));
+  return dated.length ? formatDate(dated[0].date) : "Sem data";
 }
 
 function renderRegularizationCard(process) {
-  const isFinished = normalize(process.status) === "finalizado";
-  const details = [process.propertyType, process.cityState].filter(Boolean).join(" | ");
+  const tasks = regularizationOpenTasks(process);
+  const deadlines = regularizationOpenDeadlines(process);
+  const propertyTypes = process.propertyTypes?.length ? process.propertyTypes.join(" + ") : "Tipo de imóvel não informado";
   return `
-    <article class="regularization-card ${isFinished ? "finished" : ""}">
+    <article class="regularization-card ${regularizationIsFinished(process) ? "finished" : ""}">
       <header>
         <div>
           <h3>${escapeHtml(process.clientName || "Cliente sem nome")}</h3>
-          <p>${escapeHtml(details || "Imóvel sem detalhe informado")}</p>
+          <p>${escapeHtml([propertyTypes, process.state].filter(Boolean).join(" | "))}</p>
         </div>
-        <span class="regularization-status">${escapeHtml(process.status || "Em análise")}</span>
+        <div class="regularization-status-cell">${renderRegularizationStatusChips(process, true)}</div>
       </header>
+      <div class="regularization-card-signals">
+        <span class="${tasks.length ? "active" : ""}"><i data-lucide="list-checks"></i>${tasks.length ? `${tasks.length} tarefa(s): ${escapeHtml(ownerSummary(tasks.map((task) => task.ownerId)))}` : "Sem tarefas abertas"}</span>
+        <span class="${deadlines.length ? "active" : ""}"><i data-lucide="calendar-clock"></i>${deadlines.length ? `${deadlines.length} prazo(s)` : "Sem prazos"}</span>
+      </div>
       <div class="card-meta">
-        <span><i data-lucide="map-pin"></i>${escapeHtml(process.address || "Endereço não informado")}</span>
         <span><i data-lucide="tag"></i>${escapeHtml(process.clientOrigin || "Origem não informada")}</span>
-        <span><i data-lucide="calendar-check"></i>${escapeHtml(process.contractClosedDate ? `Fechado em ${formatDate(process.contractClosedDate)}` : "Sem fechamento")}</span>
+        <span><i data-lucide="calendar-check"></i>${escapeHtml(process.contractClosedDate ? formatDate(process.contractClosedDate) : "Sem fechamento")}</span>
         <span><i data-lucide="circle-dollar-sign"></i>${escapeHtml(process.feeValue || "Honorários não informados")}</span>
       </div>
-      <p>${escapeHtml(process.nextAction || "Sem próxima ação registrada.")}</p>
-      ${process.notes ? `<p class="regularization-note">${escapeHtml(process.notes)}</p>` : ""}
+      <p>${escapeHtml(regularizationNextAction(process) || "Sem próxima ação registrada.")}</p>
       <footer class="regularization-actions">
         <small>Atualizado em ${formatDateTime(process.updatedAt || process.createdAt)}</small>
-        <span class="inline-actions">
-          <button class="small-button" type="button" data-edit-regularization="${process.id}"><i data-lucide="pencil"></i> Editar</button>
-          <button class="icon-button danger-icon" type="button" data-delete-regularization="${process.id}" aria-label="Remover processo"><i data-lucide="trash-2"></i></button>
-        </span>
+        <button class="small-button" type="button" data-open-regularization="${escapeAttr(process.id)}"><i data-lucide="external-link"></i> Abrir</button>
       </footer>
     </article>
   `;
@@ -5834,84 +6371,1042 @@ function renderRegularizationCard(process) {
 
 function openRegularizationDialog(processId = null) {
   const process = state.regularizationClients.find((item) => item.id === processId);
-  const current = normalizeRegularizationClient(process || {});
-  openSimpleDialog(process ? "Editar regularização" : "Novo processo de regularização", [
-    { label: "Nome do cliente", name: "clientName", type: "text", value: current.clientName },
+  activeRegularization = cloneData(normalizeRegularizationClient(process || {}));
+  el.regularizationDialogTitle.textContent = activeRegularization.clientName || "Novo cliente";
+  fillRegularizationDialog();
+  renderRegularizationDynamicFields();
+  renderRegularizationStatuses();
+  renderRegularizationChecklist();
+  renderRegularizationTasks();
+  renderRegularizationDeadlines();
+  renderRegularizationHistory();
+  renderRegularizationLinkState();
+  switchRegularizationTab("regularizationClientTab");
+  el.deleteRegularizationButton.hidden = !process;
+  el.regularizationDialog.showModal();
+  refreshIcons();
+}
+
+function switchRegularizationTab(tabId) {
+  el.regularizationDialog.querySelectorAll(".regularization-tab-panel").forEach((panel) => {
+    panel.classList.toggle("active", panel.id === tabId);
+  });
+  el.regularizationDialog.querySelectorAll(".regularization-tab-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.regularizationTab === tabId);
+  });
+}
+
+function fillRegularizationDialog() {
+  el.regularizationDialog.querySelectorAll("[data-regularization-field]").forEach((input) => {
+    const field = input.dataset.regularizationField;
+    input.value = activeRegularization[field] || "";
+  });
+  el.regularizationDialog.querySelectorAll("[data-regularization-property-type]").forEach((input) => {
+    input.checked = (activeRegularization.propertyTypes || []).includes(input.value);
+  });
+}
+
+function renderRegularizationDynamicFields() {
+  const definitions = regularizationFieldDefinitions();
+  el.regularizationDynamicFields.innerHTML = definitions.length
+    ? definitions.map((definition) => regularizationDynamicFieldHtml(definition)).join("")
+    : `<p class="empty-state compact span-2">Nenhum campo adicional ativo.</p>`;
+  el.regularizationDynamicFields.querySelectorAll("[data-regularization-custom-field]").forEach((input) => {
+    if (input.dataset.customFieldType === "money") {
+      input.addEventListener("input", () => {
+        input.value = formatCurrencyValue(input.value);
+      });
+    }
+  });
+}
+
+function regularizationDynamicFieldHtml(definition) {
+  const value = activeRegularization.customFields?.[definition.id] ?? "";
+  const common = `data-regularization-custom-field="${escapeAttr(definition.id)}" data-custom-field-type="${escapeAttr(definition.type)}"`;
+  let control;
+  if (definition.type === "textarea") {
+    control = `<textarea rows="4" ${common}>${escapeHtml(value)}</textarea>`;
+  } else if (definition.type === "select") {
+    control = `<select ${common}><option value="">Selecione</option>${definition.options.map((option) => `<option value="${escapeAttr(option)}" ${option === value ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select>`;
+  } else if (definition.type === "boolean") {
+    control = `<select ${common}><option value="">Selecione</option><option value="Sim" ${value === "Sim" ? "selected" : ""}>Sim</option><option value="Não" ${value === "Não" ? "selected" : ""}>Não</option></select>`;
+  } else {
+    const type = definition.type === "date" ? "date" : definition.type === "number" ? "number" : "text";
+    const money = definition.type === "money" ? `inputmode="numeric" placeholder="R$ 0,00"` : "";
+    control = `<input type="${type}" value="${escapeAttr(definition.type === "money" ? formatCurrencyValue(value) : value)}" ${money} ${common} />`;
+  }
+  return `<label class="${definition.type === "textarea" ? "span-2" : ""}">${escapeHtml(definition.label)}${control}</label>`;
+}
+
+function collectRegularizationDialog() {
+  el.regularizationDialog.querySelectorAll("[data-regularization-field]").forEach((input) => {
+    const field = input.dataset.regularizationField;
+    let value = input.value.trim();
+    if (field === "feeValue") value = formatCurrencyValue(value);
+    if (field === "cpf") value = formatDocumentNumber(value, activeRegularization.documentType || "cpf");
+    activeRegularization[field] = value;
+  });
+  activeRegularization.propertyTypes = [...el.regularizationDialog.querySelectorAll("[data-regularization-property-type]:checked")]
+    .map((input) => input.value);
+  activeRegularization.propertyType = activeRegularization.propertyTypes.join(" + ");
+  activeRegularization.customFields = activeRegularization.customFields || {};
+  el.regularizationDynamicFields.querySelectorAll("[data-regularization-custom-field]").forEach((input) => {
+    let value = input.value.trim();
+    if (input.dataset.customFieldType === "money") value = formatCurrencyValue(value);
+    activeRegularization.customFields[input.dataset.regularizationCustomField] = value;
+  });
+  activeRegularization.address = activeRegularization.customFields["reg-field-address"] || activeRegularization.address || "";
+  activeRegularization.nextAction = activeRegularization.customFields["reg-field-next-action"] || "";
+  activeRegularization.notes = activeRegularization.customFields["reg-field-notes"] || "";
+  activeRegularization.cityState = activeRegularization.state || "";
+}
+
+async function saveActiveRegularization() {
+  collectRegularizationDialog();
+  if (!activeRegularization.clientName.trim()) {
+    alert("Informe o nome do cliente.");
+    switchRegularizationTab("regularizationClientTab");
+    return false;
+  }
+
+  const processId = commitActiveRegularizationToState();
+  saveState();
+  try {
+    await flushCloudState();
+  } catch (error) {
+    console.error(error);
+    showSyncError(error);
+    return false;
+  }
+  activeRegularization = cloneData(state.regularizationClients.find((process) => process.id === processId));
+  el.regularizationDialog.close();
+  renderAll();
+  return true;
+}
+
+function commitActiveRegularizationToState() {
+  const now = new Date().toISOString();
+  const index = state.regularizationClients.findIndex((process) => process.id === activeRegularization.id);
+  const previous = index >= 0 ? state.regularizationClients[index] : null;
+  activeRegularization.updatedAt = now;
+
+  if (previous) {
+    const changes = summarizeRegularizationChanges(previous, activeRegularization);
+    if (changes.length) {
+      addHistoryEntry(activeRegularization, "Card atualizado", changes, "system");
+      recordRegularizationActivities(previous, activeRegularization, changes);
+    }
+    state.regularizationClients[index] = cloneData(activeRegularization);
+  } else {
+    activeRegularization.createdAt = now;
+    addHistoryEntry(activeRegularization, "Card criado", ["Novo cliente incluído no fluxo de regularização."], "system");
+    state.regularizationClients.unshift(cloneData(activeRegularization));
+    recordActivity("client", `Criou a regularização de ${activeRegularization.clientName}.`, "Novo card incluído no fluxo de regularização.", regularizationActivityContext(activeRegularization));
+  }
+
+  syncLinkedInssFromRegularization(activeRegularization);
+  return activeRegularization.id;
+}
+
+async function deleteActiveRegularization() {
+  if (!activeRegularization) return;
+  if (activeRegularization.linkedInssClientId) {
+    alert("Este processo está vinculado a um card de INSS. Remova o vínculo antes de excluir a regularização.");
+    return;
+  }
+  const confirmed = confirm(`Excluir o processo de regularização de ${activeRegularization.clientName || "cliente"}?`);
+  if (!confirmed) return;
+  state.regularizationClients = state.regularizationClients.filter((process) => process.id !== activeRegularization.id);
+  recordActivity("client", `Removeu a regularização de ${activeRegularization.clientName || "Cliente sem nome"}.`, "", regularizationActivityContext(activeRegularization));
+  saveState();
+  try {
+    await flushCloudState();
+  } catch (error) {
+    showSyncError(error);
+    return;
+  }
+  el.regularizationDialog.close();
+  activeRegularization = null;
+  renderAll();
+}
+
+function renderRegularizationStatuses() {
+  const selectedStatuses = getRegularizationStatuses(activeRegularization);
+  el.regularizationActiveStatuses.innerHTML = selectedStatuses.length
+    ? selectedStatuses.map((status) => `
+        <span class="chip regularization-active-status" style="background:${escapeAttr(status.color)}">
+          ${escapeHtml(status.name)}
+          <button type="button" data-remove-regularization-status="${escapeAttr(status.id)}" aria-label="Remover status">×</button>
+        </span>
+      `).join("")
+    : `<p class="empty-state compact">Nenhum status selecionado.</p>`;
+
+  const selected = new Set(activeRegularization.statusIds || []);
+  const available = regularizationStatusDefinitions().filter((status) => !selected.has(status.id));
+  el.regularizationStatusPicker.innerHTML = available.length
+    ? available.map((status) => `
+        <button class="status-option" type="button" data-add-regularization-status="${escapeAttr(status.id)}">
+          <span style="background:${escapeAttr(status.color)}"></span>${escapeHtml(status.name)}
+        </button>
+      `).join("")
+    : `<p class="empty-state compact">${regularizationStatusDefinitions().length ? "Todos os status já foram selecionados." : "A administradora ainda não criou status para este fluxo."}</p>`;
+
+  el.regularizationActiveStatuses.querySelectorAll("[data-remove-regularization-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeRegularization.statusIds = (activeRegularization.statusIds || []).filter((statusId) => statusId !== button.dataset.removeRegularizationStatus);
+      renderRegularizationStatuses();
+    });
+  });
+  el.regularizationStatusPicker.querySelectorAll("[data-add-regularization-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeRegularization.statusIds = [...new Set([...(activeRegularization.statusIds || []), button.dataset.addRegularizationStatus])];
+      renderRegularizationStatuses();
+    });
+  });
+  refreshIcons();
+}
+
+function openRegularizationManager(type) {
+  if (currentUser.role !== "admin") return;
+  activeRegularizationManagerType = type;
+  el.regularizationManagerTitle.textContent = type === "fields" ? "Campos da regularização" : "Status da regularização";
+  el.addRegularizationManagerItem.innerHTML = type === "fields"
+    ? `<i data-lucide="plus"></i> Adicionar campo`
+    : `<i data-lucide="plus"></i> Adicionar status`;
+  renderRegularizationManager();
+  el.regularizationManagerDialog.showModal();
+  refreshIcons();
+}
+
+function renderRegularizationManager() {
+  if (activeRegularizationManagerType === "fields") {
+    const definitions = regularizationFieldDefinitions(false);
+    el.regularizationManagerBody.innerHTML = definitions.length
+      ? definitions.map((definition, index) => regularizationManagerRow({
+          id: definition.id,
+          title: definition.label,
+          meta: REGULARIZATION_FIELD_TYPES.find(([type]) => type === definition.type)?.[1] || "Texto",
+          active: definition.active,
+          index,
+          total: definitions.length,
+        })).join("")
+      : `<p class="empty-state">Nenhum campo adicional cadastrado.</p>`;
+  } else {
+    const definitions = regularizationStatusDefinitions(false);
+    el.regularizationManagerBody.innerHTML = definitions.length
+      ? definitions.map((definition, index) => regularizationManagerRow({
+          id: definition.id,
+          title: definition.name,
+          meta: definition.active ? "Disponível nos cards" : "Arquivado",
+          active: definition.active,
+          color: definition.color,
+          index,
+          total: definitions.length,
+        })).join("")
+      : `<p class="empty-state">Nenhum status criado. Use “Adicionar status” para começar.</p>`;
+  }
+
+  el.regularizationManagerBody.querySelectorAll("[data-edit-regularization-manager]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationManagerItemDialog(button.dataset.editRegularizationManager));
+  });
+  el.regularizationManagerBody.querySelectorAll("[data-toggle-regularization-manager]").forEach((button) => {
+    button.addEventListener("click", () => toggleRegularizationManagerItem(button.dataset.toggleRegularizationManager));
+  });
+  el.regularizationManagerBody.querySelectorAll("[data-move-regularization-manager]").forEach((button) => {
+    button.addEventListener("click", () => moveRegularizationManagerItem(
+      button.dataset.moveRegularizationManager,
+      Number(button.dataset.direction),
+    ));
+  });
+  refreshIcons();
+}
+
+function regularizationManagerRow(item) {
+  return `
+    <article class="regularization-manager-row ${item.active ? "" : "archived"}">
+      <span class="regularization-manager-swatch" ${item.color ? `style="background:${escapeAttr(item.color)}"` : ""}></span>
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(item.meta)}</small>
+      </div>
+      <div class="inline-actions">
+        <button class="icon-button" type="button" data-move-regularization-manager="${escapeAttr(item.id)}" data-direction="-1" ${item.index === 0 ? "disabled" : ""} aria-label="Mover para cima"><i data-lucide="arrow-up"></i></button>
+        <button class="icon-button" type="button" data-move-regularization-manager="${escapeAttr(item.id)}" data-direction="1" ${item.index === item.total - 1 ? "disabled" : ""} aria-label="Mover para baixo"><i data-lucide="arrow-down"></i></button>
+        <button class="icon-button" type="button" data-edit-regularization-manager="${escapeAttr(item.id)}" aria-label="Editar"><i data-lucide="pencil"></i></button>
+        <button class="small-button" type="button" data-toggle-regularization-manager="${escapeAttr(item.id)}">${item.active ? "Arquivar" : "Reativar"}</button>
+      </div>
+    </article>
+  `;
+}
+
+function openRegularizationManagerItemDialog(itemId = "") {
+  if (currentUser.role !== "admin") return;
+  if (activeRegularizationManagerType === "fields") {
+    const definition = regularizationFieldDefinitions(false).find((item) => item.id === itemId);
+    openSimpleDialog(definition ? "Editar campo" : "Novo campo", [
+      { label: "Nome do campo", name: "label", type: "text", value: definition?.label || "" },
+      {
+        label: "Tipo",
+        name: "type",
+        type: "select",
+        value: definition?.type || "text",
+        options: REGULARIZATION_FIELD_TYPES.map(([value, label]) => ({ value, label })),
+      },
+      {
+        label: "Opções da lista",
+        name: "options",
+        type: "textarea",
+        rows: 5,
+        value: (definition?.options || []).join("\n"),
+        placeholder: "Uma opção por linha. Usado apenas em Lista de opções.",
+      },
+    ], (values) => {
+      const label = values.label.trim();
+      if (!label) {
+        alert("Informe o nome do campo.");
+        return false;
+      }
+      const now = new Date().toISOString();
+      if (definition) {
+        definition.label = label;
+        definition.type = values.type;
+        definition.options = values.options.split("\n").map((option) => option.trim()).filter(Boolean);
+        definition.updatedAt = now;
+      } else {
+        state.regularizationFieldDefinitions.push(normalizeRegularizationFieldDefinition({
+          id: id(),
+          label,
+          type: values.type,
+          options: values.options,
+          order: (regularizationFieldDefinitions(false).length + 1) * 10,
+          createdAt: now,
+          updatedAt: now,
+        }));
+      }
+      persistRegularizationConfiguration();
+      renderRegularizationManager();
+      renderRegularizationDynamicFields();
+      return true;
+    });
+    return;
+  }
+
+  const definition = regularizationStatusDefinitions(false).find((item) => item.id === itemId);
+  openSimpleDialog(definition ? "Editar status" : "Novo status", [
+    { label: "Nome do status", name: "name", type: "text", value: definition?.name || "" },
+    { label: "Cor", name: "color", type: "color", value: definition?.color || REGULARIZATION_STATUS_COLORS[regularizationStatusDefinitions(false).length % REGULARIZATION_STATUS_COLORS.length] },
+  ], (values) => {
+    const name = values.name.trim();
+    if (!name) {
+      alert("Informe o nome do status.");
+      return false;
+    }
+    const duplicate = regularizationStatusDefinitions(false).some((status) => status.id !== definition?.id && normalize(status.name) === normalize(name));
+    if (duplicate) {
+      alert("Já existe um status com esse nome.");
+      return false;
+    }
+    const now = new Date().toISOString();
+    if (definition) {
+      definition.name = name;
+      definition.color = values.color;
+      definition.updatedAt = now;
+    } else {
+      state.regularizationStatusDefinitions.push(normalizeRegularizationStatusDefinition({
+        id: id(),
+        name,
+        color: values.color,
+        order: (regularizationStatusDefinitions(false).length + 1) * 10,
+        createdAt: now,
+        updatedAt: now,
+      }));
+    }
+    persistRegularizationConfiguration();
+    renderRegularizationManager();
+    renderRegularizationStatuses();
+    return true;
+  });
+}
+
+function toggleRegularizationManagerItem(itemId) {
+  const collection = activeRegularizationManagerType === "fields"
+    ? state.regularizationFieldDefinitions
+    : state.regularizationStatusDefinitions;
+  const item = collection.find((definition) => definition.id === itemId);
+  if (!item) return;
+  item.active = !item.active;
+  item.updatedAt = new Date().toISOString();
+  persistRegularizationConfiguration();
+  renderRegularizationManager();
+  if (activeRegularizationManagerType === "fields") renderRegularizationDynamicFields();
+  else renderRegularizationStatuses();
+}
+
+function moveRegularizationManagerItem(itemId, direction) {
+  const collection = activeRegularizationManagerType === "fields"
+    ? regularizationFieldDefinitions(false)
+    : regularizationStatusDefinitions(false);
+  const index = collection.findIndex((item) => item.id === itemId);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= collection.length) return;
+  [collection[index].order, collection[targetIndex].order] = [collection[targetIndex].order, collection[index].order];
+  collection[index].updatedAt = new Date().toISOString();
+  collection[targetIndex].updatedAt = new Date().toISOString();
+  persistRegularizationConfiguration();
+  renderRegularizationManager();
+  if (activeRegularizationManagerType === "fields") renderRegularizationDynamicFields();
+  else renderRegularizationStatuses();
+}
+
+function persistRegularizationConfiguration() {
+  state.regularizationFieldDefinitions = normalizeRegularizationFieldDefinitions(state.regularizationFieldDefinitions);
+  state.regularizationStatusDefinitions = normalizeRegularizationStatusDefinitions(state.regularizationStatusDefinitions);
+  saveState();
+  renderRegularizationClients();
+}
+
+function renderRegularizationChecklist() {
+  const steps = [...(activeRegularization.checklist || [])].sort((a, b) => a.order - b.order);
+  el.regularizationChecklistList.innerHTML = steps.length
+    ? steps.map((step, index) => {
+        const visualState = regularizationChecklistVisualState(step);
+        return `
+          <article class="regularization-checklist-step state-${visualState}">
+            <span class="regularization-checklist-marker">${index + 1}</span>
+            <div class="regularization-checklist-content">
+              <header>
+                <div>
+                  <strong>${escapeHtml(step.title || "Etapa sem título")}</strong>
+                  <span class="regularization-checklist-state">${escapeHtml(step.state)}</span>
+                </div>
+                <div class="inline-actions">
+                  ${step.state !== "Concluída" ? `<button class="icon-button" type="button" data-complete-regularization-step="${escapeAttr(step.id)}" aria-label="Marcar como concluída"><i data-lucide="check"></i></button>` : ""}
+                  <button class="icon-button" type="button" data-edit-regularization-step="${escapeAttr(step.id)}" aria-label="Editar etapa"><i data-lucide="pencil"></i></button>
+                  <button class="icon-button danger-icon" type="button" data-remove-regularization-step="${escapeAttr(step.id)}" aria-label="Remover etapa"><i data-lucide="trash-2"></i></button>
+                </div>
+              </header>
+              <div class="regularization-checklist-meta">
+                <span><i data-lucide="user-round"></i>${escapeHtml(step.ownerId ? ownerName(step.ownerId) : "Sem responsável")}</span>
+                <span><i data-lucide="calendar"></i>${escapeHtml(step.dueDate ? formatDate(step.dueDate) : "Sem prazo")}</span>
+              </div>
+              ${step.notes ? `<p>${escapeHtml(step.notes)}</p>` : ""}
+            </div>
+          </article>
+        `;
+      }).join("")
+    : `<p class="empty-state">Nenhuma etapa cadastrada. Adicione a primeira etapa do processo.</p>`;
+
+  el.regularizationChecklistList.querySelectorAll("[data-edit-regularization-step]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationChecklistDialog(button.dataset.editRegularizationStep));
+  });
+  el.regularizationChecklistList.querySelectorAll("[data-complete-regularization-step]").forEach((button) => {
+    button.addEventListener("click", () => completeRegularizationChecklistStep(button.dataset.completeRegularizationStep));
+  });
+  el.regularizationChecklistList.querySelectorAll("[data-remove-regularization-step]").forEach((button) => {
+    button.addEventListener("click", () => removeRegularizationChecklistStep(button.dataset.removeRegularizationStep));
+  });
+  refreshIcons();
+}
+
+function regularizationChecklistVisualState(step) {
+  if (step.state === "Concluída" || step.state === "Não se aplica") return "done";
+  if (step.dueDate && step.dueDate < localDateKey()) return "overdue";
+  if (step.state === "Em andamento" || step.state === "Aguardando cliente") return "current";
+  return "future";
+}
+
+function openRegularizationChecklistDialog(stepId = "") {
+  const step = (activeRegularization.checklist || []).find((item) => item.id === stepId);
+  openSimpleDialog(step ? "Editar etapa" : "Nova etapa", [
+    { label: "Etapa", name: "title", type: "text", value: step?.title || "" },
     {
-      label: "Tipo de imóvel",
-      name: "propertyType",
+      label: "Responsável",
+      name: "ownerId",
       type: "select",
-      value: current.propertyType,
-      options: [{ value: "", label: "Selecionar" }, ...destinationValues().map((destination) => ({ value: destination, label: destination }))],
+      value: step?.ownerId || currentUser.id,
+      options: state.users.map((user) => ({ value: user.id, label: user.name })),
     },
+    { label: "Prazo", name: "dueDate", type: "date", value: step?.dueDate || "" },
     {
-      label: "Origem",
-      name: "clientOrigin",
+      label: "Situação",
+      name: "state",
       type: "select",
-      value: current.clientOrigin,
-      options: [{ value: "", label: "Selecionar" }, ...clientOriginValues().map((origin) => ({ value: origin, label: origin }))],
+      value: step?.state || "Não iniciada",
+      options: REGULARIZATION_CHECKLIST_STATES.map((value) => ({ value, label: value })),
     },
+    { label: "Observações", name: "notes", type: "textarea", rows: 4, value: step?.notes || "" },
+  ], (values) => {
+    if (!values.title) {
+      alert("Informe o nome da etapa.");
+      return false;
+    }
+    const now = new Date().toISOString();
+    if (step) {
+      const previousState = step.state;
+      Object.assign(step, {
+        title: values.title,
+        ownerId: values.ownerId,
+        dueDate: values.dueDate,
+        state: values.state,
+        notes: values.notes,
+        updatedAt: now,
+      });
+      addHistoryEntry(activeRegularization, "Etapa do check-list atualizada", [
+        `${step.title}: ${previousState || "Não iniciada"} → ${step.state}.`,
+      ]);
+    } else {
+      const newStep = normalizeRegularizationChecklistStep({
+        id: id(),
+        title: values.title,
+        ownerId: values.ownerId,
+        dueDate: values.dueDate,
+        state: values.state,
+        notes: values.notes,
+        order: ((activeRegularization.checklist || []).length + 1) * 10,
+        createdBy: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+      });
+      activeRegularization.checklist = [...(activeRegularization.checklist || []), newStep];
+      addHistoryEntry(activeRegularization, "Etapa adicionada ao check-list", [
+        `${newStep.title} | ${newStep.state}.`,
+      ]);
+    }
+    renderRegularizationChecklist();
+    renderRegularizationHistory();
+    return true;
+  });
+}
+
+function completeRegularizationChecklistStep(stepId) {
+  const step = activeRegularization.checklist?.find((item) => item.id === stepId);
+  if (!step) return;
+  const previousState = step.state;
+  step.state = "Concluída";
+  step.updatedAt = new Date().toISOString();
+  addHistoryEntry(activeRegularization, "Etapa concluída", [
+    `${step.title}: ${previousState || "Não iniciada"} → Concluída.`,
+  ]);
+  renderRegularizationChecklist();
+  renderRegularizationHistory();
+}
+
+function removeRegularizationChecklistStep(stepId) {
+  const step = activeRegularization.checklist?.find((item) => item.id === stepId);
+  if (!step || !confirm(`Remover a etapa “${step.title || "sem título"}”?`)) return;
+  activeRegularization.checklist = activeRegularization.checklist.filter((item) => item.id !== stepId);
+  addHistoryEntry(activeRegularization, "Etapa removida do check-list", [step.title || "Etapa sem título."]);
+  renderRegularizationChecklist();
+  renderRegularizationHistory();
+}
+
+function renderRegularizationTasks() {
+  const tasks = activeRegularization.tasks || [];
+  el.regularizationTasksList.innerHTML = tasks.length
+    ? tasks.map((task) => {
+        const done = localizeLabel(task.status || "Pendente") === "Concluída";
+        return `
+          <article class="task-message regularization-task-message ${done ? "done" : ""}">
+            <div class="task-message-body">
+              <p class="task-message-title">${escapeHtml(task.title || "Tarefa sem título")}</p>
+              ${task.description ? `<p class="task-message-description">${escapeHtml(task.description)}</p>` : ""}
+              ${task.followUpNotes ? `<p class="task-message-description">${escapeHtml(task.followUpNotes)}</p>` : ""}
+              <div class="task-message-meta">
+                <span>Responsável: ${escapeHtml(ownerName(task.ownerId))}</span>
+                <span>${task.dueDate ? formatDate(task.dueDate) : "Sem prazo"}</span>
+                <span>${escapeHtml(normalizeTaskPriority(task.priority))}</span>
+                <span>${escapeHtml(localizeLabel(task.status || "Pendente"))}</span>
+              </div>
+            </div>
+            <div class="task-message-actions">
+              <button class="icon-button" type="button" data-edit-regularization-task="${escapeAttr(task.id)}" aria-label="Editar tarefa"><i data-lucide="pencil"></i></button>
+              <button class="icon-button danger-icon" type="button" data-remove-regularization-task="${escapeAttr(task.id)}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>
+            </div>
+          </article>
+        `;
+      }).join("")
+    : `<p class="empty-state compact">Nenhuma tarefa cadastrada.</p>`;
+  el.regularizationTasksList.querySelectorAll("[data-edit-regularization-task]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationTaskDialog(button.dataset.editRegularizationTask));
+  });
+  el.regularizationTasksList.querySelectorAll("[data-remove-regularization-task]").forEach((button) => {
+    button.addEventListener("click", () => removeRegularizationTask(button.dataset.removeRegularizationTask));
+  });
+  refreshIcons();
+}
+
+function openRegularizationTaskDialog(taskId = "") {
+  const task = (activeRegularization.tasks || []).find((item) => item.id === taskId);
+  openSimpleDialog(task ? "Editar tarefa" : "Nova tarefa", [
+    { label: "Tarefa", name: "title", type: "text", value: task?.title || "" },
+    { label: "Descrição", name: "description", type: "textarea", rows: 4, value: task?.description || "" },
+    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 3, value: task?.followUpNotes || "" },
     {
-      label: "Estado",
-      name: "cityState",
+      label: "Responsável",
+      name: "ownerId",
       type: "select",
-      value: current.cityState,
-      options: [{ value: "", label: "Selecionar" }, ...brazilianStates().map((stateValue) => ({ value: stateValue, label: stateValue }))],
+      value: task?.ownerId || currentUser.id,
+      options: state.users.map((user) => ({ value: user.id, label: user.name })),
     },
-    { label: "Endereço", name: "address", type: "text", value: current.address },
-    { label: "Data do fechamento (pagamento)", name: "contractClosedDate", type: "date", value: current.contractClosedDate },
-    { label: "Valor dos honorários", name: "feeValue", type: "money", value: current.feeValue },
+    { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
+    {
+      label: "Prioridade",
+      name: "priority",
+      type: "select",
+      value: normalizeTaskPriority(task?.priority),
+      options: taskPriorityValues().map((value) => ({ value, label: value })),
+    },
     {
       label: "Status",
       name: "status",
       type: "select",
-      value: current.status,
-      options: regularizationStatusOptions().map((status) => ({ value: status, label: status })),
+      value: task?.status || "Pendente",
+      options: taskStatusValues().map((value) => ({ value, label: value })),
     },
-    { label: "Próxima ação", name: "nextAction", type: "textarea", rows: 3, value: current.nextAction },
-    { label: "Observações", name: "notes", type: "textarea", rows: 3, value: current.notes },
   ], (values) => {
-    if (!values.clientName) {
-      alert("Informe o nome do cliente para salvar o processo.");
+    if (!values.title) {
+      alert("Informe o nome da tarefa.");
       return false;
     }
     const now = new Date().toISOString();
-    const payload = normalizeRegularizationClient({
-      ...current,
-      ...values,
-      propertyType: normalizeSelectValue(values.propertyType, destinationValues()) || "",
-      cityState: normalizeSelectValue(values.cityState, brazilianStates()) || "",
-      feeValue: formatCurrencyValue(values.feeValue || ""),
-      updatedAt: now,
-      createdAt: current.createdAt || now,
-    });
-    if (process) {
-      Object.assign(process, payload);
-      recordActivity("client", `Atualizou regularização: ${payload.clientName}.`, payload.status);
+    if (task) {
+      Object.assign(task, {
+        title: values.title,
+        description: values.description,
+        followUpNotes: values.followUpNotes,
+        ownerId: values.ownerId,
+        dueDate: values.dueDate,
+        priority: normalizeTaskPriority(values.priority),
+        status: values.status,
+        updatedAt: now,
+      });
+      addHistoryEntry(activeRegularization, "Tarefa atualizada", [`${task.title} | ${task.status}.`]);
     } else {
-      state.regularizationClients.unshift({ ...payload, id: id(), createdAt: now, updatedAt: now });
-      recordActivity("client", `Criou regularização: ${payload.clientName}.`, payload.status);
+      const newTask = normalizeClientTask({
+        id: id(),
+        title: values.title,
+        description: values.description,
+        followUpNotes: values.followUpNotes,
+        ownerId: values.ownerId,
+        dueDate: values.dueDate,
+        priority: normalizeTaskPriority(values.priority),
+        status: values.status,
+        createdBy: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+      }, activeRegularization, currentUser.id);
+      activeRegularization.tasks = [...(activeRegularization.tasks || []), newTask];
+      addHistoryEntry(activeRegularization, "Tarefa criada", [
+        `${newTask.title} | Responsável: ${ownerName(newTask.ownerId)}.`,
+      ]);
     }
-    saveState();
-    renderRegularizationClients();
-    renderDataDashboard();
-    renderGoalsDashboard();
-    renderUpdates();
+    renderRegularizationTasks();
+    renderRegularizationHistory();
+    return true;
+  }, { className: "task-form-dialog" });
+}
+
+function removeRegularizationTask(taskId) {
+  const task = activeRegularization.tasks?.find((item) => item.id === taskId);
+  if (!task || !confirm(`Remover a tarefa “${task.title || "sem título"}”?`)) return;
+  activeRegularization.tasks = activeRegularization.tasks.filter((item) => item.id !== taskId);
+  addHistoryEntry(activeRegularization, "Tarefa removida", [task.title || "Tarefa sem título."]);
+  renderRegularizationTasks();
+  renderRegularizationHistory();
+}
+
+function renderRegularizationDeadlines() {
+  const deadlines = activeRegularization.deadlines || [];
+  el.regularizationDeadlinesList.innerHTML = deadlines.length
+    ? deadlines.map((deadline) => `
+        <article class="task-message deadline-message">
+          <div class="task-message-body">
+            <p class="task-message-title">${escapeHtml(deadline.title || "Prazo sem título")}</p>
+            ${deadline.notes ? `<p class="task-message-description">${escapeHtml(deadline.notes)}</p>` : ""}
+            <div class="task-message-meta">
+              <span>${escapeHtml(deadline.type || "Interno")}</span>
+              <span>Responsável: ${escapeHtml(ownerName(deadline.ownerId))}</span>
+              <span>${deadline.date ? formatDate(deadline.date) : "Sem data"}</span>
+              <span>${escapeHtml(deadline.status || "Pendente")}</span>
+            </div>
+          </div>
+          <div class="task-message-actions">
+            <button class="icon-button" type="button" data-edit-regularization-deadline="${escapeAttr(deadline.id)}" aria-label="Editar prazo"><i data-lucide="pencil"></i></button>
+            <button class="icon-button danger-icon" type="button" data-remove-regularization-deadline="${escapeAttr(deadline.id)}" aria-label="Remover prazo"><i data-lucide="trash-2"></i></button>
+          </div>
+        </article>
+      `).join("")
+    : `<p class="empty-state compact">Nenhum prazo cadastrado.</p>`;
+  el.regularizationDeadlinesList.querySelectorAll("[data-edit-regularization-deadline]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationDeadlineDialog(button.dataset.editRegularizationDeadline));
+  });
+  el.regularizationDeadlinesList.querySelectorAll("[data-remove-regularization-deadline]").forEach((button) => {
+    button.addEventListener("click", () => removeRegularizationDeadline(button.dataset.removeRegularizationDeadline));
+  });
+  refreshIcons();
+}
+
+function openRegularizationDeadlineDialog(deadlineId = "") {
+  const deadline = (activeRegularization.deadlines || []).find((item) => item.id === deadlineId);
+  openSimpleDialog(deadline ? "Editar prazo" : "Novo prazo", [
+    { label: "Prazo", name: "title", type: "text", value: deadline?.title || "" },
+    {
+      label: "Tipo",
+      name: "type",
+      type: "select",
+      value: deadline?.type || "Interno",
+      options: ["Interno", "Cliente", "Órgão público", "Legal"].map((value) => ({ value, label: value })),
+    },
+    {
+      label: "Responsável",
+      name: "ownerId",
+      type: "select",
+      value: deadline?.ownerId || currentUser.id,
+      options: state.users.map((user) => ({ value: user.id, label: user.name })),
+    },
+    { label: "Data", name: "date", type: "date", value: deadline?.date || "" },
+    {
+      label: "Status",
+      name: "status",
+      type: "select",
+      value: deadline?.status || "Pendente",
+      options: ["Pendente", "Em andamento", "Concluído"].map((value) => ({ value, label: value })),
+    },
+    { label: "Observações", name: "notes", type: "textarea", rows: 4, value: deadline?.notes || "" },
+  ], (values) => {
+    if (!values.title) {
+      alert("Informe o nome do prazo.");
+      return false;
+    }
+    const now = new Date().toISOString();
+    if (deadline) {
+      Object.assign(deadline, { ...values, updatedAt: now });
+      addHistoryEntry(activeRegularization, "Prazo atualizado", [`${deadline.title} | ${deadline.date ? formatDate(deadline.date) : "Sem data"}.`]);
+    } else {
+      const newDeadline = normalizeRegularizationDeadline({
+        id: id(),
+        ...values,
+        createdBy: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+      });
+      activeRegularization.deadlines = [...(activeRegularization.deadlines || []), newDeadline];
+      addHistoryEntry(activeRegularization, "Prazo criado", [
+        `${newDeadline.title} | ${newDeadline.date ? formatDate(newDeadline.date) : "Sem data"}.`,
+      ]);
+    }
+    renderRegularizationDeadlines();
+    renderRegularizationHistory();
+    return true;
   });
 }
 
-function deleteRegularizationProcess(processId) {
+function removeRegularizationDeadline(deadlineId) {
+  const deadline = activeRegularization.deadlines?.find((item) => item.id === deadlineId);
+  if (!deadline || !confirm(`Remover o prazo “${deadline.title || "sem título"}”?`)) return;
+  activeRegularization.deadlines = activeRegularization.deadlines.filter((item) => item.id !== deadlineId);
+  addHistoryEntry(activeRegularization, "Prazo removido", [deadline.title || "Prazo sem título."]);
+  renderRegularizationDeadlines();
+  renderRegularizationHistory();
+}
+
+function renderRegularizationHistory() {
+  const history = activeRegularization.history || [];
+  el.regularizationHistoryAdminControls.hidden = currentUser.role !== "admin";
+  el.regularizationHistoryList.innerHTML = history.length
+    ? history.map((entry) => `
+        <article class="timeline-entry">
+          <span class="timeline-dot"></span>
+          <div class="timeline-entry-content">
+            <header>
+              <div>
+                <strong>${escapeHtml(entry.title || "Atualização")}</strong>
+                <small>${escapeHtml(ownerName(entry.userId))} | ${escapeHtml(formatDateTime(entry.createdAt))}</small>
+              </div>
+              ${currentUser.role === "admin" ? `
+                <span class="inline-actions">
+                  <button class="icon-button" type="button" data-edit-regularization-history="${escapeAttr(entry.id)}" aria-label="Editar histórico"><i data-lucide="pencil"></i></button>
+                  <button class="icon-button danger-icon" type="button" data-remove-regularization-history="${escapeAttr(entry.id)}" aria-label="Remover histórico"><i data-lucide="trash-2"></i></button>
+                </span>
+              ` : ""}
+            </header>
+            <div class="timeline-details">${(entry.details || []).map((detail) => `<p>${escapeHtml(detail)}</p>`).join("")}</div>
+          </div>
+        </article>
+      `).join("")
+    : `<p class="empty-state">Nenhuma atualização registrada.</p>`;
+
+  el.regularizationHistoryList.querySelectorAll("[data-edit-regularization-history]").forEach((button) => {
+    button.addEventListener("click", () => openRegularizationHistoryEditDialog(button.dataset.editRegularizationHistory));
+  });
+  el.regularizationHistoryList.querySelectorAll("[data-remove-regularization-history]").forEach((button) => {
+    button.addEventListener("click", () => removeRegularizationHistoryEntry(button.dataset.removeRegularizationHistory));
+  });
+  refreshIcons();
+}
+
+function addRegularizationManualHistory() {
+  if (currentUser.role !== "admin") return;
+  const text = el.regularizationHistoryText.value.trim();
+  if (!text) return;
+  addHistoryEntry(activeRegularization, "Registro manual", text.split("\n").map((line) => line.trim()).filter(Boolean), "manual");
+  el.regularizationHistoryText.value = "";
+  renderRegularizationHistory();
+}
+
+function openRegularizationHistoryEditDialog(historyId) {
+  if (currentUser.role !== "admin") return;
+  const entry = activeRegularization.history?.find((item) => item.id === historyId);
+  if (!entry) return;
+  openSimpleDialog("Editar histórico", [
+    { label: "Informação", name: "details", type: "textarea", rows: 7, value: (entry.details || []).join("\n") },
+  ], (values) => {
+    const details = values.details.split("\n").map((line) => line.trim()).filter(Boolean);
+    if (!details.length) {
+      alert("Informe pelo menos uma linha.");
+      return false;
+    }
+    entry.details = details;
+    entry.updatedAt = new Date().toISOString();
+    renderRegularizationHistory();
+    return true;
+  });
+}
+
+function removeRegularizationHistoryEntry(historyId) {
+  if (currentUser.role !== "admin") return;
+  const entry = activeRegularization.history?.find((item) => item.id === historyId);
+  if (!entry || !confirm("Remover este registro do histórico?")) return;
+  activeRegularization.history = activeRegularization.history.filter((item) => item.id !== historyId);
+  renderRegularizationHistory();
+}
+
+function regularizationActivityContext(process = activeRegularization) {
+  return {
+    clientId: process?.id || "",
+    clientSource: "regularization",
+    clientName: process?.clientName || "Cliente sem nome",
+  };
+}
+
+function summarizeRegularizationChanges(previous, next) {
+  const changes = [];
+  const fields = {
+    clientName: "Cliente",
+    documentType: "Tipo de documento",
+    cpf: "CPF/CNPJ",
+    state: "Estado",
+    propertyType: "Tipo de imóvel",
+    clientOrigin: "Origem",
+    contractClosedDate: "Data do fechamento (pagamento)",
+    feeValue: "Honorários",
+    paymentMethod: "Forma de pagamento",
+    installments: "Parcelas",
+    financeStatus: "Status financeiro",
+    financeNotes: "Observações financeiras",
+  };
+  Object.entries(fields).forEach(([field, label]) => {
+    const before = historyFieldValue(previous[field], field);
+    const after = historyFieldValue(next[field], field);
+    if (before !== after) changes.push(`${label}: ${before} → ${after}.`);
+  });
+  regularizationFieldDefinitions(false).forEach((definition) => {
+    const before = String(previous.customFields?.[definition.id] || "").trim() || "vazio";
+    const after = String(next.customFields?.[definition.id] || "").trim() || "vazio";
+    if (before !== after) changes.push(`${definition.label}: ${truncateHistoryValue(before)} → ${truncateHistoryValue(after)}.`);
+  });
+  const previousStatuses = getRegularizationStatuses(previous).map((status) => status.name).join(", ") || "sem status";
+  const nextStatuses = getRegularizationStatuses(next).map((status) => status.name).join(", ") || "sem status";
+  if (previousStatuses !== nextStatuses) changes.push(`Status: ${previousStatuses} → ${nextStatuses}.`);
+  collectionChangeSummary(changes, "Check-list", previous.checklist, next.checklist, (item) => item.title || "etapa sem título");
+  collectionChangeSummary(changes, "Tarefas", previous.tasks, next.tasks, (item) => item.title || "tarefa sem título");
+  collectionChangeSummary(changes, "Prazos", previous.deadlines, next.deadlines, (item) => item.title || "prazo sem título");
+  return changes.slice(0, 16);
+}
+
+function recordRegularizationActivities(previous, next, changes) {
+  const context = regularizationActivityContext(next);
+  const addedTasks = addedCollectionItems(previous.tasks, next.tasks);
+  const changedTasks = changedCollectionItems(previous.tasks, next.tasks);
+  const addedDeadlines = addedCollectionItems(previous.deadlines, next.deadlines);
+  const changedDeadlines = changedCollectionItems(previous.deadlines, next.deadlines);
+  const changedChecklist = [
+    ...addedCollectionItems(previous.checklist, next.checklist),
+    ...changedCollectionItems(previous.checklist, next.checklist),
+  ];
+  addedTasks.forEach((task) => recordActivity("task", `Criou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", taskActivityOptions(task, context)));
+  changedTasks.forEach((task) => recordActivity("task", `Atualizou tarefa em ${context.clientName}.`, task.title || "Tarefa sem título", taskActivityOptions(task, context)));
+  addedDeadlines.forEach((deadline) => recordActivity("deadline", `Criou prazo em ${context.clientName}.`, deadline.title || "Prazo sem título", deadlineActivityOptions(deadline, context)));
+  changedDeadlines.forEach((deadline) => recordActivity("deadline", `Atualizou prazo em ${context.clientName}.`, deadline.title || "Prazo sem título", deadlineActivityOptions(deadline, context)));
+  changedChecklist.forEach((step) => recordActivity("client", `Atualizou check-list em ${context.clientName}.`, `${step.title || "Etapa"} | ${step.state}.`, context));
+  if (!addedTasks.length && !changedTasks.length && !addedDeadlines.length && !changedDeadlines.length && !changedChecklist.length && changes.length) {
+    const financial = changes.some((change) => /Honorários|pagamento|financeiro/i.test(change));
+    recordActivity(financial ? "finance" : "client", `Atualizou regularização: ${context.clientName}.`, changes.slice(0, 6).join("\n"), context);
+  }
+}
+
+function renderRegularizationLinkState() {
+  const linkedClient = state.clients.find((client) => client.id === activeRegularization.linkedInssClientId);
+  if (linkedClient) {
+    el.linkRegularizationToInssButton.innerHTML = `<i data-lucide="external-link"></i> Abrir card de INSS`;
+    el.regularizationFinanceMessages.innerHTML = `<i data-lucide="link-2"></i><span>Este contrato também está no fluxo de INSS e é contabilizado apenas uma vez em Dados e Metas.</span>`;
+  } else {
+    el.linkRegularizationToInssButton.innerHTML = `<i data-lucide="arrow-right-left"></i> Adicionar ao fluxo de INSS`;
+    el.regularizationFinanceMessages.innerHTML = "";
+  }
+  refreshIcons();
+}
+
+async function linkActiveRegularizationToInss() {
+  collectRegularizationDialog();
+  if (!activeRegularization.clientName.trim()) {
+    alert("Informe o nome do cliente antes de adicionar ao fluxo de INSS.");
+    return;
+  }
+
+  const alreadyLinked = state.clients.find((client) => (
+    client.id === activeRegularization.linkedInssClientId ||
+    client.linkedRegularizationId === activeRegularization.id ||
+    (client.contractId && client.contractId === activeRegularization.contractId)
+  ));
+  if (alreadyLinked) {
+    el.regularizationDialog.close();
+    openClientById(alreadyLinked.id);
+    return;
+  }
+
+  const documentDigits = onlyDigits(activeRegularization.cpf);
+  const possibleDuplicate = state.clients.find((client) => {
+    const sameDocument = documentDigits.length >= 11 && onlyDigits(client.cpf) === documentDigits;
+    const sameContract = normalize(client.clientName) === normalize(activeRegularization.clientName)
+      && client.contractClosedDate
+      && client.contractClosedDate === activeRegularization.contractClosedDate;
+    return sameDocument || sameContract;
+  });
+  if (possibleDuplicate) {
+    const shouldLink = confirm(`Já existe um card de INSS para ${possibleDuplicate.clientName || "este cliente"}. Vincular a regularização a esse card para evitar duplicidade?`);
+    if (!shouldLink) return;
+  }
+
+  const processId = commitActiveRegularizationToState();
   const process = state.regularizationClients.find((item) => item.id === processId);
-  if (!process) return;
-  const confirmed = confirm(`Excluir o processo de regularização de ${process.clientName || "cliente"}?`);
-  if (!confirmed) return;
-  state.regularizationClients = state.regularizationClients.filter((item) => item.id !== processId);
-  recordActivity("client", `Removeu regularização: ${process.clientName || "Cliente sem nome"}.`, "");
+  let inssClient = possibleDuplicate;
+  if (!inssClient) {
+    inssClient = createEmptyClient();
+    Object.assign(inssClient, {
+      clientName: process.clientName,
+      documentType: process.documentType,
+      cpf: process.cpf,
+      state: process.state,
+      destination: process.propertyTypes.join(" + "),
+      clientOrigin: process.clientOrigin,
+      contractClosedDate: process.contractClosedDate,
+      feeValue: process.feeValue,
+      canonicalClientId: process.canonicalClientId,
+      contractId: process.contractId,
+      linkedRegularizationId: process.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    addHistoryEntry(inssClient, "Card criado a partir da regularização", [
+      `Vinculado ao processo de regularização de ${process.clientName}.`,
+      "Os demais campos do INSS permanecem disponíveis para preenchimento.",
+    ]);
+    state.clients.unshift(inssClient);
+  }
+
+  process.linkedInssClientId = inssClient.id;
+  process.canonicalClientId = inssClient.canonicalClientId || process.canonicalClientId;
+  process.contractId = inssClient.contractId || process.contractId;
+  inssClient.linkedRegularizationId = process.id;
+  inssClient.canonicalClientId = process.canonicalClientId;
+  inssClient.contractId = process.contractId;
+  process.updatedAt = new Date().toISOString();
+  syncLinkedInssFromRegularization(process);
+  addHistoryEntry(process, "Adicionado ao fluxo de INSS", [`Vinculado ao card de INSS de ${inssClient.clientName}.`]);
+  activeRegularization = cloneData(process);
+  recordActivity("client", `Adicionou ${process.clientName} ao fluxo de INSS.`, "Regularização e INSS vinculados no mesmo contrato.", regularizationActivityContext(process));
   saveState();
-  renderRegularizationClients();
-  renderDataDashboard();
-  renderGoalsDashboard();
-  renderUpdates();
+  try {
+    await flushCloudState();
+  } catch (error) {
+    showSyncError(error);
+    return;
+  }
+  renderRegularizationLinkState();
+  renderAll();
+}
+
+function syncLinkedInssFromRegularization(process) {
+  const client = state.clients.find((item) => item.id === process.linkedInssClientId || item.linkedRegularizationId === process.id);
+  if (!client) return;
+  const before = cloneData(client);
+  Object.assign(client, {
+    clientName: process.clientName,
+    documentType: process.documentType,
+    cpf: process.cpf,
+    state: process.state,
+    destination: (process.propertyTypes || []).join(" + "),
+    clientOrigin: process.clientOrigin,
+    contractClosedDate: process.contractClosedDate,
+    feeValue: process.feeValue,
+    canonicalClientId: process.canonicalClientId,
+    contractId: process.contractId,
+    linkedRegularizationId: process.id,
+    updatedAt: new Date().toISOString(),
+  });
+  const changes = summarizeLinkedCommercialChanges(before, client);
+  if (changes.length) addHistoryEntry(client, "Dados compartilhados atualizados", changes);
+}
+
+function syncLinkedRegularizationFromInss(client) {
+  const process = state.regularizationClients.find((item) => (
+    item.id === client.linkedRegularizationId ||
+    (client.contractId && item.contractId === client.contractId)
+  ));
+  if (!process) return;
+  const before = cloneData(process);
+  Object.assign(process, {
+    clientName: client.clientName,
+    documentType: documentTypeForClient(client),
+    cpf: client.cpf || "",
+    state: client.state || "",
+    cityState: client.state || "",
+    propertyTypes: destinationList(client.destination),
+    propertyType: destinationList(client.destination).join(" + "),
+    clientOrigin: client.clientOrigin || "",
+    contractClosedDate: client.contractClosedDate || "",
+    feeValue: client.feeValue || "",
+    canonicalClientId: client.canonicalClientId || process.canonicalClientId,
+    contractId: client.contractId || process.contractId,
+    linkedInssClientId: client.id,
+    updatedAt: new Date().toISOString(),
+  });
+  const changes = summarizeLinkedCommercialChanges(before, {
+    ...process,
+    destination: process.propertyType,
+  });
+  if (changes.length) addHistoryEntry(process, "Dados compartilhados atualizados pelo INSS", changes);
+}
+
+function summarizeLinkedCommercialChanges(previous, next) {
+  const labels = {
+    clientName: "Cliente",
+    documentType: "Tipo de documento",
+    cpf: "CPF/CNPJ",
+    state: "Estado",
+    destination: "Destinação/Tipo de imóvel",
+    clientOrigin: "Origem",
+    contractClosedDate: "Data do fechamento (pagamento)",
+    feeValue: "Honorários",
+  };
+  return Object.entries(labels).flatMap(([field, label]) => {
+    const previousValue = field === "destination" ? previous.destination || previous.propertyType : previous[field];
+    const nextValue = field === "destination" ? next.destination || next.propertyType : next[field];
+    const before = historyFieldValue(previousValue, field);
+    const after = historyFieldValue(nextValue, field);
+    return before === after ? [] : [`${label}: ${before} → ${after}.`];
+  });
 }
 
 function openClientTasks(client = {}) {
@@ -6117,6 +7612,7 @@ function renderClientCard(client) {
         <div>
           <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
           <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
+          ${client.linkedRegularizationId ? `<span class="service-link-badge"><i data-lucide="link-2"></i> Também em Regularização</span>` : ""}
         </div>
       </header>
       <div class="chip-list">${statuses}</div>
@@ -6169,6 +7665,7 @@ function renderCompactClientRow(client) {
       <span class="compact-client-main">
         <strong>${escapeHtml(client.clientName || "Cliente sem nome")}</strong>
         <small>${escapeHtml(workLine)}</small>
+        ${client.linkedRegularizationId ? `<small class="service-link-badge"><i data-lucide="link-2"></i> Também em Regularização</small>` : ""}
       </span>
       <span class="compact-client-state">${escapeHtml(client.state || "--")}</span>
       <span class="compact-client-area">${escapeHtml(client.area || "--")}</span>
@@ -7157,6 +8654,7 @@ function commitActiveClientToState() {
     });
     state.clients.unshift(cloneData(activeClient));
   }
+  syncLinkedRegularizationFromInss(activeClient);
   return activeClient.id;
 }
 
@@ -8170,6 +9668,9 @@ function switchTab(tabId) {
 function createEmptyClient() {
   const client = {
     id: id(),
+    canonicalClientId: "",
+    contractId: "",
+    linkedRegularizationId: "",
     clientName: "",
     fullName: "",
     documentType: "cpf",
@@ -8562,7 +10063,7 @@ function brazilianStates() {
 }
 
 function taskUrgency(item) {
-  if (item.kind.includes("Tarefa") && localizeLabel(item.status) === "Concluída") return "done";
+  if (["Concluída", "Concluído"].includes(localizeLabel(item.status))) return "done";
   if (!item.date) return "no-date";
   const today = localDateKey();
   if (item.date < today && item.kind.includes("Tarefa") && isWaitingTaskStatus(item.status)) return "waiting";

@@ -17,6 +17,7 @@ const COLLECTIONS = [
     table: "regularization_clients",
     scope: "team",
     maxItems: 5000,
+    protectHistory: true,
   },
   { stateKey: "guidanceItems", table: "guidance_items", scope: "team", maxItems: 2000 },
   {
@@ -179,6 +180,8 @@ async function readState(db, user) {
     goals: {},
     companyBills: [],
     companyBillCategories: [],
+    regularizationFieldDefinitions: [],
+    regularizationStatusDefinitions: [],
   };
   const versions = {};
 
@@ -210,6 +213,12 @@ async function readState(db, user) {
     if (row.key === "goals" && isObject(value)) state.goals = value;
     if (row.key === "companyBillCategories" && Array.isArray(value)) {
       state.companyBillCategories = value;
+    }
+    if (row.key === "regularizationFieldDefinitions" && Array.isArray(value)) {
+      state.regularizationFieldDefinitions = value;
+    }
+    if (row.key === "regularizationStatusDefinitions" && Array.isArray(value)) {
+      state.regularizationStatusDefinitions = value;
     }
     versions[versionKey("settings", row.key)] = Number(row.version || 0);
   });
@@ -422,7 +431,12 @@ async function prepareSettings(db, user, desiredState, clientVersions, now, dirt
   const rows = await db.prepare(`
     SELECT key, value_json, version, scope
     FROM app_settings
-    WHERE key IN ('goals', 'companyBillCategories')
+    WHERE key IN (
+      'goals',
+      'companyBillCategories',
+      'regularizationFieldDefinitions',
+      'regularizationStatusDefinitions'
+    )
   `).all();
   const existingByKey = new Map((rows.results || []).map((row) => [String(row.key), row]));
   const desired = new Map([
@@ -430,6 +444,18 @@ async function prepareSettings(db, user, desiredState, clientVersions, now, dirt
     [
       "companyBillCategories",
       Array.isArray(desiredState.companyBillCategories) ? desiredState.companyBillCategories : [],
+    ],
+    [
+      "regularizationFieldDefinitions",
+      Array.isArray(desiredState.regularizationFieldDefinitions)
+        ? desiredState.regularizationFieldDefinitions
+        : [],
+    ],
+    [
+      "regularizationStatusDefinitions",
+      Array.isArray(desiredState.regularizationStatusDefinitions)
+        ? desiredState.regularizationStatusDefinitions
+        : [],
     ],
   ]);
   const statements = [];
