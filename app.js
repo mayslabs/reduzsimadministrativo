@@ -4995,13 +4995,17 @@ function renderTaskCalendar(items) {
 function renderTaskDayBoard(items) {
   const selectedDay = localDateKey(activeTaskDate);
   const openItems = items.filter((item) => item.urgency !== "done");
-  const todayItems = openItems.filter((item) => item.date === selectedDay);
-  const overdueItems = openItems.filter((item) => item.urgency === "overdue");
-  const waitingItems = openItems.filter((item) => isWaitingReturnItem(item, selectedDay));
-  const upcomingItems = openItems
+  const adminItems = currentUser.role === "admin"
+    ? openItems.filter((item) => item.visibility === "admin")
+    : [];
+  const operationalItems = openItems.filter((item) => item.visibility !== "admin");
+  const todayItems = operationalItems.filter((item) => item.date === selectedDay);
+  const overdueItems = operationalItems.filter((item) => item.urgency === "overdue");
+  const waitingItems = operationalItems.filter((item) => isWaitingReturnItem(item, selectedDay));
+  const upcomingItems = operationalItems
     .filter((item) => item.date && item.date > selectedDay && !isWaitingReturnItem(item, selectedDay))
     .slice(0, 8);
-  const noDateItems = openItems.filter((item) => item.urgency === "no-date").slice(0, 4);
+  const noDateItems = operationalItems.filter((item) => item.urgency === "no-date").slice(0, 4);
   const nextActions = [...upcomingItems, ...noDateItems].sort(taskItemSorter).slice(0, 8);
   const dayTitle = selectedDay === localDateKey() ? "Prioridades de hoje" : "Prioridades do dia";
 
@@ -5016,6 +5020,14 @@ function renderTaskDayBoard(items) {
         ${renderTaskSidePanel("Atrasadas", overdueItems, "overdue", "triangle-alert", { limit: 4 })}
       </aside>
     </div>
+    ${currentUser.role === "admin" ? `
+      <div class="task-admin-board">
+        ${renderTaskTablePanel("Tarefas da administração", adminItems, "admin-only", "shield-check", {
+          limit: 80,
+          empty: "Nenhuma tarefa exclusiva da administração.",
+        })}
+      </div>
+    ` : ""}
   `;
 }
 

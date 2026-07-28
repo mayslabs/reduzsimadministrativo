@@ -4742,6 +4742,10 @@ button.updates-important-item:hover {
   min-width: 0;
 }
 
+.task-admin-board {
+  margin-top: 14px;
+}
+
 .task-work-panel,
 .task-side-panel {
   border: 1px solid #dde8e4;
@@ -4790,6 +4794,20 @@ button.updates-important-item:hover {
   color: var(--green-dark);
   font-size: 12px;
   font-weight: 650;
+}
+
+.task-work-panel.admin-only {
+  border-color: #eadde5;
+  background: #fffafd;
+}
+
+.task-work-panel.admin-only > header svg {
+  color: #a65378;
+}
+
+.task-work-panel.admin-only > header strong {
+  background: #f9eaf1;
+  color: #934466;
 }
 
 .task-table-list,
