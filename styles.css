@@ -5339,6 +5339,7 @@ button.updates-important-item:hover {
   border: 0;
   border-radius: var(--radius);
   padding: 0;
+  overflow-x: hidden;
   box-shadow: var(--shadow);
 }
 
@@ -6945,14 +6946,24 @@ button.updates-important-item:hover {
   height: 15px;
 }
 
+.regularization-dialog {
+  max-height: min(92vh, 900px);
+  overflow: hidden;
+}
+
 .regularization-dialog .dialog-frame {
-  width: min(1180px, calc(100vw - 28px));
+  width: 100%;
+  height: min(92vh, 900px);
+  max-height: min(92vh, 900px);
+  overflow: hidden;
 }
 
 .regularization-tab-panel {
   display: none;
-  min-height: 420px;
+  min-height: 0;
   padding: 20px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .regularization-tab-panel.active {
@@ -7266,6 +7277,41 @@ button.updates-important-item:hover {
 
   .regularization-panel-heading {
     flex-direction: column;
+  }
+
+  .regularization-dialog {
+    width: calc(100vw - 20px);
+    max-width: none;
+  }
+
+  .regularization-dialog .dialog-header,
+  .regularization-dialog .dialog-footer {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .regularization-dialog .dialog-header > div {
+    min-width: 0;
+  }
+
+  .regularization-dialog .dialog-header h2 {
+    overflow: hidden;
+    font-size: 1.08rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .regularization-dialog .dialog-footer button {
+    min-width: 0;
+  }
+
+  .regularization-tab-bar {
+    gap: 14px;
+    padding-inline: 14px;
+  }
+
+  .regularization-tab-panel {
+    padding: 16px 14px;
   }
 
   .regularization-panel-heading .inline-actions {
