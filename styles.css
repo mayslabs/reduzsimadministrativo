@@ -4863,6 +4863,10 @@ button.updates-important-item:hover {
   --task-type-color: #2563eb;
 }
 
+.task-table-row.task-type-admin {
+  --task-type-color: #b95f88;
+}
+
 .task-table-row.overdue,
 .task-side-row.overdue {
   --task-type-color: #d64545;
