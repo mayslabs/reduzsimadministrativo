@@ -7179,8 +7179,14 @@ button.updates-important-item:hover {
   line-height: 1.5;
 }
 
-.regularization-manager-dialog .simple-form {
+.regularization-manager-dialog {
   width: min(760px, calc(100vw - 28px));
+  max-width: none;
+  overflow: hidden;
+}
+
+.regularization-manager-dialog .simple-form {
+  width: 100%;
 }
 
 .regularization-manager-list {
@@ -7327,6 +7333,10 @@ button.updates-important-item:hover {
 
   .regularization-manager-row {
     grid-template-columns: 14px minmax(0, 1fr);
+  }
+
+  .regularization-manager-dialog {
+    width: calc(100vw - 20px);
   }
 
   .regularization-manager-row .inline-actions {
