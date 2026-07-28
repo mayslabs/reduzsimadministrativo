@@ -5014,20 +5014,20 @@ function renderTaskDayBoard(items) {
       <div class="task-dashboard-main">
         ${renderTaskTablePanel(dayTitle, todayItems, "today", "circle-dot", { limit: 6, empty: "Sem prioridades para hoje." })}
         ${renderTaskTablePanel("Próximas ações", nextActions, "upcoming", "list-checks", { limit: 6, empty: "Nenhuma próxima ação filtrada." })}
+        ${currentUser.role === "admin" ? `
+          <div class="task-admin-board">
+            ${renderTaskTablePanel("Tarefas da administração", adminItems, "admin-only", "shield-check", {
+              limit: 80,
+              empty: "Nenhuma tarefa exclusiva da administração.",
+            })}
+          </div>
+        ` : ""}
       </div>
       <aside class="task-dashboard-side">
         ${renderTaskSidePanel("Aguardando retorno", waitingItems, "waiting", "hourglass", { limit: 4 })}
         ${renderTaskSidePanel("Atrasadas", overdueItems, "overdue", "triangle-alert", { limit: 4 })}
       </aside>
     </div>
-    ${currentUser.role === "admin" ? `
-      <div class="task-admin-board">
-        ${renderTaskTablePanel("Tarefas da administração", adminItems, "admin-only", "shield-check", {
-          limit: 80,
-          empty: "Nenhuma tarefa exclusiva da administração.",
-        })}
-      </div>
-    ` : ""}
   `;
 }
 

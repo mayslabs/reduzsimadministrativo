@@ -10,5 +10,9 @@ test("admin-only tasks use a dedicated board in the day view", () => {
   assert.match(app, /operationalItems = openItems\.filter\(\(item\) => item\.visibility !== "admin"\)/);
   assert.match(app, /Tarefas da administração/);
   assert.match(app, /task-admin-board/);
+  assert.match(
+    app,
+    /task-dashboard-main[\s\S]*Próximas ações[\s\S]*task-admin-board[\s\S]*task-dashboard-side/,
+  );
   assert.match(styles, /\.task-work-panel\.admin-only/);
 });

@@ -4743,7 +4743,7 @@ button.updates-important-item:hover {
 }
 
 .task-admin-board {
-  margin-top: 14px;
+  min-width: 0;
 }
 
 .task-work-panel,
