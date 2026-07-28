@@ -7339,6 +7339,15 @@ button.updates-important-item:hover {
     width: calc(100vw - 20px);
   }
 
+  .regularization-manager-dialog .dialog-header {
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
+  .regularization-manager-dialog .dialog-header > div {
+    min-width: 0;
+  }
+
   .regularization-manager-row .inline-actions {
     grid-column: 1 / -1;
     justify-content: flex-end;
