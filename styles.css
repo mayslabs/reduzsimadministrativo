@@ -244,6 +244,166 @@ textarea:focus {
   stroke-width: 1.55;
 }
 
+/* Presentation privacy mode: values remain in memory and are only hidden visually. */
+body.privacy-mode {
+  --privacy-mask: #e8eeec;
+  --privacy-mask-strong: #dde6e3;
+}
+
+body.privacy-mode :is(
+  #clientsSection .client-card h3,
+  #clientsSection .client-card header p,
+  #clientsSection .client-card > p,
+  #clientsSection .compact-client-main strong,
+  #clientsSection .compact-client-next,
+  #clientsSection .compact-client-area,
+  #regularizationSection .regularization-client-cell strong,
+  #regularizationSection .regularization-client-cell small,
+  #regularizationSection .regularization-next-action,
+  #regularizationSection .regularization-card h3,
+  #regularizationSection .regularization-card header p,
+  #regularizationSection .regularization-card > p,
+  #regularizationSection .regularization-card .card-meta span,
+  #tasksSection .task-row-title strong,
+  #tasksSection .task-row-title small,
+  #tasksSection .task-side-row > div:first-child strong,
+  #tasksSection .task-side-row > div:first-child small,
+  #tasksSection .task-calendar-card .task-main h3,
+  #tasksSection .task-calendar-card .task-main p,
+  #tasksSection .task-row-expanded p,
+  #tasksSection .task-side-details p,
+  #tasksSection .task-description,
+  #tasksSection .task-follow-up,
+  #updatesSection .update-content h3,
+  #updatesSection .update-detail-line,
+  #updatesSection .update-change-list li,
+  #updatesSection .updates-important-item strong,
+  #updatesSection .updates-important-item small,
+  #billsSection .bill-summary-card strong,
+  #billsSection .bills-alert span,
+  #billsSection .bills-table tbody td:first-child strong,
+  #billsSection .bills-table tbody td:first-child small,
+  #billsSection .bills-table tbody td:nth-child(4) strong,
+  #billsSection .bill-donut strong,
+  #billsSection .bill-category-row strong,
+  #billsSection .bill-category-row small,
+  #billsSection .bill-category-total strong,
+  #goalsSection .goal-ring-content strong,
+  #goalsSection .goal-main-value > strong,
+  #goalsSection .goal-main-value > span,
+  #goalsSection .goal-main-value > p,
+  #goalsSection .goal-overview-metric strong,
+  #goalsSection .goal-threshold-card strong,
+  #goalsSection .goal-threshold-card small,
+  #goalsSection .goal-annual-total strong,
+  #goalsSection .goal-annual-total span,
+  #goalsSection .goal-annual-labels strong,
+  #goalsSection .goal-year-progress strong,
+  #goalsSection .goal-year-progress span,
+  #goalsSection .goal-performance-panel .mini-heading > span,
+  #goalsSection .goal-month-bar-button strong,
+  #goalsSection .goal-contract-row strong,
+  #goalsSection .goal-contract-total strong,
+  #dataSection .data-total strong,
+  #dataSection .data-quality-item strong,
+  #dataSection .report-month-bar > span,
+  #dataSection .report-horizontal-row strong,
+  #dataSection .report-donut-center strong,
+  #dataSection .report-legend-row strong,
+  #dataSection .data-ticket-card > strong,
+  #dataSection .ticket-average-row strong,
+  #dataSection .data-drilldown-card header > span,
+  #dataSection .data-client-row strong,
+  #dataSection .data-client-row > span,
+  #usersSection .user-access-card input,
+  .sidebar-footer #currentUserLabel,
+  #accountSection #accountName,
+  #accountSection #accountEmail,
+  #clientDialogTitle,
+  #regularizationDialogTitle,
+  #clientDialog .note-text,
+  #clientDialog .timeline-entry-content p,
+  #clientDialog .timeline-entry-content li,
+  #regularizationDialog .timeline-entry-content p,
+  #regularizationDialog .timeline-entry-content li
+) {
+  color: transparent !important;
+  text-shadow: none !important;
+  background-color: var(--privacy-mask) !important;
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  user-select: none;
+}
+
+body.privacy-mode #clientDialog .reduction-value strong,
+body.privacy-mode #clientDialog .chat-message p,
+body.privacy-mode #regularizationDialog .regularization-finance-grid input {
+  color: transparent !important;
+  text-shadow: none !important;
+  background-color: var(--privacy-mask) !important;
+  border-radius: 4px;
+  user-select: none;
+}
+
+body.privacy-mode :is(
+  #clientDialog input:not([type="checkbox"]):not([type="radio"]),
+  #clientDialog textarea,
+  #regularizationDialog input:not([type="checkbox"]):not([type="radio"]),
+  #regularizationDialog textarea,
+  #simpleDialog.bill-form-dialog input[name="description"],
+  #simpleDialog.bill-form-dialog input[name="amount"],
+  #simpleDialog.bill-form-dialog textarea[name="notes"],
+  #simpleDialog input[name="floor"],
+  #simpleDialog input[name="target"],
+  #simpleDialog input[name="stretch"]
+) {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent !important;
+  text-shadow: none !important;
+  background-color: var(--privacy-mask) !important;
+  user-select: none;
+}
+
+body.privacy-mode :is(
+  #clientDialog input[type="date"],
+  #regularizationDialog input[type="date"]
+)::-webkit-datetime-edit {
+  color: transparent;
+}
+
+body.privacy-mode #dataSection .report-panel-header > span,
+body.privacy-mode #dataSection .data-report-footer span:last-child {
+  color: transparent !important;
+  text-shadow: none !important;
+  background: var(--privacy-mask) !important;
+  border-radius: 4px;
+}
+
+body.privacy-mode #dataSection .report-line-chart svg text:not(.month-label) {
+  fill: transparent !important;
+}
+
+body.privacy-mode #dataSection .report-line-chart svg circle {
+  opacity: 0.35;
+}
+
+@media (max-width: 720px) {
+  .privacy-toolbar {
+    margin-top: 0;
+  }
+
+  .privacy-toggle span {
+    display: none;
+  }
+
+  .privacy-toggle {
+    width: 38px;
+    padding-inline: 0;
+  }
+}
+
 .nav-item[hidden] {
   display: none;
 }
@@ -311,6 +471,51 @@ textarea:focus {
 .content-shell {
   padding: 22px 24px;
   min-width: 0;
+}
+
+.privacy-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 38px;
+  margin: -4px 0 10px;
+}
+
+.privacy-toggle {
+  border: 1px solid #d7e2df;
+  border-radius: 7px;
+  background: #fff;
+  color: #44505c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.privacy-toggle svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.7;
+}
+
+.privacy-toggle[aria-pressed="true"] {
+  border-color: #9ddfce;
+  background: #edf9f5;
+  color: var(--green-dark);
+}
+
+.privacy-toggle:hover {
+  border-color: var(--green);
+}
+
+.privacy-toggle:focus-visible {
+  outline: 3px solid rgba(0, 159, 127, 0.14);
+  outline-offset: 2px;
 }
 
 .topbar,

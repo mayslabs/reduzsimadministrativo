@@ -307,6 +307,7 @@ let taskMineOnly = false;
 let advancedClientFiltersOpen = false;
 let visibleHistoryCount = 20;
 let activeSyncIssue = null;
+let privacyModeEnabled = true;
 const expandedUpdateIds = new Set();
 const collapsedUpdateDays = new Set();
 const expandedPastUpdateDays = new Set();
@@ -334,6 +335,8 @@ const el = {
   currentUserLabel: document.getElementById("currentUserLabel"),
   systemVersionLabel: document.getElementById("systemVersionLabel"),
   logoutButton: document.getElementById("logoutButton"),
+  privacyToggleButton: document.getElementById("privacyToggleButton"),
+  privacyToggleLabel: document.getElementById("privacyToggleLabel"),
   clientsTopbar: document.getElementById("clientsTopbar"),
   newClientButton: document.getElementById("newClientButton"),
   newRegularizationButton: document.getElementById("newRegularizationButton"),
@@ -1598,6 +1601,7 @@ function bindEvents() {
   el.loginForm.addEventListener("submit", handleLogin);
   el.repairAccessButton?.addEventListener("click", repairAccess);
   el.logoutButton.addEventListener("click", handleLogout);
+  el.privacyToggleButton?.addEventListener("click", () => setPrivacyMode(!privacyModeEnabled));
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.newRegularizationButton.addEventListener("click", () => openRegularizationDialog());
   el.quickInternalTaskButton?.addEventListener("click", openQuickInternalTaskDialog);
@@ -1876,9 +1880,26 @@ function showApp() {
   el.appView.hidden = false;
   el.loginView.style.display = "none";
   el.appView.style.display = "grid";
+  setPrivacyMode(true);
   updateCurrentUserDisplay();
   configureNavigationForRole();
   renderAll();
+}
+
+function setPrivacyMode(enabled) {
+  privacyModeEnabled = Boolean(enabled);
+  document.body.classList.toggle("privacy-mode", privacyModeEnabled);
+  el.appView?.classList.toggle("privacy-mode", privacyModeEnabled);
+  if (!el.privacyToggleButton) return;
+
+  const label = privacyModeEnabled ? "Privacidade ativa" : "Dados visíveis";
+  const action = privacyModeEnabled ? "Mostrar dados protegidos" : "Ocultar dados para apresentação";
+  el.privacyToggleButton.setAttribute("aria-pressed", String(privacyModeEnabled));
+  el.privacyToggleButton.setAttribute("aria-label", action);
+  el.privacyToggleButton.title = action;
+  el.privacyToggleButton.innerHTML = `<i data-lucide="${privacyModeEnabled ? "eye-off" : "eye"}"></i><span id="privacyToggleLabel">${label}</span>`;
+  el.privacyToggleLabel = document.getElementById("privacyToggleLabel");
+  refreshIcons();
 }
 
 function updateCurrentUserDisplay() {

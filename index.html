@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=147" />
+    <link rel="stylesheet" href="./styles.css?v=148" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -70,6 +70,19 @@
       </aside>
 
       <section class="content-shell">
+        <div class="privacy-toolbar" aria-live="polite">
+          <button
+            id="privacyToggleButton"
+            class="privacy-toggle"
+            type="button"
+            aria-pressed="true"
+            title="Mostrar dados protegidos"
+          >
+            <i data-lucide="eye-off"></i>
+            <span id="privacyToggleLabel">Privacidade ativa</span>
+          </button>
+        </div>
+
         <header id="clientsTopbar" class="topbar">
           <div>
             <h1 id="clientsPageTitle" class="clients-page-title">INSS de obras</h1>
@@ -1041,7 +1054,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=147"></script>
+    <script src="./app.js?v=148"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
