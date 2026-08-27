@@ -2164,7 +2164,7 @@ function renderDataDashboard() {
       reportMonthlyFeesPanel(data),
       reportHorizontalPanel("Localização", "Obras por estado", data.byState, "byState", data.totalWorks, { badge: "Top 6 estados", icon: "map-pin" }),
       reportDonutPanel("Comercial", "Origem dos clientes", data.byOrigin, "byOrigin", data.totalWorks, { icon: "users" }),
-      reportHorizontalPanel("Perfil da obra", "Obras por destinação", data.byDestination, "byDestination", data.totalWorks, { badge: "Este ano", icon: "network" }),
+      reportHorizontalPanel("Perfil da obra", "Obras por destinação", data.byDestination, "byDestination", data.totalWorks, { badge: dataSelectedPeriodLabel(), icon: "network" }),
       reportDonutPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, "byDocumentType", data.documentTypeTotal, { icon: "contact" }),
     ].join("");
     if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
@@ -2217,14 +2217,27 @@ function renderDataPeriodOptions(records = dataAllRecords()) {
     if (monthKey) monthKeys.add(monthKey);
   });
   const monthOptions = [...monthKeys].sort((a, b) => b.localeCompare(a));
+  const currentYear = String(new Date().getFullYear());
+  const yearOptions = [...new Set(monthOptions.map((monthKey) => monthKey.slice(0, 4)))]
+    .filter((year) => year && year !== currentYear)
+    .sort((a, b) => b.localeCompare(a));
   el.dataPeriodFilter.innerHTML = `
     <option value="">Todo período</option>
     <option value="month">Este mês</option>
     <option value="year">Este ano</option>
     <option value="last12">Últimos 12 meses</option>
+    ${yearOptions.map((year) => `<option value="year:${escapeAttr(year)}">Ano de ${escapeHtml(year)}</option>`).join("")}
     ${monthOptions.map((monthKey) => `<option value="month:${escapeAttr(monthKey)}">${escapeHtml(dataMonthOptionLabel(monthKey))}</option>`).join("")}
   `;
-  el.dataPeriodFilter.value = [...["", "month", "year", "last12"], ...monthOptions.map((monthKey) => `month:${monthKey}`)].includes(selected) ? selected : "";
+  const validValues = [
+    "",
+    "month",
+    "year",
+    "last12",
+    ...yearOptions.map((year) => `year:${year}`),
+    ...monthOptions.map((monthKey) => `month:${monthKey}`),
+  ];
+  el.dataPeriodFilter.value = validValues.includes(selected) ? selected : "";
 }
 
 function setDataSelectOptions(select, allLabel, values) {
@@ -2515,6 +2528,7 @@ function matchesDataPeriod(client, period) {
   const monthKey = dataMonthKey(client.contractClosedDate);
   if (!monthKey) return false;
   if (String(period).startsWith("month:")) return monthKey === String(period).slice(6);
+  if (String(period).startsWith("year:")) return monthKey.startsWith(`${String(period).slice(5)}-`);
   const now = new Date();
   if (period === "month") return monthKey === currentMonthKey(now);
   if (period === "year") return monthKey.startsWith(`${now.getFullYear()}-`);
@@ -2564,7 +2578,7 @@ function reportMonthlyContractsPanel(data) {
           <p class="eyebrow"><i data-lucide="chart-column"></i> Volume</p>
           <h3>Contratos fechados por mês</h3>
         </div>
-        <span>Este ano</span>
+        <span>${escapeHtml(dataSelectedPeriodLabel())}</span>
       </header>
       <div class="report-month-chart">
         ${rows.map((row) => reportMonthBar(row)).join("")}
@@ -2648,7 +2662,7 @@ function reportHorizontalPanel(groupLabel, title, rows, group, total, options = 
           <p class="eyebrow"><i data-lucide="${escapeAttr(options.icon || "bar-chart-3")}"></i> ${escapeHtml(groupLabel)}</p>
           <h3>${escapeHtml(title)}</h3>
         </div>
-        <span>${escapeHtml(options.badge || "Este ano")}</span>
+        <span>${escapeHtml(options.badge || dataSelectedPeriodLabel())}</span>
       </header>
       <div class="report-horizontal-list">
         ${
@@ -2681,7 +2695,7 @@ function reportDonutPanel(groupLabel, title, rows, group, total, options = {}) {
           <p class="eyebrow"><i data-lucide="${escapeAttr(options.icon || "pie-chart")}"></i> ${escapeHtml(groupLabel)}</p>
           <h3>${escapeHtml(title)}</h3>
         </div>
-        <span>Este ano</span>
+        <span>${escapeHtml(options.badge || dataSelectedPeriodLabel())}</span>
       </header>
       <div class="report-donut-layout">
         <div class="report-donut" style="--report-donut:${escapeAttr(reportConicGradient(visibleRows))}">
@@ -2740,7 +2754,7 @@ function dataAveragePanel(title, rows, icon) {
     <article class="data-ticket-card">
       <header class="ticket-average-heading">
         <h3><i data-lucide="${escapeAttr(icon)}"></i> ${escapeHtml(title)}</h3>
-        <span>Este ano</span>
+        <span>${escapeHtml(dataSelectedPeriodLabel())}</span>
       </header>
       <div class="ticket-average-list">
         ${
@@ -2943,7 +2957,23 @@ function dataMonthKey(dateValue) {
 }
 
 function dataReportYear() {
+  const period = el.dataPeriodFilter?.value || "";
+  const selectedYear = String(period).match(/^year:(\d{4})$/)?.[1];
+  if (selectedYear) return selectedYear;
+  const selectedMonthYear = String(period).match(/^month:(\d{4})-\d{2}$/)?.[1];
+  if (selectedMonthYear) return selectedMonthYear;
   return String(new Date().getFullYear());
+}
+
+function dataSelectedPeriodLabel() {
+  const period = el.dataPeriodFilter?.value || "";
+  if (!period) return "Todo período";
+  if (period === "month") return "Este mês";
+  if (period === "year") return "Este ano";
+  if (period === "last12") return "Últimos 12 meses";
+  if (/^year:\d{4}$/.test(period)) return `Ano de ${period.slice(5)}`;
+  if (/^month:\d{4}-\d{2}$/.test(period)) return dataMonthOptionLabel(period.slice(6));
+  return "Período selecionado";
 }
 
 function dataReportMonths(year = dataReportYear()) {
