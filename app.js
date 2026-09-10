@@ -23,6 +23,11 @@ const BILL_YEAR = "2026";
 const DEFAULT_BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
 const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
 const CLIENTS_PER_PAGE = 20;
+const MARKETING_CHANNELS = ["Instagram", "Facebook", "LinkedIn", "Site", "YouTube", "TikTok", "Outro"];
+const MARKETING_FORMATS = ["Reels", "Carrossel", "Post", "Stories", "Vídeo", "Artigo", "Outro"];
+const MARKETING_OBJECTIVES = ["Educar", "Vender", "Informar", "Autoridade"];
+const MARKETING_CONTENT_STATUSES = ["Planejado", "Roteiro", "Gravação", "Edição", "Aprovação", "Agendado", "Publicado"];
+const MARKETING_MAX_HISTORY = 100;
 const REGULARIZATION_FIXED_FIELD_KEYS = new Set([
   "clientName",
   "cpf",
@@ -295,6 +300,11 @@ let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
 let activeTaskCalendarMode = "day";
 let activeTaskDate = new Date();
+let activeMarketingView = "calendar";
+let activeMarketingDate = new Date();
+let activeMarketingItemId = "";
+let activeMarketingDraftKind = "content";
+let activeMarketingScriptMode = "structured";
 let activeDataDrilldown = null;
 let activeGoalsYear = String(new Date().getFullYear());
 let activeGoalsMonth = currentMonthKey();
@@ -359,6 +369,17 @@ const el = {
   taskStatusFilter: document.getElementById("taskStatusFilter"),
   taskMineFilterButton: document.getElementById("taskMineFilterButton"),
   taskCenterList: document.getElementById("taskCenterList"),
+  addMarketingIdeaButton: document.getElementById("addMarketingIdeaButton"),
+  addMarketingContentButton: document.getElementById("addMarketingContentButton"),
+  marketingSummary: document.getElementById("marketingSummary"),
+  marketingSearchInput: document.getElementById("marketingSearchInput"),
+  marketingOwnerFilter: document.getElementById("marketingOwnerFilter"),
+  marketingChannelFilter: document.getElementById("marketingChannelFilter"),
+  marketingStatusFilter: document.getElementById("marketingStatusFilter"),
+  marketingCalendarViewButton: document.getElementById("marketingCalendarViewButton"),
+  marketingProductionViewButton: document.getElementById("marketingProductionViewButton"),
+  marketingIdeasViewButton: document.getElementById("marketingIdeasViewButton"),
+  marketingWorkspace: document.getElementById("marketingWorkspace"),
   tasksTodayBadge: document.getElementById("tasksTodayBadge"),
   tasksNewBadge: document.getElementById("tasksNewBadge"),
   updatesUnreadBadge: document.getElementById("updatesUnreadBadge"),
@@ -516,6 +537,45 @@ const el = {
   accountPasswordConfirm: document.getElementById("accountPasswordConfirm"),
   saveAccountPasswordButton: document.getElementById("saveAccountPasswordButton"),
   accountMessage: document.getElementById("accountMessage"),
+  marketingDialog: document.getElementById("marketingDialog"),
+  marketingForm: document.getElementById("marketingForm"),
+  marketingDialogTitle: document.getElementById("marketingDialogTitle"),
+  marketingDialogSubtitle: document.getElementById("marketingDialogSubtitle"),
+  marketingDialogHistorySummary: document.getElementById("marketingDialogHistorySummary"),
+  closeMarketingDialogButton: document.getElementById("closeMarketingDialogButton"),
+  cancelMarketingDialogButton: document.getElementById("cancelMarketingDialogButton"),
+  deleteMarketingItemButton: document.getElementById("deleteMarketingItemButton"),
+  saveMarketingDraftButton: document.getElementById("saveMarketingDraftButton"),
+  saveMarketingItemButton: document.getElementById("saveMarketingItemButton"),
+  marketingTitleInput: document.getElementById("marketingTitleInput"),
+  marketingDescriptionInput: document.getElementById("marketingDescriptionInput"),
+  marketingPillarInput: document.getElementById("marketingPillarInput"),
+  marketingFormatInput: document.getElementById("marketingFormatInput"),
+  marketingChannelInput: document.getElementById("marketingChannelInput"),
+  marketingClientInput: document.getElementById("marketingClientInput"),
+  marketingClientField: document.getElementById("marketingClientField"),
+  marketingProductionSection: document.getElementById("marketingProductionSection"),
+  marketingOwnerInput: document.getElementById("marketingOwnerInput"),
+  marketingContentStatusInput: document.getElementById("marketingContentStatusInput"),
+  marketingPriorityInput: document.getElementById("marketingPriorityInput"),
+  marketingProductionDateInput: document.getElementById("marketingProductionDateInput"),
+  marketingPublishDateInput: document.getElementById("marketingPublishDateInput"),
+  marketingPublishTimeInput: document.getElementById("marketingPublishTimeInput"),
+  marketingContentDetails: document.getElementById("marketingContentDetails"),
+  marketingStructuredScriptButton: document.getElementById("marketingStructuredScriptButton"),
+  marketingFreeScriptButton: document.getElementById("marketingFreeScriptButton"),
+  marketingStructuredScriptFields: document.getElementById("marketingStructuredScriptFields"),
+  marketingFreeScriptFields: document.getElementById("marketingFreeScriptFields"),
+  marketingHookInput: document.getElementById("marketingHookInput"),
+  marketingProblemInput: document.getElementById("marketingProblemInput"),
+  marketingExplanationInput: document.getElementById("marketingExplanationInput"),
+  marketingConclusionInput: document.getElementById("marketingConclusionInput"),
+  marketingFreeScriptInput: document.getElementById("marketingFreeScriptInput"),
+  marketingCaptionInput: document.getElementById("marketingCaptionInput"),
+  marketingAssetLinkInput: document.getElementById("marketingAssetLinkInput"),
+  marketingGenerateTaskInput: document.getElementById("marketingGenerateTaskInput"),
+  marketingHistorySection: document.getElementById("marketingHistorySection"),
+  marketingHistoryList: document.getElementById("marketingHistoryList"),
   simpleDialog: document.getElementById("simpleDialog"),
   simpleDialogTitle: document.getElementById("simpleDialogTitle"),
   simpleDialogSubtitle: document.getElementById("simpleDialogSubtitle"),
@@ -588,6 +648,7 @@ function loadState() {
     guidanceQuestions: [],
     internalTasks: [],
     meetings: [],
+    marketingItems: [],
     activities: [],
     goals: normalizeGoalSettings(),
     companyBills: [],
@@ -613,6 +674,7 @@ function migrateState(savedState = {}, persist = false) {
     guidanceQuestions: Array.isArray(savedState.guidanceQuestions) ? savedState.guidanceQuestions.map(normalizeGuidanceQuestion) : [],
     internalTasks: Array.isArray(savedState.internalTasks) ? savedState.internalTasks.map(normalizeInternalTask) : [],
     meetings: Array.isArray(savedState.meetings) ? savedState.meetings.map(normalizeMeeting) : [],
+    marketingItems: Array.isArray(savedState.marketingItems) ? savedState.marketingItems.map(normalizeMarketingItem) : [],
     activities: Array.isArray(savedState.activities) ? savedState.activities.map(normalizeActivity) : [],
     goals: normalizeGoalSettings(savedState.goals),
     companyBills: Array.isArray(savedState.companyBills) ? savedState.companyBills.map(normalizeCompanyBill) : [],
@@ -796,6 +858,7 @@ function normalizeActivity(activity = {}) {
     taskId: activity.taskId || "",
     deadlineId: activity.deadlineId || "",
     companyBillId: activity.companyBillId || "",
+    marketingItemId: activity.marketingItemId || "",
     dueDate: activity.dueDate || "",
     taskPriority: activity.taskPriority || "",
     taskStatus: activity.taskStatus || "",
@@ -817,6 +880,7 @@ function normalizeInternalTask(task) {
     status: localizeLabel(task.status || "Pendente"),
     priority: normalizeTaskPriority(task.priority),
     visibility: task.visibility === "admin" ? "admin" : "team",
+    marketingItemId: task.marketingItemId || "",
     createdBy: task.createdBy || "",
     createdAt: task.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
@@ -896,6 +960,46 @@ function normalizeGoalSettings(goals = {}) {
     floor: formatFlexibleCurrencyValue(goals.floor || DEFAULT_GOAL_SETTINGS.floor),
     target: formatFlexibleCurrencyValue(goals.target || DEFAULT_GOAL_SETTINGS.target),
     stretch: formatFlexibleCurrencyValue(goals.stretch || DEFAULT_GOAL_SETTINGS.stretch),
+  };
+}
+
+function normalizeMarketingItem(item = {}) {
+  const kind = item.kind === "idea" ? "idea" : "content";
+  const now = new Date().toISOString();
+  const status = kind === "idea"
+    ? "Ideia"
+    : normalizeSelectValue(item.status, MARKETING_CONTENT_STATUSES) || "Planejado";
+  return {
+    id: item.id || id(),
+    kind,
+    title: String(item.title || ""),
+    description: String(item.description || ""),
+    pillar: String(item.pillar || ""),
+    format: normalizeSelectValue(item.format, MARKETING_FORMATS),
+    channel: normalizeSelectValue(item.channel, MARKETING_CHANNELS),
+    objective: normalizeSelectValue(item.objective, MARKETING_OBJECTIVES),
+    clientId: String(item.clientId || ""),
+    clientSource: item.clientSource === "regularization" ? "regularization" : "inss",
+    ownerId: String(item.ownerId || ""),
+    status,
+    priority: normalizeTaskPriority(item.priority),
+    productionDate: String(item.productionDate || ""),
+    publishDate: String(item.publishDate || ""),
+    publishTime: String(item.publishTime || ""),
+    scriptMode: item.scriptMode === "free" ? "free" : "structured",
+    hook: String(item.hook || ""),
+    problem: String(item.problem || ""),
+    explanation: String(item.explanation || ""),
+    conclusion: String(item.conclusion || ""),
+    freeScript: String(item.freeScript || ""),
+    caption: String(item.caption || ""),
+    assetLink: String(item.assetLink || ""),
+    taskId: String(item.taskId || ""),
+    history: Array.isArray(item.history) ? item.history.map(normalizeHistoryEntry) : [],
+    createdBy: String(item.createdBy || ""),
+    createdAt: item.createdAt || now,
+    updatedBy: String(item.updatedBy || item.createdBy || ""),
+    updatedAt: item.updatedAt || item.createdAt || now,
   };
 }
 
@@ -1308,6 +1412,14 @@ function remapUserReferences(migrated, idMap) {
     meeting.ownerId = idMap[meeting.ownerId] || meeting.ownerId;
     meeting.createdBy = idMap[meeting.createdBy] || meeting.createdBy;
   });
+  (migrated.marketingItems || []).forEach((item) => {
+    item.ownerId = idMap[item.ownerId] || item.ownerId;
+    item.createdBy = idMap[item.createdBy] || item.createdBy;
+    item.updatedBy = idMap[item.updatedBy] || item.updatedBy;
+    (item.history || []).forEach((entry) => {
+      entry.userId = idMap[entry.userId] || entry.userId;
+    });
+  });
   (migrated.activities || []).forEach((activity) => {
     activity.actorId = idMap[activity.actorId] || activity.actorId;
     activity.ownerId = idMap[activity.ownerId] || activity.ownerId;
@@ -1340,6 +1452,7 @@ function cloudDirtyRecordKeys(currentState) {
     "guidanceQuestions",
     "internalTasks",
     "meetings",
+    "marketingItems",
     "activities",
     "companyBills",
     "users",
@@ -1396,6 +1509,7 @@ function recordActivity(type, title, detail = "", options = {}) {
     taskId: options.taskId || "",
     deadlineId: options.deadlineId || "",
     companyBillId: options.companyBillId || "",
+    marketingItemId: options.marketingItemId || "",
     dueDate: options.dueDate || "",
     taskPriority: options.taskPriority || "",
     taskStatus: options.taskStatus || "",
@@ -1607,6 +1721,25 @@ function bindEvents() {
   el.quickInternalTaskButton?.addEventListener("click", openQuickInternalTaskDialog);
   el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
   el.addMeetingButton.addEventListener("click", () => openMeetingDialog());
+  el.addMarketingIdeaButton?.addEventListener("click", () => openMarketingDialog("", "idea"));
+  el.addMarketingContentButton?.addEventListener("click", () => openMarketingDialog("", "content"));
+  el.marketingSearchInput?.addEventListener("input", renderMarketing);
+  [el.marketingOwnerFilter, el.marketingChannelFilter, el.marketingStatusFilter].forEach((input) => {
+    input?.addEventListener("change", renderMarketing);
+  });
+  el.marketingCalendarViewButton?.addEventListener("click", () => setMarketingView("calendar"));
+  el.marketingProductionViewButton?.addEventListener("click", () => setMarketingView("production"));
+  el.marketingIdeasViewButton?.addEventListener("click", () => setMarketingView("ideas"));
+  el.marketingForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveMarketingItem();
+  });
+  el.closeMarketingDialogButton?.addEventListener("click", closeMarketingDialog);
+  el.cancelMarketingDialogButton?.addEventListener("click", closeMarketingDialog);
+  el.deleteMarketingItemButton?.addEventListener("click", deleteMarketingItem);
+  el.saveMarketingDraftButton?.addEventListener("click", () => saveMarketingItem({ draft: true }));
+  el.marketingStructuredScriptButton?.addEventListener("click", () => setMarketingScriptMode("structured"));
+  el.marketingFreeScriptButton?.addEventListener("click", () => setMarketingScriptMode("free"));
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
   el.nextTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(1));
   el.todayTaskButton.addEventListener("click", () => {
@@ -1944,6 +2077,7 @@ function renderAll() {
   renderClients();
   renderRegularizationClients();
   renderTaskCenter();
+  renderMarketing();
   renderTaskNavSignals();
   renderUpdates();
   renderGuidance();
@@ -3948,6 +4082,674 @@ function csvCell(value) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
 }
 
+function renderMarketing() {
+  if (!currentUser || !el.marketingWorkspace) return;
+  state.marketingItems = Array.isArray(state.marketingItems)
+    ? state.marketingItems.map(normalizeMarketingItem)
+    : [];
+  renderMarketingFilters();
+  renderMarketingViewControls();
+  renderMarketingSummary();
+
+  const items = filteredMarketingItems();
+  if (activeMarketingView === "production") {
+    el.marketingWorkspace.innerHTML = renderMarketingProduction(items);
+  } else if (activeMarketingView === "ideas") {
+    el.marketingWorkspace.innerHTML = renderMarketingIdeas(items);
+  } else {
+    el.marketingWorkspace.innerHTML = renderMarketingCalendar(items);
+  }
+
+  bindMarketingWorkspaceActions();
+  refreshIcons();
+}
+
+function renderMarketingFilters() {
+  const ownerValue = el.marketingOwnerFilter.value;
+  const channelValue = el.marketingChannelFilter.value;
+  const statusValue = el.marketingStatusFilter.value;
+  el.marketingOwnerFilter.innerHTML = `<option value="">Todos os responsáveis</option>${state.users
+    .map((user) => `<option value="${escapeAttr(user.id)}">${escapeHtml(user.name)}</option>`)
+    .join("")}`;
+  el.marketingChannelFilter.innerHTML = `<option value="">Todos os canais</option>${MARKETING_CHANNELS
+    .map((channel) => `<option value="${escapeAttr(channel)}">${escapeHtml(channel)}</option>`)
+    .join("")}`;
+  el.marketingStatusFilter.innerHTML = `<option value="">Todas as etapas</option><option value="Ideia">Ideias</option>${MARKETING_CONTENT_STATUSES
+    .map((status) => `<option value="${escapeAttr(status)}">${escapeHtml(status)}</option>`)
+    .join("")}`;
+  el.marketingOwnerFilter.value = [...state.users.map((user) => user.id), ""].includes(ownerValue) ? ownerValue : "";
+  el.marketingChannelFilter.value = [...MARKETING_CHANNELS, ""].includes(channelValue) ? channelValue : "";
+  el.marketingStatusFilter.value = ["Ideia", ...MARKETING_CONTENT_STATUSES, ""].includes(statusValue) ? statusValue : "";
+}
+
+function renderMarketingViewControls() {
+  [
+    [el.marketingCalendarViewButton, "calendar"],
+    [el.marketingProductionViewButton, "production"],
+    [el.marketingIdeasViewButton, "ideas"],
+  ].forEach(([button, view]) => {
+    button.classList.toggle("active", activeMarketingView === view);
+    button.setAttribute("aria-pressed", String(activeMarketingView === view));
+  });
+}
+
+function renderMarketingSummary() {
+  const monthKey = marketingMonthKey(activeMarketingDate);
+  const monthItems = state.marketingItems.filter((item) => item.kind === "content" && marketingItemMonth(item) === monthKey);
+  const stats = [
+    {
+      label: "Ideias no banco",
+      value: state.marketingItems.filter((item) => item.kind === "idea").length,
+      icon: "lightbulb",
+      type: "ideas",
+    },
+    {
+      label: "Para produzir",
+      value: monthItems.filter((item) => ["Planejado", "Roteiro"].includes(item.status)).length,
+      icon: "notebook-pen",
+      type: "planned",
+    },
+    {
+      label: "Em produção",
+      value: monthItems.filter((item) => ["Gravação", "Edição", "Aprovação"].includes(item.status)).length,
+      icon: "clapperboard",
+      type: "production",
+    },
+    {
+      label: "Agendados",
+      value: monthItems.filter((item) => item.status === "Agendado").length,
+      icon: "calendar-clock",
+      type: "scheduled",
+    },
+    {
+      label: "Publicados",
+      value: monthItems.filter((item) => item.status === "Publicado").length,
+      icon: "circle-check-big",
+      type: "published",
+    },
+  ];
+  el.marketingSummary.innerHTML = stats.map((stat) => `
+    <article class="marketing-summary-card ${stat.type}">
+      <span><i data-lucide="${stat.icon}"></i></span>
+      <div><small>${stat.label}</small><strong>${stat.value}</strong></div>
+    </article>
+  `).join("");
+}
+
+function filteredMarketingItems() {
+  const query = normalize(el.marketingSearchInput.value);
+  const ownerId = el.marketingOwnerFilter.value;
+  const channel = el.marketingChannelFilter.value;
+  const status = el.marketingStatusFilter.value;
+  return state.marketingItems
+    .filter((item) => {
+      const client = item.clientId ? findLinkedClientRecord(item.clientId, item.clientSource) : null;
+      const haystack = normalize([
+        item.title,
+        item.description,
+        item.pillar,
+        item.format,
+        item.channel,
+        item.objective,
+        item.caption,
+        client?.clientName,
+      ].join(" "));
+      return (
+        (!query || haystack.includes(query))
+        && (!ownerId || item.ownerId === ownerId)
+        && (!channel || item.channel === channel)
+        && (!status || item.status === status)
+      );
+    })
+    .sort((a, b) => marketingSortTimestamp(b) - marketingSortTimestamp(a));
+}
+
+function marketingSortTimestamp(item) {
+  return new Date(item.publishDate || item.productionDate || item.updatedAt || item.createdAt || 0).getTime() || 0;
+}
+
+function renderMarketingCalendar(items) {
+  const days = monthCalendarDays(activeMarketingDate);
+  const activeMonth = activeMarketingDate.getMonth();
+  const activeYear = activeMarketingDate.getFullYear();
+  const scheduled = items.filter((item) => item.kind === "content" && item.publishDate);
+  const byDay = scheduled.reduce((map, item) => {
+    if (!map.has(item.publishDate)) map.set(item.publishDate, []);
+    map.get(item.publishDate).push(item);
+    return map;
+  }, new Map());
+  const upcoming = scheduled
+    .filter((item) => item.publishDate >= localDateKey() && item.status !== "Publicado")
+    .sort((a, b) => `${a.publishDate}T${a.publishTime || "23:59"}`.localeCompare(`${b.publishDate}T${b.publishTime || "23:59"}`))
+    .slice(0, 7);
+
+  return `
+    <div class="marketing-calendar-layout">
+      <section class="marketing-calendar-panel">
+        <header class="marketing-panel-header">
+          <div>
+            <p class="eyebrow">Calendário editorial</p>
+            <h3>${escapeHtml(activeMarketingDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }))}</h3>
+          </div>
+          <div class="marketing-month-controls">
+            <button class="icon-button" type="button" data-marketing-month="-1" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
+            <button class="secondary-button" type="button" data-marketing-today>Hoje</button>
+            <button class="icon-button" type="button" data-marketing-month="1" aria-label="Próximo mês"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </header>
+        <div class="marketing-calendar-scroll">
+          <div class="marketing-calendar-weekdays">
+            ${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}
+          </div>
+          <div class="marketing-calendar-grid">
+            ${days.map((date) => renderMarketingCalendarDay(date, byDay.get(localDateKey(date)) || [], activeMonth, activeYear)).join("")}
+          </div>
+        </div>
+      </section>
+      <aside class="marketing-upcoming-panel">
+        <header class="marketing-panel-header compact">
+          <div><p class="eyebrow">Próximas postagens</p><h3>Programação</h3></div>
+          <span>${upcoming.length}</span>
+        </header>
+        <div class="marketing-upcoming-list">
+          ${upcoming.length ? upcoming.map(renderMarketingUpcomingItem).join("") : `<p class="empty-state compact">Nenhuma postagem agendada.</p>`}
+        </div>
+        <button class="secondary-button marketing-aside-action" type="button" data-new-marketing-content><i data-lucide="plus"></i> Planejar conteúdo</button>
+      </aside>
+    </div>
+  `;
+}
+
+function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
+  const dateKey = localDateKey(date);
+  const outside = date.getMonth() !== activeMonth || date.getFullYear() !== activeYear;
+  const today = dateKey === localDateKey();
+  const visible = items.slice(0, 3);
+  return `
+    <article class="marketing-calendar-day ${outside ? "outside" : ""} ${today ? "today" : ""}" data-new-marketing-date="${escapeAttr(dateKey)}">
+      <header><span>${date.getDate()}</span>${today ? `<small>Hoje</small>` : ""}</header>
+      <div class="marketing-day-items">
+        ${visible.map((item) => `
+          <button class="marketing-calendar-entry status-${marketingSlug(item.status)}" type="button" data-open-marketing="${escapeAttr(item.id)}" title="${escapeAttr(item.title)}">
+            <span>${escapeHtml(item.publishTime || item.channel || "Conteúdo")}</span>
+            <strong>${escapeHtml(item.title)}</strong>
+          </button>
+        `).join("")}
+        ${items.length > visible.length ? `<span class="marketing-more-items">+${items.length - visible.length} conteúdo(s)</span>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderMarketingUpcomingItem(item) {
+  return `
+    <button class="marketing-upcoming-item" type="button" data-open-marketing="${escapeAttr(item.id)}">
+      <span class="marketing-date-block"><strong>${escapeHtml(item.publishDate.slice(8, 10))}</strong><small>${escapeHtml(monthName(item.publishDate.slice(5, 7)).slice(0, 3))}</small></span>
+      <span class="marketing-upcoming-copy">
+        <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
+        <small>${escapeHtml([item.channel, item.format, item.publishTime].filter(Boolean).join(" • ") || "Sem canal definido")}</small>
+      </span>
+      <span class="marketing-status-dot status-${marketingSlug(item.status)}" title="${escapeAttr(item.status)}"></span>
+    </button>
+  `;
+}
+
+function renderMarketingProduction(items) {
+  const contents = items.filter((item) => item.kind === "content");
+  return `
+    <section class="marketing-board-panel">
+      <header class="marketing-panel-header">
+        <div><p class="eyebrow">Fluxo de produção</p><h3>Conteúdos por etapa</h3></div>
+        <span>${contents.length} conteúdo(s)</span>
+      </header>
+      <div class="marketing-pipeline">
+        ${MARKETING_CONTENT_STATUSES.map((status) => {
+          const statusItems = contents.filter((item) => item.status === status);
+          return `
+            <section class="marketing-pipeline-column status-${marketingSlug(status)}">
+              <header><span>${escapeHtml(status)}</span><strong>${statusItems.length}</strong></header>
+              <div>
+                ${statusItems.length ? statusItems.map(renderMarketingPipelineCard).join("") : `<p class="marketing-column-empty">Nenhum conteúdo</p>`}
+              </div>
+            </section>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMarketingPipelineCard(item) {
+  const linked = item.clientId ? findLinkedClientRecord(item.clientId, item.clientSource) : null;
+  return `
+    <article class="marketing-pipeline-card">
+      <button class="marketing-card-open" type="button" data-open-marketing="${escapeAttr(item.id)}">
+        <span class="marketing-card-meta">${escapeHtml([item.channel, item.format].filter(Boolean).join(" • ") || "Conteúdo")}</span>
+        <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
+        ${linked ? `<small>${escapeHtml(linked.clientName)}</small>` : ""}
+      </button>
+      <div class="marketing-card-footer">
+        <span><i data-lucide="user-round"></i>${escapeHtml(ownerName(item.ownerId))}</span>
+        <span>${escapeHtml(item.publishDate ? formatDate(item.publishDate) : item.productionDate ? `Produção ${formatDate(item.productionDate)}` : "Sem data")}</span>
+      </div>
+      <select data-marketing-status="${escapeAttr(item.id)}" aria-label="Alterar etapa de ${escapeAttr(item.title)}">
+        ${MARKETING_CONTENT_STATUSES.map((status) => `<option value="${escapeAttr(status)}" ${status === item.status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
+      </select>
+    </article>
+  `;
+}
+
+function renderMarketingIdeas(items) {
+  const ideas = items.filter((item) => item.kind === "idea");
+  return `
+    <section class="marketing-ideas-panel">
+      <header class="marketing-panel-header">
+        <div><p class="eyebrow">Banco de ideias</p><h3>Conteúdos para desenvolver</h3></div>
+        <button class="primary-button" type="button" data-new-marketing-idea><i data-lucide="plus"></i> Nova ideia</button>
+      </header>
+      <div class="marketing-ideas-list">
+        ${ideas.length ? ideas.map(renderMarketingIdeaItem).join("") : `<p class="empty-state">Nenhuma ideia encontrada. Registre uma ideia para não perder um bom tema.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderMarketingIdeaItem(item) {
+  return `
+    <article class="marketing-idea-item">
+      <span class="marketing-idea-icon"><i data-lucide="lightbulb"></i></span>
+      <div class="marketing-idea-copy">
+        <div class="marketing-idea-meta">
+          ${item.pillar ? `<span>${escapeHtml(item.pillar)}</span>` : ""}
+          ${item.channel ? `<span>${escapeHtml(item.channel)}</span>` : ""}
+          ${item.objective ? `<span>${escapeHtml(item.objective)}</span>` : ""}
+        </div>
+        <strong>${escapeHtml(item.title || "Ideia sem título")}</strong>
+        ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
+        <small>Por ${escapeHtml(ownerName(item.createdBy))} • ${escapeHtml(formatDateTime(item.createdAt))}</small>
+      </div>
+      <div class="inline-actions">
+        <button class="small-button" type="button" data-open-marketing="${escapeAttr(item.id)}"><i data-lucide="pencil"></i> Editar</button>
+        <button class="primary-button small-button" type="button" data-convert-marketing-idea="${escapeAttr(item.id)}"><i data-lucide="arrow-right"></i> Transformar em conteúdo</button>
+      </div>
+    </article>
+  `;
+}
+
+function bindMarketingWorkspaceActions() {
+  el.marketingWorkspace.querySelectorAll("[data-open-marketing]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openMarketingDialog(button.dataset.openMarketing);
+    });
+  });
+  el.marketingWorkspace.querySelectorAll("[data-new-marketing-date]").forEach((day) => {
+    day.addEventListener("click", () => openMarketingDialog("", "content", { publishDate: day.dataset.newMarketingDate }));
+  });
+  el.marketingWorkspace.querySelectorAll("[data-marketing-month]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeMarketingDate = new Date(activeMarketingDate.getFullYear(), activeMarketingDate.getMonth() + Number(button.dataset.marketingMonth), 1);
+      renderMarketing();
+    });
+  });
+  el.marketingWorkspace.querySelector("[data-marketing-today]")?.addEventListener("click", () => {
+    activeMarketingDate = new Date();
+    renderMarketing();
+  });
+  el.marketingWorkspace.querySelectorAll("[data-marketing-status]").forEach((select) => {
+    select.addEventListener("change", () => updateMarketingStatus(select.dataset.marketingStatus, select.value));
+  });
+  el.marketingWorkspace.querySelector("[data-new-marketing-content]")?.addEventListener("click", () => openMarketingDialog("", "content"));
+  el.marketingWorkspace.querySelector("[data-new-marketing-idea]")?.addEventListener("click", () => openMarketingDialog("", "idea"));
+  el.marketingWorkspace.querySelectorAll("[data-convert-marketing-idea]").forEach((button) => {
+    button.addEventListener("click", () => convertMarketingIdea(button.dataset.convertMarketingIdea));
+  });
+}
+
+function setMarketingView(view) {
+  activeMarketingView = ["calendar", "production", "ideas"].includes(view) ? view : "calendar";
+  renderMarketing();
+}
+
+function marketingMonthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function marketingItemMonth(item) {
+  const explicitDate = item.publishDate || item.productionDate;
+  if (explicitDate) return explicitDate.slice(0, 7);
+  const fallback = new Date(item.createdAt || 0);
+  return Number.isNaN(fallback.getTime()) ? "" : marketingMonthKey(fallback);
+}
+
+function marketingSlug(value) {
+  return normalize(value).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
+  const existing = itemId ? state.marketingItems.find((item) => item.id === itemId) : null;
+  const item = existing
+    ? normalizeMarketingItem(existing)
+    : normalizeMarketingItem({
+        id: "",
+        kind,
+        ownerId: currentUser.id,
+        objective: "Informar",
+        ...preset,
+        createdBy: currentUser.id,
+      });
+  activeMarketingItemId = existing?.id || "";
+  activeMarketingDraftKind = item.kind;
+  el.marketingForm.classList.toggle("idea-mode", item.kind === "idea");
+  el.marketingDialogTitle.textContent = item.kind === "idea" ? (existing ? "Editar ideia" : "Nova ideia") : (existing ? "Editar conteúdo" : "Novo conteúdo");
+  el.marketingDialogSubtitle.textContent = item.kind === "idea" ? "Registre o tema agora e desenvolva quando estiver pronta." : "Planeje a produção, o roteiro e a publicação.";
+  el.marketingTitleInput.value = item.title;
+  el.marketingDescriptionInput.value = item.description;
+  el.marketingPillarInput.value = item.pillar;
+  el.marketingFormatInput.innerHTML = marketingSelectOptions(MARKETING_FORMATS, item.format, "Selecione");
+  el.marketingChannelInput.innerHTML = marketingSelectOptions(MARKETING_CHANNELS, item.channel, "Selecione");
+  el.marketingOwnerInput.innerHTML = `<option value="">Sem responsável</option>${state.users.map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === item.ownerId ? "selected" : ""}>${escapeHtml(user.name)}</option>`).join("")}`;
+  el.marketingContentStatusInput.innerHTML = MARKETING_CONTENT_STATUSES.map((status) => `<option value="${escapeAttr(status)}" ${status === item.status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("");
+  el.marketingPriorityInput.innerHTML = taskPriorityValues().map((priority) => `<option value="${escapeAttr(priority)}" ${priority === item.priority ? "selected" : ""}>${escapeHtml(priority)}</option>`).join("");
+  el.marketingClientInput.innerHTML = linkedClientOptions().map((option) => {
+    const selected = item.clientId && linkedClientValue(item.clientSource, item.clientId) === option.value;
+    return `<option value="${escapeAttr(option.value)}" ${selected ? "selected" : ""}>${escapeHtml(option.label)}</option>`;
+  }).join("");
+  el.marketingProductionDateInput.value = item.productionDate;
+  el.marketingPublishDateInput.value = item.publishDate;
+  el.marketingPublishTimeInput.value = item.publishTime;
+  el.marketingHookInput.value = item.hook;
+  el.marketingProblemInput.value = item.problem;
+  el.marketingExplanationInput.value = item.explanation;
+  el.marketingConclusionInput.value = item.conclusion;
+  el.marketingFreeScriptInput.value = item.freeScript;
+  el.marketingCaptionInput.value = item.caption;
+  el.marketingAssetLinkInput.value = item.assetLink;
+  el.marketingGenerateTaskInput.checked = Boolean(item.taskId);
+  el.marketingProductionSection.hidden = item.kind === "idea";
+  el.marketingContentDetails.hidden = item.kind === "idea";
+  el.saveMarketingDraftButton.hidden = item.kind === "idea";
+  el.saveMarketingItemButton.innerHTML = `<i data-lucide="save"></i> ${item.kind === "idea" ? "Salvar ideia" : "Salvar conteúdo"}`;
+  el.deleteMarketingItemButton.hidden = !existing || currentUser.role !== "admin";
+  document.querySelectorAll('input[name="marketingObjective"]').forEach((input) => {
+    input.checked = input.value === item.objective;
+  });
+  setMarketingScriptMode(item.scriptMode);
+  renderMarketingDialogHistory(item, Boolean(existing));
+  el.marketingDialog.showModal();
+  refreshIcons();
+  window.setTimeout(() => el.marketingTitleInput.focus(), 0);
+}
+
+function marketingSelectOptions(options, selected, placeholder) {
+  return `<option value="">${escapeHtml(placeholder)}</option>${options.map((option) => `<option value="${escapeAttr(option)}" ${option === selected ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}`;
+}
+
+function setMarketingScriptMode(mode) {
+  activeMarketingScriptMode = mode === "free" ? "free" : "structured";
+  el.marketingStructuredScriptButton.classList.toggle("active", activeMarketingScriptMode === "structured");
+  el.marketingFreeScriptButton.classList.toggle("active", activeMarketingScriptMode === "free");
+  el.marketingStructuredScriptFields.hidden = activeMarketingScriptMode !== "structured";
+  el.marketingFreeScriptFields.hidden = activeMarketingScriptMode !== "free";
+}
+
+function renderMarketingDialogHistory(item, existing) {
+  el.marketingHistorySection.hidden = !existing;
+  if (!existing) {
+    el.marketingDialogHistorySummary.innerHTML = `<span>Novo registro</span>`;
+    el.marketingHistoryList.innerHTML = "";
+    return;
+  }
+  el.marketingDialogHistorySummary.innerHTML = `
+    <span>Criado por <strong>${escapeHtml(ownerName(item.createdBy))}</strong></span>
+    <span>${escapeHtml(formatDateTime(item.createdAt))}</span>
+  `;
+  const entries = [...item.history].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  el.marketingHistoryList.innerHTML = entries.length ? entries.map((entry) => `
+    <article>
+      <span class="marketing-history-marker"></span>
+      <div><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(ownerName(entry.userId))} • ${escapeHtml(formatDateTime(entry.createdAt))}</small>${entry.details.length ? `<p>${entry.details.map(escapeHtml).join(" · ")}</p>` : ""}</div>
+    </article>
+  `).join("") : `<p class="empty-state compact">Nenhuma alteração posterior ao cadastro.</p>`;
+}
+
+function collectMarketingForm() {
+  const existing = activeMarketingItemId ? state.marketingItems.find((item) => item.id === activeMarketingItemId) : null;
+  const linked = parseLinkedClientValue(el.marketingClientInput.value);
+  const hasClient = Boolean(el.marketingClientInput.value);
+  const objective = document.querySelector('input[name="marketingObjective"]:checked')?.value || "";
+  return normalizeMarketingItem({
+    ...(existing || {}),
+    id: existing?.id || id(),
+    kind: activeMarketingDraftKind,
+    title: el.marketingTitleInput.value.trim(),
+    description: el.marketingDescriptionInput.value.trim(),
+    pillar: el.marketingPillarInput.value.trim(),
+    format: el.marketingFormatInput.value,
+    channel: el.marketingChannelInput.value,
+    objective,
+    clientId: hasClient ? linked.id : "",
+    clientSource: hasClient ? linked.source : "inss",
+    ownerId: el.marketingOwnerInput.value,
+    status: activeMarketingDraftKind === "idea" ? "Ideia" : el.marketingContentStatusInput.value,
+    priority: el.marketingPriorityInput.value,
+    productionDate: el.marketingProductionDateInput.value,
+    publishDate: el.marketingPublishDateInput.value,
+    publishTime: el.marketingPublishTimeInput.value,
+    scriptMode: activeMarketingScriptMode,
+    hook: el.marketingHookInput.value.trim(),
+    problem: el.marketingProblemInput.value.trim(),
+    explanation: el.marketingExplanationInput.value.trim(),
+    conclusion: el.marketingConclusionInput.value.trim(),
+    freeScript: el.marketingFreeScriptInput.value.trim(),
+    caption: el.marketingCaptionInput.value.trim(),
+    assetLink: el.marketingAssetLinkInput.value.trim(),
+    createdBy: existing?.createdBy || currentUser.id,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedBy: currentUser.id,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function saveMarketingItem({ draft = false } = {}) {
+  if (!el.marketingForm.reportValidity()) return;
+  const existing = activeMarketingItemId ? state.marketingItems.find((item) => item.id === activeMarketingItemId) : null;
+  const item = collectMarketingForm();
+  if (draft && item.kind === "content") item.status = "Planejado";
+  const changes = existing ? marketingChangeDetails(existing, item) : [];
+  const historyEntry = marketingHistoryEntry(
+    existing ? (item.kind === "idea" ? "Ideia atualizada" : "Conteúdo atualizado") : (item.kind === "idea" ? "Ideia criada" : "Conteúdo criado"),
+    existing ? changes : [item.status === "Ideia" ? "Registrada no banco de ideias." : `Etapa inicial: ${item.status}.`],
+  );
+  item.history = [historyEntry, ...(existing?.history || [])].slice(0, MARKETING_MAX_HISTORY);
+
+  if (existing) {
+    state.marketingItems = state.marketingItems.map((candidate) => candidate.id === item.id ? item : candidate);
+  } else {
+    state.marketingItems.unshift(item);
+  }
+  syncMarketingTask(item, el.marketingGenerateTaskInput.checked);
+  recordActivity(
+    "marketing",
+    `${existing ? "Atualizou" : "Criou"} ${item.kind === "idea" ? "ideia" : "conteúdo"}: ${item.title}.`,
+    changes.join("\n") || `${item.channel || "Canal não definido"} • ${item.status}.`,
+    marketingActivityOptions(item),
+  );
+  saveState();
+  closeMarketingDialog();
+  renderMarketing();
+  renderTaskCenter();
+  renderUpdates();
+}
+
+function marketingHistoryEntry(title, details = []) {
+  return normalizeHistoryEntry({
+    id: id(),
+    title,
+    details: details.filter(Boolean),
+    userId: currentUser.id,
+    type: "automatic",
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+  });
+}
+
+function marketingChangeDetails(previous, next) {
+  const labels = {
+    title: "Título",
+    description: "Descrição",
+    pillar: "Tema ou pilar",
+    format: "Formato",
+    channel: "Canal",
+    objective: "Objetivo",
+    ownerId: "Responsável",
+    status: "Etapa",
+    priority: "Prioridade",
+    productionDate: "Data de produção",
+    publishDate: "Data da postagem",
+    publishTime: "Horário",
+    clientId: "Cliente vinculado",
+  };
+  const changes = Object.entries(labels).flatMap(([field, label]) => {
+    if (String(previous[field] || "") === String(next[field] || "")) return [];
+    let before = previous[field] || "vazio";
+    let after = next[field] || "vazio";
+    if (field === "ownerId") {
+      before = previous[field] ? ownerName(previous[field]) : "Sem responsável";
+      after = next[field] ? ownerName(next[field]) : "Sem responsável";
+    }
+    if (field === "clientId") {
+      before = previous[field] ? findLinkedClientRecord(previous[field], previous.clientSource)?.clientName || "Cliente removido" : "Sem cliente";
+      after = next[field] ? findLinkedClientRecord(next[field], next.clientSource)?.clientName || "Cliente removido" : "Sem cliente";
+    }
+    if (["productionDate", "publishDate"].includes(field)) {
+      before = previous[field] ? formatDate(previous[field]) : "Sem data";
+      after = next[field] ? formatDate(next[field]) : "Sem data";
+    }
+    return [`${label}: ${before} -> ${after}.`];
+  });
+  const longTextFields = ["hook", "problem", "explanation", "conclusion", "freeScript", "caption", "assetLink"];
+  if (longTextFields.some((field) => String(previous[field] || "") !== String(next[field] || ""))) {
+    changes.push("Roteiro ou dados de publicação atualizados.");
+  }
+  return changes.length ? changes : ["Registro revisado sem alteração nos campos principais."];
+}
+
+function marketingActivityOptions(item) {
+  const linked = item.clientId ? findLinkedClientRecord(item.clientId, item.clientSource) : null;
+  return {
+    marketingItemId: item.id,
+    ownerId: item.ownerId,
+    clientId: item.clientId,
+    clientSource: item.clientSource,
+    clientName: linked?.clientName || "",
+    dueDate: item.publishDate || item.productionDate,
+    taskPriority: item.priority,
+  };
+}
+
+function syncMarketingTask(item, shouldGenerate) {
+  const existingTask = item.taskId ? state.internalTasks.find((task) => task.id === item.taskId) : null;
+  if (!shouldGenerate && !existingTask) return;
+  const dueDate = item.productionDate || item.publishDate || "";
+  const title = `Produzir conteúdo: ${item.title}`;
+  const description = [
+    item.description,
+    [item.channel, item.format, item.status].filter(Boolean).join(" • "),
+    item.publishDate ? `Postagem: ${formatDate(item.publishDate)}${item.publishTime ? ` às ${item.publishTime}` : ""}` : "",
+  ].filter(Boolean).join("\n");
+  if (existingTask) {
+    const before = JSON.stringify([existingTask.title, existingTask.description, existingTask.ownerId, existingTask.dueDate, existingTask.priority]);
+    existingTask.title = title;
+    existingTask.description = description;
+    existingTask.ownerId = item.ownerId || existingTask.ownerId;
+    existingTask.dueDate = dueDate;
+    existingTask.priority = item.priority;
+    existingTask.marketingItemId = item.id;
+    existingTask.updatedAt = new Date().toISOString();
+    const after = JSON.stringify([existingTask.title, existingTask.description, existingTask.ownerId, existingTask.dueDate, existingTask.priority]);
+    if (before !== after) {
+      recordActivity("task", `Atualizou tarefa de marketing: ${item.title}.`, "Tarefa sincronizada com o conteúdo.", taskActivityOptions(existingTask, {
+        internalTaskId: existingTask.id,
+        marketingItemId: item.id,
+      }));
+    }
+    return;
+  }
+  const task = normalizeInternalTask({
+    id: id(),
+    title,
+    description,
+    ownerId: item.ownerId || currentUser.id,
+    dueDate,
+    status: "Pendente",
+    priority: item.priority,
+    visibility: "team",
+    marketingItemId: item.id,
+    createdBy: currentUser.id,
+    createdAt: new Date().toISOString(),
+  });
+  state.internalTasks.unshift(task);
+  item.taskId = task.id;
+  recordActivity("task", `Criou tarefa de marketing: ${item.title}.`, description, taskActivityOptions(task, {
+    internalTaskId: task.id,
+    marketingItemId: item.id,
+  }));
+}
+
+function updateMarketingStatus(itemId, status) {
+  const item = state.marketingItems.find((candidate) => candidate.id === itemId);
+  const nextStatus = normalizeSelectValue(status, MARKETING_CONTENT_STATUSES);
+  if (!item || item.kind !== "content" || !nextStatus || item.status === nextStatus) return;
+  const previousStatus = item.status;
+  item.status = nextStatus;
+  item.updatedAt = new Date().toISOString();
+  item.updatedBy = currentUser.id;
+  item.history = [marketingHistoryEntry("Etapa atualizada", [`Etapa: ${previousStatus} -> ${nextStatus}.`]), ...(item.history || [])].slice(0, MARKETING_MAX_HISTORY);
+  syncMarketingTask(item, Boolean(item.taskId));
+  recordActivity("marketing", `Atualizou conteúdo: ${item.title}.`, `Etapa: ${previousStatus} -> ${nextStatus}.`, marketingActivityOptions(item));
+  saveState();
+  renderMarketing();
+  renderTaskCenter();
+  renderUpdates();
+}
+
+function convertMarketingIdea(itemId) {
+  const item = state.marketingItems.find((candidate) => candidate.id === itemId && candidate.kind === "idea");
+  if (!item) return;
+  item.kind = "content";
+  item.status = "Planejado";
+  item.ownerId = item.ownerId || currentUser.id;
+  item.updatedAt = new Date().toISOString();
+  item.updatedBy = currentUser.id;
+  item.history = [marketingHistoryEntry("Ideia transformada em conteúdo", ["Etapa inicial: Planejado."]), ...(item.history || [])].slice(0, MARKETING_MAX_HISTORY);
+  recordActivity("marketing", `Transformou ideia em conteúdo: ${item.title}.`, "Etapa inicial: Planejado.", marketingActivityOptions(item));
+  saveState();
+  renderMarketing();
+  renderUpdates();
+  openMarketingDialog(item.id);
+}
+
+function deleteMarketingItem() {
+  if (currentUser.role !== "admin" || !activeMarketingItemId) return;
+  const item = state.marketingItems.find((candidate) => candidate.id === activeMarketingItemId);
+  if (!item || !window.confirm(`Excluir ${item.kind === "idea" ? "a ideia" : "o conteúdo"} “${item.title}”?`)) return;
+  const task = item.taskId ? state.internalTasks.find((candidate) => candidate.id === item.taskId) : null;
+  if (task) task.marketingItemId = "";
+  state.marketingItems = state.marketingItems.filter((candidate) => candidate.id !== item.id);
+  recordActivity("marketing", `Excluiu ${item.kind === "idea" ? "ideia" : "conteúdo"}: ${item.title}.`, "", marketingActivityOptions(item));
+  saveState();
+  closeMarketingDialog();
+  renderMarketing();
+  renderTaskCenter();
+  renderUpdates();
+}
+
+function closeMarketingDialog() {
+  activeMarketingItemId = "";
+  if (el.marketingDialog.open) el.marketingDialog.close();
+}
+
 function renderTaskCenter() {
   renderTaskOwnerFilter();
   renderTaskClientFilter();
@@ -4065,6 +4867,14 @@ function renderUpdates() {
       } else {
         expandedPastUpdateDays.add(day);
       }
+      renderUpdates();
+    });
+  });
+  document.querySelectorAll("[data-open-update-marketing]").forEach((button) => {
+    button.addEventListener("click", () => {
+      markActivityRead(button.dataset.activityId, false);
+      switchSection("marketingSection");
+      openMarketingDialog(button.dataset.openUpdateMarketing);
       renderUpdates();
     });
   });
@@ -4196,6 +5006,13 @@ function renderUpdatesImportantItem(activity) {
   if (activity.clientId) {
     return `
       <button class="updates-important-item update-type-${displayType}" type="button" data-open-update-client="${escapeAttr(activity.clientId)}" data-client-source="${escapeAttr(activity.clientSource || "inss")}" data-activity-id="${escapeAttr(activity.id)}">
+        ${content}
+      </button>
+    `;
+  }
+  if (activity.marketingItemId) {
+    return `
+      <button class="updates-important-item update-type-${displayType}" type="button" data-open-update-marketing="${escapeAttr(activity.marketingItemId)}" data-activity-id="${escapeAttr(activity.id)}">
         ${content}
       </button>
     `;
@@ -4974,6 +5791,7 @@ function activityTypeLabel(type) {
     deadline: "Prazo",
     monthly: "Mensal",
     guidance: "Orientação",
+    marketing: "Marketing",
     finance: "Financeiro",
     history: "Histórico",
     sync: "Sincronização",
@@ -4990,6 +5808,7 @@ function activityIcon(type) {
     deadline: "calendar-clock",
     monthly: "calendar-check",
     guidance: "book-open-check",
+    marketing: "megaphone",
     finance: "banknote",
     history: "file-clock",
     sync: "cloud-alert",
@@ -5194,6 +6013,7 @@ function renderTaskSideRow(item) {
 
 function taskItemContext(item) {
   if (item.internalMeetingId) return item.clientName && item.clientName !== "Reunião" ? item.clientName : "Agenda";
+  if (item.marketingItemId) return "Marketing";
   if (item.internalTaskId) return item.visibility === "admin" ? "Somente admin" : "Equipe interna";
   return item.clientName || "Cliente não informado";
 }
@@ -5220,7 +6040,10 @@ function taskPrimaryAction(item) {
 
 function taskSecondaryActions(item) {
   if (item.internalTaskId) {
-    return `<button class="icon-button danger-icon" type="button" data-remove-internal-task="${escapeAttr(item.internalTaskId)}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>`;
+    return `<div class="inline-actions">
+      ${item.marketingItemId ? `<button class="small-button" type="button" data-open-task-marketing="${escapeAttr(item.marketingItemId)}"><i data-lucide="megaphone"></i> Abrir conteúdo</button>` : ""}
+      <button class="icon-button danger-icon" type="button" data-remove-internal-task="${escapeAttr(item.internalTaskId)}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>
+    </div>`;
   }
   if (item.internalMeetingId) {
     return `<button class="icon-button danger-icon" type="button" data-remove-meeting="${escapeAttr(item.internalMeetingId)}" aria-label="Remover reunião"><i data-lucide="trash-2"></i></button>`;
@@ -5394,6 +6217,13 @@ function bindTaskCenterActions() {
 
   document.querySelectorAll("[data-open-task-client]").forEach((button) => {
     button.addEventListener("click", () => openLinkedClientRecord(button.dataset.openTaskClient, button.dataset.clientSource || "inss"));
+  });
+
+  document.querySelectorAll("[data-open-task-marketing]").forEach((button) => {
+    button.addEventListener("click", () => {
+      switchSection("marketingSection");
+      openMarketingDialog(button.dataset.openTaskMarketing);
+    });
   });
 
   document.querySelectorAll("[data-center-task-status]").forEach((select) => {
@@ -5660,9 +6490,12 @@ function taskCenterItems() {
   const internalItems = (state.internalTasks || [])
     .filter((task) => task.visibility !== "admin" || currentUser.role === "admin")
     .map((task) => {
+      const marketingItem = task.marketingItemId
+        ? state.marketingItems.find((item) => item.id === task.marketingItemId)
+        : null;
       const item = {
         id: task.id,
-        source: "Interno",
+        source: marketingItem ? "Marketing" : "Interno",
         kind: "Tarefa interna",
         title: task.title || "Tarefa interna sem título",
         description: task.description || "",
@@ -5674,7 +6507,8 @@ function taskCenterItems() {
         priority: normalizeTaskPriority(task.priority),
         visibility: task.visibility || "team",
         internalTaskId: task.id,
-        clientName: task.visibility === "admin" ? "Somente admin" : "Equipe interna",
+        marketingItemId: marketingItem?.id || "",
+        clientName: marketingItem?.title || (task.visibility === "admin" ? "Somente admin" : "Equipe interna"),
       };
       item.urgency = taskUrgency(item);
       return item;
@@ -5780,6 +6614,7 @@ function renderTaskCalendarCard(item, compact = false, options = {}) {
   const priority = normalizeTaskPriority(item.priority);
   const actionControl = item.internalTaskId
     ? `<div class="inline-actions task-row-actions">
+        ${item.marketingItemId ? `<button class="icon-button" type="button" data-open-task-marketing="${escapeAttr(item.marketingItemId)}" title="Abrir conteúdo" aria-label="Abrir conteúdo"><i data-lucide="megaphone"></i></button>` : ""}
         <button class="icon-button" type="button" data-edit-internal-task="${item.internalTaskId}" title="Editar tarefa" aria-label="Editar tarefa"><i data-lucide="pencil"></i></button>
         <button class="icon-button" type="button" data-remove-internal-task="${item.internalTaskId}" title="Remover tarefa" aria-label="Remover tarefa interna"><i data-lucide="trash-2"></i></button>
       </div>`
@@ -5995,6 +6830,7 @@ function updateTimelineItem(activity) {
       </div>
       <div class="inline-actions update-actions">
         ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}" data-client-source="${activity.clientSource || "inss"}" data-activity-id="${activity.id}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
+        ${activity.marketingItemId ? `<button class="small-button" type="button" data-open-update-marketing="${escapeAttr(activity.marketingItemId)}" data-activity-id="${escapeAttr(activity.id)}"><i data-lucide="external-link"></i> Abrir conteúdo</button>` : ""}
         ${
           hasDetails
             ? `<button class="small-button" type="button" data-toggle-update-details="${activity.id}" aria-expanded="${expanded}"><i data-lucide="${expanded ? "chevron-up" : "chevron-down"}"></i> ${expanded ? "Recolher" : "Ver detalhes"}</button>`
@@ -6058,7 +6894,7 @@ function activityDisplayType(activity = {}) {
 
 function activityActorLabel(activity, displayType = activityDisplayType(activity)) {
   const actor = ownerName(activity.actorId);
-  if (["task", "deadline", "meeting"].includes(displayType)) {
+  if (["task", "deadline", "meeting", "marketing"].includes(displayType)) {
     const title = normalize(activity.title);
     if (title.startsWith("criou")) return `Criada por ${actor}`;
     if (title.startsWith("atualizou") || title.startsWith("alterou")) return `Alterada por ${actor}`;
@@ -6068,7 +6904,7 @@ function activityActorLabel(activity, displayType = activityDisplayType(activity
 }
 
 function activityResponsibleLabel(activity, displayType = activityDisplayType(activity)) {
-  if (!["task", "deadline", "meeting"].includes(displayType)) return "";
+  if (!["task", "deadline", "meeting", "marketing"].includes(displayType)) return "";
   const ownerId = activity.ownerId || activityOwnerFromCurrentState(activity, displayType);
   return ownerId ? `Responsável: ${ownerName(ownerId)}` : "";
 }
@@ -6076,6 +6912,9 @@ function activityResponsibleLabel(activity, displayType = activityDisplayType(ac
 function activityOwnerFromCurrentState(activity, displayType) {
   if (activity.internalTaskId && displayType === "task") {
     return state.internalTasks.find((task) => task.id === activity.internalTaskId)?.ownerId || "";
+  }
+  if (activity.marketingItemId && displayType === "marketing") {
+    return state.marketingItems.find((item) => item.id === activity.marketingItemId)?.ownerId || "";
   }
   return "";
 }
@@ -6124,6 +6963,19 @@ function activityImportanceReason(activity = {}) {
     if (dueDate && dueDate < today) return "Prazo vencido";
     if (dueDate === today) return "Vence hoje";
     return "";
+  }
+
+  if (displayType === "marketing") {
+    const item = activity.marketingItemId
+      ? state.marketingItems.find((candidate) => candidate.id === activity.marketingItemId)
+      : null;
+    if (item?.kind === "idea" || item?.status === "Publicado") return "";
+    const dueDate = item?.publishDate || activity.dueDate || "";
+    const today = localDateKey();
+    if (dueDate && dueDate < today) return "Publicação atrasada";
+    if (dueDate === today) return "Publicação hoje";
+    if (normalizeTaskPriority(item?.priority || activity.taskPriority) === "Urgente") return "Conteúdo urgente";
+    return activity.importanceReason || "";
   }
 
   if (displayType === "finance" && currentUser?.role === "admin") {
@@ -9685,6 +10537,10 @@ function switchSection(sectionId) {
     activeTaskDate = new Date();
     markNewTaskActivitiesRead();
     renderTaskCenter();
+  }
+  if (sectionId === "marketingSection") {
+    activeMarketingDate = new Date();
+    renderMarketing();
   }
   if (sectionId === "updatesSection") {
     el.updatesPeriodFilter.value = "today";

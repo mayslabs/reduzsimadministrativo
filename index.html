@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=149" />
+    <link rel="stylesheet" href="./styles.css?v=150" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -52,6 +52,7 @@
               <span id="tasksNewBadge" class="nav-badge task-new-badge" hidden></span>
             </span>
           </button>
+          <button class="nav-item" data-section="marketingSection"><i data-lucide="megaphone"></i> Marketing</button>
           <button class="nav-item updates-nav-item" data-section="updatesSection"><i data-lucide="bell"></i> Atualizações <span id="updatesUnreadBadge" class="nav-badge" hidden></span></button>
           <button class="nav-item" data-section="guidanceSection" hidden aria-hidden="true"><i data-lucide="book-open-check"></i> Orientações</button>
           <span class="nav-group-label">Gestão</span>
@@ -218,6 +219,38 @@
           <div id="taskCenterList" class="task-center-list"></div>
         </section>
 
+        <section id="marketingSection" class="app-section" hidden>
+          <div class="section-heading marketing-heading">
+            <div>
+              <h2>Marketing</h2>
+              <p class="section-subtitle">Planejamento, produção e calendário de conteúdo.</p>
+            </div>
+            <div class="inline-actions">
+              <button id="addMarketingIdeaButton" class="secondary-button" type="button"><i data-lucide="lightbulb"></i> Nova ideia</button>
+              <button id="addMarketingContentButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo conteúdo</button>
+            </div>
+          </div>
+
+          <div id="marketingSummary" class="marketing-summary"></div>
+
+          <div class="toolbar marketing-toolbar">
+            <label class="search-field">
+              <i data-lucide="search"></i>
+              <input id="marketingSearchInput" type="search" placeholder="Buscar conteúdo ou ideia" />
+            </label>
+            <select id="marketingOwnerFilter" aria-label="Filtrar marketing por responsável"></select>
+            <select id="marketingChannelFilter" aria-label="Filtrar marketing por canal"></select>
+            <select id="marketingStatusFilter" aria-label="Filtrar marketing por status"></select>
+            <div class="segmented-control marketing-view-control" role="group" aria-label="Modo de visualização do marketing">
+              <button id="marketingCalendarViewButton" class="active" type="button"><i data-lucide="calendar-days"></i> Calendário</button>
+              <button id="marketingProductionViewButton" type="button"><i data-lucide="list-tree"></i> Produção</button>
+              <button id="marketingIdeasViewButton" type="button"><i data-lucide="lightbulb"></i> Ideias</button>
+            </div>
+          </div>
+
+          <div id="marketingWorkspace" class="marketing-workspace"></div>
+        </section>
+
         <section id="updatesSection" class="app-section" hidden>
           <div class="section-heading">
             <div>
@@ -256,6 +289,7 @@
               <option value="meeting">Reunião</option>
               <option value="deadline">Prazo</option>
               <option value="monthly">Mensal</option>
+              <option value="marketing">Marketing</option>
               <option value="guidance">Orientação</option>
               <option value="finance">Financeiro</option>
               <option value="history">Histórico</option>
@@ -1034,6 +1068,119 @@
       </form>
     </dialog>
 
+    <dialog id="marketingDialog" class="marketing-dialog">
+      <form id="marketingForm" class="marketing-form">
+        <header class="dialog-header marketing-dialog-header">
+          <div class="marketing-dialog-title">
+            <span><i data-lucide="notebook-tabs"></i></span>
+            <div>
+              <h2 id="marketingDialogTitle">Novo conteúdo</h2>
+              <p id="marketingDialogSubtitle" class="section-subtitle">Planeje a produção e a publicação.</p>
+            </div>
+          </div>
+          <div id="marketingDialogHistorySummary" class="marketing-dialog-history-summary"></div>
+          <button id="closeMarketingDialogButton" class="icon-button" type="button" aria-label="Fechar"><i data-lucide="x"></i></button>
+        </header>
+
+        <div class="marketing-dialog-body">
+          <div class="marketing-form-column">
+            <section class="marketing-form-section">
+              <h3>1. Informações do conteúdo</h3>
+              <div class="marketing-field-grid">
+                <label class="span-2">Título
+                  <input id="marketingTitleInput" type="text" maxlength="160" placeholder="Ex.: 5 documentos necessários para regularizar um imóvel" required />
+                </label>
+                <label class="span-2">Descrição
+                  <textarea id="marketingDescriptionInput" rows="3" maxlength="1200" placeholder="Registre a ideia, o contexto e o objetivo do conteúdo."></textarea>
+                </label>
+                <label class="span-2">Tema ou pilar
+                  <input id="marketingPillarInput" type="text" list="marketingPillarsList" maxlength="80" placeholder="Ex.: Educativo" />
+                  <datalist id="marketingPillarsList">
+                    <option value="INSS de obras"></option>
+                    <option value="Regularização de imóvel"></option>
+                    <option value="Educativo"></option>
+                    <option value="Comercial"></option>
+                    <option value="Dúvidas frequentes"></option>
+                    <option value="Bastidores"></option>
+                    <option value="Prova social"></option>
+                    <option value="Institucional"></option>
+                  </datalist>
+                </label>
+                <label>Formato<select id="marketingFormatInput"></select></label>
+                <label>Canal<select id="marketingChannelInput"></select></label>
+                <fieldset id="marketingObjectiveGroup" class="marketing-choice-field span-2">
+                  <legend>Objetivo</legend>
+                  <div class="marketing-choice-grid">
+                    <label><input type="radio" name="marketingObjective" value="Educar" /><i data-lucide="book-open"></i> Educar</label>
+                    <label><input type="radio" name="marketingObjective" value="Vender" /><i data-lucide="chart-no-axes-column-increasing"></i> Vender</label>
+                    <label><input type="radio" name="marketingObjective" value="Informar" /><i data-lucide="info"></i> Informar</label>
+                    <label><input type="radio" name="marketingObjective" value="Autoridade" /><i data-lucide="star"></i> Autoridade</label>
+                  </div>
+                </fieldset>
+                <label id="marketingClientField" class="span-2">Cliente vinculado (opcional)
+                  <select id="marketingClientInput"></select>
+                </label>
+              </div>
+            </section>
+
+            <section id="marketingProductionSection" class="marketing-form-section">
+              <h3>2. Produção</h3>
+              <div class="marketing-field-grid">
+                <label>Responsável<select id="marketingOwnerInput"></select></label>
+                <label>Status<select id="marketingContentStatusInput"></select></label>
+                <label>Prioridade<select id="marketingPriorityInput"></select></label>
+                <label>Data de produção<input id="marketingProductionDateInput" type="date" /></label>
+                <label>Data da postagem<input id="marketingPublishDateInput" type="date" /></label>
+                <label>Horário<input id="marketingPublishTimeInput" type="time" /></label>
+              </div>
+            </section>
+          </div>
+
+          <div id="marketingContentDetails" class="marketing-form-column">
+            <section class="marketing-form-section">
+              <h3>3. Roteiro</h3>
+              <div class="segmented-control marketing-script-mode" role="group" aria-label="Formato do roteiro">
+                <button id="marketingStructuredScriptButton" class="active" type="button">Estruturado</button>
+                <button id="marketingFreeScriptButton" type="button">Texto livre</button>
+              </div>
+              <div id="marketingStructuredScriptFields" class="marketing-script-fields">
+                <label>Gancho inicial<textarea id="marketingHookInput" rows="2" maxlength="1000" placeholder="Como você vai prender a atenção nos primeiros segundos?"></textarea></label>
+                <label>Problema<textarea id="marketingProblemInput" rows="2" maxlength="1600" placeholder="Qual problema ou dúvida será apresentado?"></textarea></label>
+                <label>Explicação<textarea id="marketingExplanationInput" rows="3" maxlength="2600" placeholder="Desenvolva os principais pontos do conteúdo."></textarea></label>
+                <label>Conclusão e chamada para ação<textarea id="marketingConclusionInput" rows="2" maxlength="1200" placeholder="Finalize e indique o próximo passo."></textarea></label>
+              </div>
+              <div id="marketingFreeScriptFields" class="marketing-script-fields" hidden>
+                <label>Roteiro completo<textarea id="marketingFreeScriptInput" rows="12" maxlength="6000" placeholder="Escreva o roteiro livremente."></textarea></label>
+              </div>
+            </section>
+
+            <section class="marketing-form-section">
+              <h3>4. Publicação</h3>
+              <div class="marketing-script-fields">
+                <label>Legenda<textarea id="marketingCaptionInput" rows="3" maxlength="3000" placeholder="Texto que acompanhará a publicação."></textarea></label>
+                <label>Link da arte ou vídeo<input id="marketingAssetLinkInput" type="url" maxlength="500" placeholder="https://" /></label>
+                <label class="marketing-checkbox-row"><input id="marketingGenerateTaskInput" type="checkbox" /> <span>Gerar tarefa de produção na Central de Tarefas</span></label>
+              </div>
+            </section>
+
+            <section id="marketingHistorySection" class="marketing-form-section marketing-history-section" hidden>
+              <h3>Histórico</h3>
+              <div id="marketingHistoryList" class="marketing-history-list"></div>
+            </section>
+          </div>
+        </div>
+
+        <footer class="dialog-footer marketing-dialog-footer">
+          <button id="deleteMarketingItemButton" class="danger-button" type="button"><i data-lucide="trash-2"></i> Excluir</button>
+          <div class="inline-actions">
+            <button id="cancelMarketingDialogButton" class="secondary-button" type="button">Cancelar</button>
+            <button id="saveMarketingDraftButton" class="secondary-button" type="button">Salvar rascunho</button>
+            <button id="saveMarketingItemButton" class="primary-button" type="submit"><i data-lucide="save"></i> Salvar conteúdo</button>
+          </div>
+        </footer>
+      </form>
+    </dialog>
+
     <dialog id="simpleDialog" class="simple-dialog">
       <form method="dialog" class="simple-form">
         <header class="dialog-header">
@@ -1054,7 +1201,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=149"></script>
+    <script src="./app.js?v=150"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

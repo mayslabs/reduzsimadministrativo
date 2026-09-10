@@ -1,7 +1,7 @@
 # ReduzSim Gestao
 
 CRM interno da ReduzSim para INSS de obras, regularizacao de imoveis, tarefas,
-atualizacoes, indicadores, metas e financeiro administrativo.
+marketing, atualizacoes, indicadores, metas e financeiro administrativo.
 
 ## Arquitetura
 
@@ -36,7 +36,8 @@ ignorado pelo Git e nunca deve ser publicado.
 
 ## Banco de dados
 
-O schema inicial esta em `migrations/0001_crm.sql`. O banco remoto configurado
+O schema inicial esta em `migrations/0001_crm.sql` e a central de Marketing em
+`migrations/0002_marketing.sql`. O banco remoto configurado
 em `wrangler.toml` e `reduzsim-gestao-db`.
 
 O export do Firebase e o SQL gerado ficam em `exports/`, pasta ignorada pelo
@@ -69,6 +70,8 @@ arquivo versionado.
 - Financeiro interno e categorias de contas sao retornados apenas para a
   administradora.
 - Historicos existentes nao podem ser editados ou removidos pela colaboradora.
+- Conteudos de Marketing sao compartilhados pela equipe; somente a administradora
+  pode exclui-los e o historico de alteracoes e preservado.
 - Atualizacoes sao imutaveis; a leitura por usuario fica em tabela separada.
 - Gravacoes usam versoes para impedir sobrescrita silenciosa entre
   computadores.

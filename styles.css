@@ -279,6 +279,15 @@ body.privacy-mode :is(
   #updatesSection .update-change-list li,
   #updatesSection .updates-important-item strong,
   #updatesSection .updates-important-item small,
+  #marketingSection .marketing-calendar-entry strong,
+  #marketingSection .marketing-calendar-entry span,
+  #marketingSection .marketing-upcoming-copy strong,
+  #marketingSection .marketing-upcoming-copy small,
+  #marketingSection .marketing-pipeline-card strong,
+  #marketingSection .marketing-pipeline-card small,
+  #marketingSection .marketing-idea-copy strong,
+  #marketingSection .marketing-idea-copy p,
+  #marketingSection .marketing-idea-copy small,
   #billsSection .bill-summary-card strong,
   #billsSection .bills-alert span,
   #billsSection .bills-table tbody td:first-child strong,
@@ -351,6 +360,8 @@ body.privacy-mode :is(
   #clientDialog textarea,
   #regularizationDialog input:not([type="checkbox"]):not([type="radio"]),
   #regularizationDialog textarea,
+  #marketingDialog input:not([type="checkbox"]):not([type="radio"]),
+  #marketingDialog textarea,
   #simpleDialog.bill-form-dialog input[name="description"],
   #simpleDialog.bill-form-dialog input[name="amount"],
   #simpleDialog.bill-form-dialog textarea[name="notes"],
@@ -7582,5 +7593,1100 @@ button.updates-important-item:hover {
 
   .data-toolbar {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Marketing workspace */
+.marketing-heading .inline-actions {
+  flex-wrap: nowrap;
+}
+
+.marketing-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.marketing-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px solid #dce6e3;
+  border-top: 2px solid #a7d9cc;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.marketing-summary-card > span {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 8px;
+  color: #087f6b;
+  background: #e7f6f1;
+}
+
+.marketing-summary-card svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.6;
+}
+
+.marketing-summary-card > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.marketing-summary-card small {
+  color: #66727e;
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.marketing-summary-card strong {
+  color: #303a45;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.marketing-summary-card.planned {
+  border-top-color: #e3b960;
+}
+
+.marketing-summary-card.planned > span {
+  color: #9b6807;
+  background: #fff6dc;
+}
+
+.marketing-summary-card.production {
+  border-top-color: #8ebbed;
+}
+
+.marketing-summary-card.production > span {
+  color: #326fae;
+  background: #eaf3fc;
+}
+
+.marketing-summary-card.scheduled {
+  border-top-color: #b59ae9;
+}
+
+.marketing-summary-card.scheduled > span {
+  color: #7654bc;
+  background: #f1ebfc;
+}
+
+.marketing-summary-card.published {
+  border-top-color: #85c9a7;
+}
+
+.marketing-summary-card.published > span {
+  color: #27784e;
+  background: #e8f6ee;
+}
+
+.marketing-toolbar {
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 190px) minmax(140px, 180px) minmax(145px, 185px) auto;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.marketing-toolbar select,
+.marketing-toolbar input {
+  min-height: 40px;
+  font-size: 0.8rem;
+  font-weight: 450;
+}
+
+.marketing-view-control {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 320px;
+}
+
+.marketing-view-control button {
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.marketing-workspace,
+.marketing-calendar-layout,
+.marketing-board-panel,
+.marketing-ideas-panel {
+  min-width: 0;
+}
+
+.marketing-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(245px, 290px);
+  align-items: start;
+  gap: 12px;
+}
+
+.marketing-calendar-panel,
+.marketing-upcoming-panel,
+.marketing-board-panel,
+.marketing-ideas-panel {
+  border: 1px solid #dce6e3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.marketing-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e4ebe9;
+}
+
+.marketing-panel-header.compact {
+  min-height: 62px;
+}
+
+.marketing-panel-header .eyebrow {
+  margin-bottom: 3px;
+  font-size: 0.64rem;
+  font-weight: 650;
+}
+
+.marketing-panel-header h3 {
+  font-size: 0.98rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.marketing-panel-header > span,
+.marketing-upcoming-panel .marketing-panel-header > span {
+  display: inline-grid;
+  min-width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  color: #087f6b;
+  background: #e8f7f2;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.marketing-month-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.marketing-month-controls .icon-button,
+.marketing-month-controls .secondary-button {
+  min-height: 34px;
+  height: 34px;
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.marketing-month-controls .icon-button {
+  width: 34px;
+}
+
+.marketing-calendar-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.marketing-calendar-weekdays,
+.marketing-calendar-grid {
+  min-width: 735px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(105px, 1fr));
+}
+
+.marketing-calendar-weekdays {
+  border-bottom: 1px solid #e5ecea;
+  background: #f8fbfa;
+}
+
+.marketing-calendar-weekdays span {
+  padding: 8px;
+  color: #6d7883;
+  font-size: 0.68rem;
+  font-weight: 550;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.marketing-calendar-day {
+  min-height: 118px;
+  padding: 7px;
+  border-right: 1px solid #e7edeb;
+  border-bottom: 1px solid #e7edeb;
+  background: #fff;
+  cursor: pointer;
+}
+
+.marketing-calendar-day:nth-child(7n) {
+  border-right: 0;
+}
+
+.marketing-calendar-day:hover {
+  background: #fbfdfc;
+}
+
+.marketing-calendar-day.outside {
+  background: #fafbfb;
+  opacity: 0.62;
+}
+
+.marketing-calendar-day.today {
+  background: #f1faf7;
+  box-shadow: inset 0 0 0 1px #74cfba;
+}
+
+.marketing-calendar-day > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 21px;
+  margin-bottom: 5px;
+}
+
+.marketing-calendar-day > header > span {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  color: #4e5965;
+  font-size: 0.72rem;
+  font-weight: 550;
+}
+
+.marketing-calendar-day.today > header > span {
+  border-radius: 50%;
+  color: #fff;
+  background: #079b7d;
+}
+
+.marketing-calendar-day > header small {
+  color: #087f6b;
+  font-size: 0.58rem;
+  font-weight: 550;
+  text-transform: uppercase;
+}
+
+.marketing-day-items {
+  display: grid;
+  gap: 4px;
+}
+
+.marketing-calendar-entry {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  min-height: 31px;
+  padding: 4px 6px;
+  border: 0;
+  border-left: 2px solid #70aaee;
+  border-radius: 5px;
+  color: #3d4954;
+  background: #eaf3fc;
+  text-align: left;
+}
+
+.marketing-calendar-entry span {
+  overflow: hidden;
+  color: #64717c;
+  font-size: 0.57rem;
+  font-weight: 450;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketing-calendar-entry strong {
+  overflow: hidden;
+  font-size: 0.64rem;
+  font-weight: 560;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketing-calendar-entry.status-planejado,
+.marketing-calendar-entry.status-roteiro {
+  border-left-color: #d5a53b;
+  background: #fff5dc;
+}
+
+.marketing-calendar-entry.status-gravacao,
+.marketing-calendar-entry.status-edicao,
+.marketing-calendar-entry.status-aprovacao {
+  border-left-color: #6e9ed8;
+  background: #edf4fc;
+}
+
+.marketing-calendar-entry.status-agendado {
+  border-left-color: #9575d0;
+  background: #f2edfb;
+}
+
+.marketing-calendar-entry.status-publicado {
+  border-left-color: #5bac82;
+  background: #eaf7f0;
+}
+
+.marketing-more-items {
+  color: #687580;
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.marketing-upcoming-panel {
+  overflow: hidden;
+}
+
+.marketing-upcoming-list {
+  display: grid;
+  gap: 0;
+  padding: 4px 12px 0;
+}
+
+.marketing-upcoming-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 8px;
+  align-items: center;
+  gap: 9px;
+  min-height: 61px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid #e7edeb;
+  background: transparent;
+  text-align: left;
+}
+
+.marketing-upcoming-item:hover .marketing-upcoming-copy strong {
+  color: #007f68;
+}
+
+.marketing-date-block {
+  display: grid;
+  place-items: center;
+  min-height: 39px;
+  border-radius: 6px;
+  background: #f0f5f4;
+}
+
+.marketing-date-block strong {
+  color: #34404b;
+  font-size: 0.83rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.marketing-date-block small {
+  color: #74808b;
+  font-size: 0.56rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.marketing-upcoming-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.marketing-upcoming-copy strong {
+  overflow: hidden;
+  color: #37434e;
+  font-size: 0.73rem;
+  font-weight: 580;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketing-upcoming-copy small {
+  overflow: hidden;
+  color: #75818c;
+  font-size: 0.62rem;
+  font-weight: 430;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketing-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #90a0ad;
+}
+
+.marketing-status-dot.status-planejado,
+.marketing-status-dot.status-roteiro {
+  background: #d8a332;
+}
+
+.marketing-status-dot.status-gravacao,
+.marketing-status-dot.status-edicao,
+.marketing-status-dot.status-aprovacao {
+  background: #6a9bd5;
+}
+
+.marketing-status-dot.status-agendado {
+  background: #9270d0;
+}
+
+.marketing-status-dot.status-publicado {
+  background: #55a87b;
+}
+
+.marketing-aside-action {
+  width: calc(100% - 24px);
+  min-height: 36px;
+  margin: 12px;
+  font-size: 0.74rem;
+  font-weight: 550;
+}
+
+.marketing-pipeline {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(190px, 1fr));
+  gap: 9px;
+  overflow-x: auto;
+  padding: 12px;
+  background: #f8fbfa;
+}
+
+.marketing-pipeline-column {
+  min-height: 410px;
+  border: 1px solid #dfe8e5;
+  border-top: 2px solid #98a8b5;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.marketing-pipeline-column.status-planejado,
+.marketing-pipeline-column.status-roteiro {
+  border-top-color: #ddb04e;
+}
+
+.marketing-pipeline-column.status-gravacao,
+.marketing-pipeline-column.status-edicao,
+.marketing-pipeline-column.status-aprovacao {
+  border-top-color: #82afe1;
+}
+
+.marketing-pipeline-column.status-agendado {
+  border-top-color: #a88bdd;
+}
+
+.marketing-pipeline-column.status-publicado {
+  border-top-color: #74bd98;
+}
+
+.marketing-pipeline-column > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 43px;
+  padding: 9px 10px;
+  border-bottom: 1px solid #e5ecea;
+}
+
+.marketing-pipeline-column > header span,
+.marketing-pipeline-column > header strong {
+  color: #4c5863;
+  font-size: 0.72rem;
+  font-weight: 580;
+}
+
+.marketing-pipeline-column > header strong {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0f4f3;
+}
+
+.marketing-pipeline-column > div {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 8px;
+}
+
+.marketing-pipeline-card {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid #dfe7e5;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(39, 55, 48, 0.04);
+}
+
+.marketing-card-open {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.marketing-card-meta {
+  color: #71808a;
+  font-size: 0.59rem;
+  font-weight: 450;
+  text-transform: uppercase;
+}
+
+.marketing-card-open strong {
+  color: #34404b;
+  font-size: 0.73rem;
+  font-weight: 580;
+  line-height: 1.35;
+}
+
+.marketing-card-open small {
+  color: #77838d;
+  font-size: 0.61rem;
+  font-weight: 430;
+  line-height: 1.3;
+}
+
+.marketing-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  color: #6f7c87;
+  font-size: 0.6rem;
+}
+
+.marketing-card-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.marketing-card-footer svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 1.6;
+}
+
+.marketing-pipeline-card select {
+  min-height: 32px;
+  padding: 5px 26px 5px 8px;
+  border-radius: 6px;
+  font-size: 0.67rem;
+  font-weight: 500;
+}
+
+.marketing-column-empty {
+  margin: 14px 0;
+  color: #89949d;
+  font-size: 0.65rem;
+  text-align: center;
+}
+
+.marketing-ideas-list {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+}
+
+.marketing-idea-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 82px;
+  padding: 11px 12px;
+  border: 1px solid #e0e8e6;
+  border-left: 2px solid #e0b54f;
+  border-radius: 7px;
+  background: #fffdf8;
+}
+
+.marketing-idea-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 8px;
+  color: #a27616;
+  background: #fff3d4;
+}
+
+.marketing-idea-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.55;
+}
+
+.marketing-idea-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.marketing-idea-copy > strong {
+  color: #333f4a;
+  font-size: 0.82rem;
+  font-weight: 590;
+}
+
+.marketing-idea-copy p,
+.marketing-idea-copy small {
+  margin: 0;
+  color: #6f7b86;
+  font-size: 0.68rem;
+  font-weight: 430;
+  line-height: 1.4;
+}
+
+.marketing-idea-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.marketing-idea-meta span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #6f674f;
+  background: #f7f0dd;
+  font-size: 0.57rem;
+  font-weight: 500;
+}
+
+.marketing-idea-item .small-button {
+  min-height: 33px;
+  font-weight: 520;
+}
+
+.marketing-dialog {
+  width: min(1220px, calc(100vw - 28px));
+  max-width: none;
+  max-height: 94vh;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.marketing-dialog::backdrop {
+  background: rgba(31, 41, 51, 0.42);
+}
+
+.marketing-form {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: 94vh;
+  background: #fff;
+}
+
+.marketing-dialog-header {
+  min-height: 72px;
+}
+
+.marketing-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.marketing-dialog-title > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 8px;
+  color: #087f6b;
+  background: #e7f6f1;
+}
+
+.marketing-dialog-title svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.6;
+}
+
+.marketing-dialog-title h2 {
+  font-size: 1.18rem;
+  font-weight: 620;
+}
+
+.marketing-dialog-history-summary {
+  display: grid;
+  gap: 2px;
+  margin-left: auto;
+  color: #78848e;
+  font-size: 0.64rem;
+  font-weight: 430;
+  text-align: right;
+}
+
+.marketing-dialog-history-summary strong {
+  color: #53606b;
+  font-weight: 570;
+}
+
+.marketing-dialog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.marketing-form.idea-mode .marketing-dialog-body {
+  grid-template-columns: minmax(0, 720px);
+  justify-content: center;
+}
+
+.marketing-form-column {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+.marketing-form-column + .marketing-form-column {
+  border-left: 1px solid #e2e9e7;
+  background: #fbfcfc;
+}
+
+.marketing-form-section {
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5ecea;
+}
+
+.marketing-form-section h3 {
+  margin-bottom: 12px;
+  color: #087f6b;
+  font-size: 0.78rem;
+  font-weight: 620;
+}
+
+.marketing-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.marketing-field-grid .span-2 {
+  grid-column: 1 / -1;
+}
+
+.marketing-form label,
+.marketing-choice-field legend {
+  color: #4d5964;
+  font-size: 0.71rem;
+  font-weight: 560;
+}
+
+.marketing-form input,
+.marketing-form select,
+.marketing-form textarea {
+  min-height: 40px;
+  border-color: #dce5e2;
+  color: #34404b;
+  font-size: 0.76rem;
+  font-weight: 430;
+  line-height: 1.45;
+}
+
+.marketing-form textarea {
+  min-height: 70px;
+}
+
+.marketing-choice-field {
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+
+.marketing-choice-field legend {
+  margin-bottom: 6px;
+}
+
+.marketing-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.marketing-choice-grid label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 6px 7px;
+  border: 1px solid #dfe7e5;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.marketing-choice-grid label:has(input:checked) {
+  border-color: #7fcdb9;
+  color: #087f6b;
+  background: #ecf8f4;
+}
+
+.marketing-choice-grid input {
+  width: 13px;
+  min-height: 13px;
+  margin: 0;
+  accent-color: #009f7f;
+}
+
+.marketing-choice-grid svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.55;
+}
+
+.marketing-script-mode {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(280px, 100%);
+  margin-bottom: 11px;
+}
+
+.marketing-script-mode button {
+  font-weight: 520;
+}
+
+.marketing-script-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.marketing-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #dce6e3;
+  border-radius: 7px;
+  background: #f5faf8;
+  cursor: pointer;
+}
+
+.marketing-checkbox-row input {
+  width: 15px;
+  min-height: 15px;
+  margin: 0;
+  accent-color: #009f7f;
+}
+
+.marketing-history-section {
+  border-bottom: 0;
+}
+
+.marketing-history-list {
+  position: relative;
+  display: grid;
+  gap: 0;
+}
+
+.marketing-history-list::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 5px;
+  width: 1px;
+  background: #cfdcd8;
+}
+
+.marketing-history-list article {
+  position: relative;
+  display: grid;
+  grid-template-columns: 11px minmax(0, 1fr);
+  gap: 9px;
+  padding: 0 0 12px;
+}
+
+.marketing-history-marker {
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  margin-top: 3px;
+  border: 2px solid #70cbb5;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.marketing-history-list article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.marketing-history-list strong {
+  color: #46525d;
+  font-size: 0.69rem;
+  font-weight: 580;
+}
+
+.marketing-history-list small,
+.marketing-history-list p {
+  margin: 0;
+  color: #78848e;
+  font-size: 0.62rem;
+  font-weight: 420;
+  line-height: 1.4;
+}
+
+.marketing-dialog-footer {
+  min-height: 66px;
+}
+
+.marketing-dialog-footer button {
+  min-height: 38px;
+  font-size: 0.76rem;
+  font-weight: 550;
+}
+
+.update-type-marketing {
+  --update-accent: #d39b28;
+  --update-soft: #fff6df;
+}
+
+@media (max-width: 1480px) {
+  .marketing-summary {
+    grid-template-columns: repeat(5, minmax(115px, 1fr));
+  }
+
+  .marketing-toolbar {
+    grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(135px, 165px));
+  }
+
+  .marketing-view-control {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
+@media (max-width: 1100px) {
+  .marketing-summary {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
+  .marketing-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-upcoming-panel {
+    max-width: none;
+  }
+
+  .marketing-dialog-body {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-form-column + .marketing-form-column {
+    border-top: 1px solid #e2e9e7;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .marketing-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .marketing-heading .inline-actions,
+  .marketing-heading .inline-actions button {
+    width: 100%;
+  }
+
+  .marketing-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .marketing-summary-card {
+    min-height: 64px;
+    padding: 9px;
+  }
+
+  .marketing-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-view-control {
+    grid-column: auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .marketing-view-control button {
+    padding-inline: 6px;
+  }
+
+  .marketing-idea-item {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .marketing-idea-item .inline-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .marketing-dialog {
+    width: calc(100vw - 16px);
+    max-height: 96vh;
+  }
+
+  .marketing-form {
+    max-height: 96vh;
+  }
+
+  .marketing-dialog-header {
+    padding: 12px;
+  }
+
+  .marketing-dialog-history-summary {
+    display: none;
+  }
+
+  .marketing-field-grid,
+  .marketing-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-field-grid .span-2 {
+    grid-column: auto;
+  }
+
+  .marketing-form-section {
+    padding: 14px;
+  }
+
+  .marketing-dialog-footer {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .marketing-dialog-footer > .inline-actions,
+  .marketing-dialog-footer button {
+    width: 100%;
   }
 }

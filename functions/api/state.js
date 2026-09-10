@@ -34,6 +34,14 @@ const COLLECTIONS = [
   },
   { stateKey: "meetings", table: "meetings", scope: "team", maxItems: 5000 },
   {
+    stateKey: "marketingItems",
+    table: "marketing_items",
+    scope: "team",
+    maxItems: 10000,
+    protectHistory: true,
+    adminDeleteOnly: true,
+  },
+  {
     stateKey: "activities",
     table: "activities",
     scope: "dynamic",
@@ -176,6 +184,7 @@ async function readState(db, user) {
     guidanceQuestions: [],
     internalTasks: [],
     meetings: [],
+    marketingItems: [],
     activities: [],
     goals: {},
     companyBills: [],
@@ -286,6 +295,9 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
 
   writableCollections.forEach((config, index) => {
     const desiredItems = desiredState[config.stateKey];
+    const collectionHasDirtyRecords = !dirtyKeys
+      || [...dirtyKeys].some((key) => key.startsWith(`${config.stateKey}:`));
+    if (!Array.isArray(desiredItems) && dirtyKeys && !collectionHasDirtyRecords) return;
     if (!Array.isArray(desiredItems) || desiredItems.length > config.maxItems) {
       throw new ValidationError(`A colecao ${config.stateKey} e invalida.`);
     }
@@ -305,6 +317,15 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
       const existing = existingById.get(id);
       desiredById.set(id, item);
       if (dirtyKeys && !dirtyKeys.has(recordKey)) return;
+
+      if (config.stateKey === "marketingItems") {
+        const previous = existing && !existing.deleted_at ? parsePayload(existing.payload) : null;
+        item.createdBy = String(previous?.createdBy || user.id);
+        item.createdAt = String(previous?.createdAt || item.createdAt || now);
+        item.updatedBy = user.id;
+        item.updatedAt = now;
+        desiredById.set(id, item);
+      }
 
       if (config.protectHistory && user.role !== "admin" && existing && !existing.deleted_at) {
         item = protectExistingHistory(parsePayload(existing.payload), item, user, now);
@@ -357,6 +378,9 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
         if (row.scope === "admin" && user.role !== "admin") return;
         const id = String(row.id);
         if (dirtyKeys && !dirtyKeys.has(versionKey(config.stateKey, id))) return;
+        if (config.adminDeleteOnly && user.role !== "admin") {
+          throw new PermissionError("Somente a administradora pode excluir este registro.");
+        }
         const expectedVersion = Number(clientVersions[versionKey(config.stateKey, id)] || 0);
         if (expectedVersion !== Number(row.version || 0)) {
           conflicts.push(versionKey(config.stateKey, id));
