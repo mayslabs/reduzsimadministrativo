@@ -552,6 +552,10 @@ const el = {
   marketingPillarInput: document.getElementById("marketingPillarInput"),
   marketingFormatInput: document.getElementById("marketingFormatInput"),
   marketingChannelInput: document.getElementById("marketingChannelInput"),
+  marketingChannelPicker: document.getElementById("marketingChannelPicker"),
+  marketingChannelSummary: document.getElementById("marketingChannelSummary"),
+  marketingChannelClearButton: document.getElementById("marketingChannelClearButton"),
+  marketingChannelDoneButton: document.getElementById("marketingChannelDoneButton"),
   marketingClientInput: document.getElementById("marketingClientInput"),
   marketingClientField: document.getElementById("marketingClientField"),
   marketingProductionSection: document.getElementById("marketingProductionSection"),
@@ -963,9 +967,19 @@ function normalizeGoalSettings(goals = {}) {
   };
 }
 
+function normalizeMarketingChannels(item = {}) {
+  const source = Array.isArray(item.channels) ? item.channels : [item.channel];
+  return [...new Set(source.map((channel) => normalizeSelectValue(channel, MARKETING_CHANNELS)).filter(Boolean))];
+}
+
+function marketingChannelLabel(item = {}) {
+  return normalizeMarketingChannels(item).join(", ");
+}
+
 function normalizeMarketingItem(item = {}) {
   const kind = item.kind === "idea" ? "idea" : "content";
   const now = new Date().toISOString();
+  const channels = normalizeMarketingChannels(item);
   const status = kind === "idea"
     ? "Ideia"
     : normalizeSelectValue(item.status, MARKETING_CONTENT_STATUSES) || "Planejado";
@@ -976,7 +990,8 @@ function normalizeMarketingItem(item = {}) {
     description: String(item.description || ""),
     pillar: String(item.pillar || ""),
     format: normalizeSelectValue(item.format, MARKETING_FORMATS),
-    channel: normalizeSelectValue(item.channel, MARKETING_CHANNELS),
+    channel: channels[0] || "",
+    channels,
     objective: normalizeSelectValue(item.objective, MARKETING_OBJECTIVES),
     clientId: String(item.clientId || ""),
     clientSource: item.clientSource === "regularization" ? "regularization" : "inss",
@@ -1740,6 +1755,15 @@ function bindEvents() {
   el.saveMarketingDraftButton?.addEventListener("click", () => saveMarketingItem({ draft: true }));
   el.marketingStructuredScriptButton?.addEventListener("click", () => setMarketingScriptMode("structured"));
   el.marketingFreeScriptButton?.addEventListener("click", () => setMarketingScriptMode("free"));
+  el.marketingChannelClearButton?.addEventListener("click", () => {
+    el.marketingChannelInput.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      input.checked = false;
+    });
+    updateMarketingChannelSummary();
+  });
+  el.marketingChannelDoneButton?.addEventListener("click", () => {
+    el.marketingChannelPicker.open = false;
+  });
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
   el.nextTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(1));
   el.todayTaskButton.addEventListener("click", () => {
@@ -4189,7 +4213,7 @@ function filteredMarketingItems() {
         item.description,
         item.pillar,
         item.format,
-        item.channel,
+        marketingChannelLabel(item),
         item.objective,
         item.caption,
         client?.clientName,
@@ -4197,7 +4221,7 @@ function filteredMarketingItems() {
       return (
         (!query || haystack.includes(query))
         && (!ownerId || item.ownerId === ownerId)
-        && (!channel || item.channel === channel)
+        && (!channel || normalizeMarketingChannels(item).includes(channel))
         && (!status || item.status === status)
       );
     })
@@ -4271,7 +4295,7 @@ function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
       <div class="marketing-day-items">
         ${visible.map((item) => `
           <button class="marketing-calendar-entry status-${marketingSlug(item.status)}" type="button" data-open-marketing="${escapeAttr(item.id)}" title="${escapeAttr(item.title)}">
-            <span>${escapeHtml(item.publishTime || item.channel || "Conteúdo")}</span>
+            <span>${escapeHtml(item.publishTime || marketingChannelLabel(item) || "Conteúdo")}</span>
             <strong>${escapeHtml(item.title)}</strong>
           </button>
         `).join("")}
@@ -4287,7 +4311,7 @@ function renderMarketingUpcomingItem(item) {
       <span class="marketing-date-block"><strong>${escapeHtml(item.publishDate.slice(8, 10))}</strong><small>${escapeHtml(monthName(item.publishDate.slice(5, 7)).slice(0, 3))}</small></span>
       <span class="marketing-upcoming-copy">
         <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
-        <small>${escapeHtml([item.channel, item.format, item.publishTime].filter(Boolean).join(" • ") || "Sem canal definido")}</small>
+        <small>${escapeHtml([marketingChannelLabel(item), item.format, item.publishTime].filter(Boolean).join(" • ") || "Sem canal definido")}</small>
       </span>
       <span class="marketing-status-dot status-${marketingSlug(item.status)}" title="${escapeAttr(item.status)}"></span>
     </button>
@@ -4324,7 +4348,7 @@ function renderMarketingPipelineCard(item) {
   return `
     <article class="marketing-pipeline-card">
       <button class="marketing-card-open" type="button" data-open-marketing="${escapeAttr(item.id)}">
-        <span class="marketing-card-meta">${escapeHtml([item.channel, item.format].filter(Boolean).join(" • ") || "Conteúdo")}</span>
+        <span class="marketing-card-meta">${escapeHtml([marketingChannelLabel(item), item.format].filter(Boolean).join(" • ") || "Conteúdo")}</span>
         <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
         ${linked ? `<small>${escapeHtml(linked.clientName)}</small>` : ""}
       </button>
@@ -4361,7 +4385,7 @@ function renderMarketingIdeaItem(item) {
       <div class="marketing-idea-copy">
         <div class="marketing-idea-meta">
           ${item.pillar ? `<span>${escapeHtml(item.pillar)}</span>` : ""}
-          ${item.channel ? `<span>${escapeHtml(item.channel)}</span>` : ""}
+          ${normalizeMarketingChannels(item).map((channel) => `<span>${escapeHtml(channel)}</span>`).join("")}
           ${item.objective ? `<span>${escapeHtml(item.objective)}</span>` : ""}
         </div>
         <strong>${escapeHtml(item.title || "Ideia sem título")}</strong>
@@ -4447,7 +4471,7 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   el.marketingDescriptionInput.value = item.description;
   el.marketingPillarInput.value = item.pillar;
   el.marketingFormatInput.innerHTML = marketingSelectOptions(MARKETING_FORMATS, item.format, "Selecione");
-  el.marketingChannelInput.innerHTML = marketingSelectOptions(MARKETING_CHANNELS, item.channel, "Selecione");
+  renderMarketingChannelPicker(item.channels);
   el.marketingOwnerInput.innerHTML = `<option value="">Sem responsável</option>${state.users.map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === item.ownerId ? "selected" : ""}>${escapeHtml(user.name)}</option>`).join("")}`;
   el.marketingContentStatusInput.innerHTML = MARKETING_CONTENT_STATUSES.map((status) => `<option value="${escapeAttr(status)}" ${status === item.status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("");
   el.marketingPriorityInput.innerHTML = taskPriorityValues().map((priority) => `<option value="${escapeAttr(priority)}" ${priority === item.priority ? "selected" : ""}>${escapeHtml(priority)}</option>`).join("");
@@ -4479,6 +4503,33 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   el.marketingDialog.showModal();
   refreshIcons();
   window.setTimeout(() => el.marketingTitleInput.focus(), 0);
+}
+
+function renderMarketingChannelPicker(selectedChannels = []) {
+  const selected = new Set(normalizeMarketingChannels({ channels: selectedChannels }));
+  el.marketingChannelInput.innerHTML = MARKETING_CHANNELS.map((channel) => `
+    <label>
+      <input type="checkbox" value="${escapeAttr(channel)}" ${selected.has(channel) ? "checked" : ""} />
+      <span>${escapeHtml(channel)}</span>
+    </label>
+  `).join("");
+  el.marketingChannelInput.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.addEventListener("change", updateMarketingChannelSummary);
+  });
+  el.marketingChannelPicker.open = false;
+  updateMarketingChannelSummary();
+}
+
+function selectedMarketingChannels() {
+  return [...el.marketingChannelInput.querySelectorAll('input[type="checkbox"]:checked')]
+    .map((input) => input.value)
+    .filter((channel) => MARKETING_CHANNELS.includes(channel));
+}
+
+function updateMarketingChannelSummary() {
+  const channels = selectedMarketingChannels();
+  el.marketingChannelSummary.textContent = channels.length ? channels.join(", ") : "Selecione";
+  el.marketingChannelPicker.classList.toggle("has-selection", channels.length > 0);
 }
 
 function marketingSelectOptions(options, selected, placeholder) {
@@ -4526,7 +4577,7 @@ function collectMarketingForm() {
     description: el.marketingDescriptionInput.value.trim(),
     pillar: el.marketingPillarInput.value.trim(),
     format: el.marketingFormatInput.value,
-    channel: el.marketingChannelInput.value,
+    channels: selectedMarketingChannels(),
     objective,
     clientId: hasClient ? linked.id : "",
     clientSource: hasClient ? linked.source : "inss",
@@ -4572,7 +4623,7 @@ function saveMarketingItem({ draft = false } = {}) {
   recordActivity(
     "marketing",
     `${existing ? "Atualizou" : "Criou"} ${item.kind === "idea" ? "ideia" : "conteúdo"}: ${item.title}.`,
-    changes.join("\n") || `${item.channel || "Canal não definido"} • ${item.status}.`,
+    changes.join("\n") || `${marketingChannelLabel(item) || "Canal não definido"} • ${item.status}.`,
     marketingActivityOptions(item),
   );
   saveState();
@@ -4600,7 +4651,7 @@ function marketingChangeDetails(previous, next) {
     description: "Descrição",
     pillar: "Tema ou pilar",
     format: "Formato",
-    channel: "Canal",
+    channels: "Canais",
     objective: "Objetivo",
     ownerId: "Responsável",
     status: "Etapa",
@@ -4611,9 +4662,15 @@ function marketingChangeDetails(previous, next) {
     clientId: "Cliente vinculado",
   };
   const changes = Object.entries(labels).flatMap(([field, label]) => {
-    if (String(previous[field] || "") === String(next[field] || "")) return [];
+    const previousValue = field === "channels" ? normalizeMarketingChannels(previous) : previous[field];
+    const nextValue = field === "channels" ? normalizeMarketingChannels(next) : next[field];
+    if (JSON.stringify(previousValue || "") === JSON.stringify(nextValue || "")) return [];
     let before = previous[field] || "vazio";
     let after = next[field] || "vazio";
+    if (field === "channels") {
+      before = normalizeMarketingChannels(previous).join(", ") || "Nenhum canal";
+      after = normalizeMarketingChannels(next).join(", ") || "Nenhum canal";
+    }
     if (field === "ownerId") {
       before = previous[field] ? ownerName(previous[field]) : "Sem responsável";
       after = next[field] ? ownerName(next[field]) : "Sem responsável";
@@ -4655,7 +4712,7 @@ function syncMarketingTask(item, shouldGenerate) {
   const title = `Produzir conteúdo: ${item.title}`;
   const description = [
     item.description,
-    [item.channel, item.format, item.status].filter(Boolean).join(" • "),
+    [marketingChannelLabel(item), item.format, item.status].filter(Boolean).join(" • "),
     item.publishDate ? `Postagem: ${formatDate(item.publishDate)}${item.publishTime ? ` às ${item.publishTime}` : ""}` : "",
   ].filter(Boolean).join("\n");
   if (existingTask) {

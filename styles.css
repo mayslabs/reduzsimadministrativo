@@ -8414,6 +8414,141 @@ button.updates-important-item:hover {
   min-height: 70px;
 }
 
+.marketing-multi-field {
+  min-width: 0;
+}
+
+.marketing-field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #4d5964;
+  font-size: 0.71rem;
+  font-weight: 560;
+}
+
+.marketing-multi-select {
+  position: relative;
+}
+
+.marketing-multi-select summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 34px 8px 12px;
+  overflow: hidden;
+  border: 1px solid #dce5e2;
+  border-radius: 7px;
+  color: #69747e;
+  background: #fff;
+  font-size: 0.76rem;
+  font-weight: 430;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  list-style: none;
+}
+
+.marketing-multi-select summary::-webkit-details-marker {
+  display: none;
+}
+
+.marketing-multi-select summary::after {
+  position: absolute;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid #66727c;
+  border-bottom: 1.5px solid #66727c;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 150ms ease;
+}
+
+.marketing-multi-select[open] summary,
+.marketing-multi-select summary:focus-visible {
+  border-color: #78c9b5;
+  outline: 3px solid #e4f5f0;
+}
+
+.marketing-multi-select[open] summary::after {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.marketing-multi-select.has-selection summary {
+  color: #34404b;
+}
+
+.marketing-multi-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  left: 0;
+  width: max(100%, 220px);
+  overflow: hidden;
+  border: 1px solid #dce5e2;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(35, 54, 60, 0.13);
+}
+
+.marketing-multi-options {
+  display: grid;
+  max-height: 230px;
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.marketing-multi-options label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: #3f4b55;
+  font-size: 0.75rem;
+  font-weight: 430;
+  cursor: pointer;
+}
+
+.marketing-multi-options label:hover,
+.marketing-multi-options label:has(input:checked) {
+  color: #087f6b;
+  background: #edf8f5;
+}
+
+.marketing-multi-options input[type="checkbox"] {
+  width: 14px;
+  min-height: 14px;
+  margin: 0;
+  accent-color: #009f7f;
+}
+
+.marketing-multi-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px;
+  border-top: 1px solid #e6ecea;
+  background: #fbfcfc;
+}
+
+.marketing-multi-actions button {
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 0;
+  color: #68747e;
+  background: transparent;
+  font-size: 0.7rem;
+  font-weight: 520;
+}
+
+.marketing-multi-actions button:last-child {
+  color: #087f6b;
+}
+
 .marketing-choice-field {
   padding: 0;
   border: 0;

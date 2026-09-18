@@ -22,6 +22,15 @@ test("marketing is a complete team workspace", () => {
   assert.match(appJs, /function syncMarketingTask/);
 });
 
+test("marketing content supports multiple publication channels", () => {
+  assert.match(indexHtml, /id="marketingChannelPicker"/);
+  assert.match(indexHtml, /id="marketingChannelInput" class="marketing-multi-options"/);
+  assert.match(appJs, /function normalizeMarketingChannels/);
+  assert.match(appJs, /channels:\s*selectedMarketingChannels\(\)/);
+  assert.match(appJs, /normalizeMarketingChannels\(item\)\.includes\(channel\)/);
+  assert.match(stylesCss, /\.marketing-multi-options label:has\(input:checked\)/);
+});
+
 test("marketing records synchronize securely and preserve history", () => {
   assert.match(stateApi, /stateKey:\s*"marketingItems"/);
   assert.match(stateApi, /table:\s*"marketing_items"/);

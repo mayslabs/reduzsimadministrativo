@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=150" />
+    <link rel="stylesheet" href="./styles.css?v=151" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
@@ -1107,7 +1107,19 @@
                   </datalist>
                 </label>
                 <label>Formato<select id="marketingFormatInput"></select></label>
-                <label>Canal<select id="marketingChannelInput"></select></label>
+                <div class="marketing-multi-field">
+                  <span class="marketing-field-label">Canal</span>
+                  <details id="marketingChannelPicker" class="marketing-multi-select">
+                    <summary id="marketingChannelSummary">Selecione</summary>
+                    <div class="marketing-multi-menu">
+                      <div id="marketingChannelInput" class="marketing-multi-options"></div>
+                      <div class="marketing-multi-actions">
+                        <button id="marketingChannelClearButton" type="button">Limpar</button>
+                        <button id="marketingChannelDoneButton" type="button">Concluir</button>
+                      </div>
+                    </div>
+                  </details>
+                </div>
                 <fieldset id="marketingObjectiveGroup" class="marketing-choice-field span-2">
                   <legend>Objetivo</legend>
                   <div class="marketing-choice-grid">
@@ -1201,7 +1213,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=150"></script>
+    <script src="./app.js?v=151"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
