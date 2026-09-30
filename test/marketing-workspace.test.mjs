@@ -39,6 +39,14 @@ test("marketing calendar distinguishes content formats with pastel colors", () =
   });
 });
 
+test("upcoming marketing panel reuses each content format color", () => {
+  assert.match(appJs, /marketing-upcoming-item format-\$\{marketingSlug\(item\.format \|\| "Outro"\)\}/);
+  assert.match(stylesCss, /\.marketing-upcoming-item\.format-reels/);
+  assert.match(stylesCss, /border-left: 2px solid var\(--marketing-format-accent\)/);
+  assert.match(stylesCss, /background: var\(--marketing-format-soft\)/);
+  assert.match(stylesCss, /background: var\(--marketing-format-accent\)/);
+});
+
 test("marketing records synchronize securely and preserve history", () => {
   assert.match(stateApi, /stateKey:\s*"marketingItems"/);
   assert.match(stateApi, /table:\s*"marketing_items"/);

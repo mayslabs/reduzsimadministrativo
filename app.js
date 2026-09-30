@@ -4307,13 +4307,13 @@ function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
 
 function renderMarketingUpcomingItem(item) {
   return `
-    <button class="marketing-upcoming-item" type="button" data-open-marketing="${escapeAttr(item.id)}">
+    <button class="marketing-upcoming-item format-${marketingSlug(item.format || "Outro")}" type="button" data-open-marketing="${escapeAttr(item.id)}">
       <span class="marketing-date-block"><strong>${escapeHtml(item.publishDate.slice(8, 10))}</strong><small>${escapeHtml(monthName(item.publishDate.slice(5, 7)).slice(0, 3))}</small></span>
       <span class="marketing-upcoming-copy">
         <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
         <small>${escapeHtml([marketingChannelLabel(item), item.format, item.publishTime].filter(Boolean).join(" • ") || "Sem canal definido")}</small>
       </span>
-      <span class="marketing-status-dot status-${marketingSlug(item.status)}" title="${escapeAttr(item.status)}"></span>
+      <span class="marketing-status-dot" title="${escapeAttr(item.format || "Outro")}"></span>
     </button>
   `;
 }

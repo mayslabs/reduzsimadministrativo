@@ -7972,16 +7972,54 @@ button.updates-important-item:hover {
 }
 
 .marketing-upcoming-item {
+  --marketing-format-accent: #8e9ba7;
+  --marketing-format-soft: #f1f4f6;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) 8px;
   align-items: center;
   gap: 9px;
   min-height: 61px;
-  padding: 8px 0;
+  padding: 8px 4px 8px 6px;
   border: 0;
+  border-left: 2px solid var(--marketing-format-accent);
   border-bottom: 1px solid #e7edeb;
   background: transparent;
   text-align: left;
+}
+
+.marketing-upcoming-item.format-reels {
+  --marketing-format-accent: #e88bac;
+  --marketing-format-soft: #fceef3;
+}
+
+.marketing-upcoming-item.format-stories {
+  --marketing-format-accent: #9c86d9;
+  --marketing-format-soft: #f3effc;
+}
+
+.marketing-upcoming-item.format-post {
+  --marketing-format-accent: #71a5df;
+  --marketing-format-soft: #edf5fd;
+}
+
+.marketing-upcoming-item.format-carrossel {
+  --marketing-format-accent: #d9a84b;
+  --marketing-format-soft: #fff6df;
+}
+
+.marketing-upcoming-item.format-video {
+  --marketing-format-accent: #50aa84;
+  --marketing-format-soft: #ebf7f1;
+}
+
+.marketing-upcoming-item.format-artigo {
+  --marketing-format-accent: #55aeb7;
+  --marketing-format-soft: #eaf7f8;
+}
+
+.marketing-upcoming-item.format-outro {
+  --marketing-format-accent: #8e9ba7;
+  --marketing-format-soft: #f1f4f6;
 }
 
 .marketing-upcoming-item:hover .marketing-upcoming-copy strong {
@@ -7993,7 +8031,7 @@ button.updates-important-item:hover {
   place-items: center;
   min-height: 39px;
   border-radius: 6px;
-  background: #f0f5f4;
+  background: var(--marketing-format-soft);
 }
 
 .marketing-date-block strong {
@@ -8039,26 +8077,7 @@ button.updates-important-item:hover {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #90a0ad;
-}
-
-.marketing-status-dot.status-planejado,
-.marketing-status-dot.status-roteiro {
-  background: #d8a332;
-}
-
-.marketing-status-dot.status-gravacao,
-.marketing-status-dot.status-edicao,
-.marketing-status-dot.status-aprovacao {
-  background: #6a9bd5;
-}
-
-.marketing-status-dot.status-agendado {
-  background: #9270d0;
-}
-
-.marketing-status-dot.status-publicado {
-  background: #55a87b;
+  background: var(--marketing-format-accent);
 }
 
 .marketing-aside-action {
