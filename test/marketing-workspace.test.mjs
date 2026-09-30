@@ -31,6 +31,14 @@ test("marketing content supports multiple publication channels", () => {
   assert.match(stylesCss, /\.marketing-multi-options label:has\(input:checked\)/);
 });
 
+test("marketing calendar distinguishes content formats with pastel colors", () => {
+  assert.match(appJs, /marketing-calendar-entry format-\$\{marketingSlug\(item\.format \|\| "Outro"\)\}/);
+  assert.match(appJs, /item\.format \|\| "Conteúdo", marketingChannelLabel\(item\), item\.publishTime/);
+  ["reels", "stories", "post", "carrossel", "video", "artigo", "outro"].forEach((format) => {
+    assert.match(stylesCss, new RegExp(`\\.marketing-calendar-entry\\.format-${format}`));
+  });
+});
+
 test("marketing records synchronize securely and preserve history", () => {
   assert.match(stateApi, /stateKey:\s*"marketingItems"/);
   assert.match(stateApi, /table:\s*"marketing_items"/);

@@ -4294,8 +4294,8 @@ function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
       <header><span>${date.getDate()}</span>${today ? `<small>Hoje</small>` : ""}</header>
       <div class="marketing-day-items">
         ${visible.map((item) => `
-          <button class="marketing-calendar-entry status-${marketingSlug(item.status)}" type="button" data-open-marketing="${escapeAttr(item.id)}" title="${escapeAttr(item.title)}">
-            <span>${escapeHtml(item.publishTime || marketingChannelLabel(item) || "Conteúdo")}</span>
+          <button class="marketing-calendar-entry format-${marketingSlug(item.format || "Outro")}" type="button" data-open-marketing="${escapeAttr(item.id)}" title="${escapeAttr(`${item.format || "Conteúdo"}: ${item.title}`)}">
+            <span>${escapeHtml([item.format || "Conteúdo", marketingChannelLabel(item), item.publishTime].filter(Boolean).join(" • "))}</span>
             <strong>${escapeHtml(item.title)}</strong>
           </button>
         `).join("")}

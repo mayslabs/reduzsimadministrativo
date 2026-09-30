@@ -7920,27 +7920,39 @@ button.updates-important-item:hover {
   white-space: nowrap;
 }
 
-.marketing-calendar-entry.status-planejado,
-.marketing-calendar-entry.status-roteiro {
-  border-left-color: #d5a53b;
-  background: #fff5dc;
+.marketing-calendar-entry.format-reels {
+  border-left-color: #e88bac;
+  background: #fceef3;
 }
 
-.marketing-calendar-entry.status-gravacao,
-.marketing-calendar-entry.status-edicao,
-.marketing-calendar-entry.status-aprovacao {
-  border-left-color: #6e9ed8;
-  background: #edf4fc;
+.marketing-calendar-entry.format-stories {
+  border-left-color: #9c86d9;
+  background: #f3effc;
 }
 
-.marketing-calendar-entry.status-agendado {
-  border-left-color: #9575d0;
-  background: #f2edfb;
+.marketing-calendar-entry.format-post {
+  border-left-color: #71a5df;
+  background: #edf5fd;
 }
 
-.marketing-calendar-entry.status-publicado {
-  border-left-color: #5bac82;
-  background: #eaf7f0;
+.marketing-calendar-entry.format-carrossel {
+  border-left-color: #d9a84b;
+  background: #fff6df;
+}
+
+.marketing-calendar-entry.format-video {
+  border-left-color: #50aa84;
+  background: #ebf7f1;
+}
+
+.marketing-calendar-entry.format-artigo {
+  border-left-color: #55aeb7;
+  background: #eaf7f8;
+}
+
+.marketing-calendar-entry.format-outro {
+  border-left-color: #8e9ba7;
+  background: #f1f4f6;
 }
 
 .marketing-more-items {
