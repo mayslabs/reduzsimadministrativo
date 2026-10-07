@@ -251,15 +251,20 @@ body.privacy-mode {
 }
 
 body.privacy-mode :is(
+  #metricsGrid .metric strong,
   #clientsSection .client-card h3,
   #clientsSection .client-card header p,
   #clientsSection .client-card > p,
+  #clientsSection .client-card .chip-list .chip,
   #clientsSection .compact-client-main strong,
   #clientsSection .compact-client-next,
   #clientsSection .compact-client-area,
+  #clientsSection .compact-client-status .chip,
+  #regularizationMetricsGrid .metric strong,
   #regularizationSection .regularization-client-cell strong,
   #regularizationSection .regularization-client-cell small,
   #regularizationSection .regularization-next-action,
+  #regularizationSection .regularization-status-chip,
   #regularizationSection .regularization-card h3,
   #regularizationSection .regularization-card header p,
   #regularizationSection .regularization-card > p,

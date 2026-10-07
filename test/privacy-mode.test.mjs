@@ -22,4 +22,9 @@ test("presentation privacy masks the requested operational areas", () => {
   assert.match(stylesCss, /#goalsSection \.goal-overview-metric strong/);
   assert.match(stylesCss, /#dataSection \.data-total strong/);
   assert.match(stylesCss, /#clientsSection \.client-card h3/);
+  assert.match(stylesCss, /#metricsGrid \.metric strong/);
+  assert.match(stylesCss, /#clientsSection \.compact-client-status \.chip/);
+  assert.match(stylesCss, /#clientsSection \.client-card \.chip-list \.chip/);
+  assert.match(stylesCss, /#regularizationMetricsGrid \.metric strong/);
+  assert.match(stylesCss, /#regularizationSection \.regularization-status-chip/);
 });
