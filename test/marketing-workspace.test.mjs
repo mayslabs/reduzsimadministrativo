@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [indexHtml, appJs, stylesCss, stateApi, migration] = await Promise.all([
+const [indexHtml, appJs, stylesCss, redesignCss, stateApi, migration] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../app.js", import.meta.url), "utf8"),
   readFile(new URL("../styles.css", import.meta.url), "utf8"),
+  readFile(new URL("../redesign.css", import.meta.url), "utf8"),
   readFile(new URL("../functions/api/state.js", import.meta.url), "utf8"),
   readFile(new URL("../migrations/0002_marketing.sql", import.meta.url), "utf8"),
 ]);
@@ -32,19 +33,27 @@ test("marketing content supports multiple publication channels", () => {
 });
 
 test("marketing calendar distinguishes content formats with pastel colors", () => {
+  assert.match(appJs, /class="marketing-calendar-heading"/);
+  assert.match(appJs, /class="marketing-format-legend"/);
   assert.match(appJs, /marketing-calendar-entry format-\$\{marketingSlug\(item\.format \|\| "Outro"\)\}/);
-  assert.match(appJs, /item\.format \|\| "Conteúdo", marketingChannelLabel\(item\), item\.publishTime/);
+  assert.match(appJs, /item\.format \|\| "Sem formato", marketingChannelLabel\(item\)/);
   ["reels", "stories", "post", "carrossel", "video", "artigo", "outro"].forEach((format) => {
     assert.match(stylesCss, new RegExp(`\\.marketing-calendar-entry\\.format-${format}`));
   });
+  assert.match(redesignCss, /\.marketing-format-legend/);
+  assert.match(redesignCss, /\.marketing-calendar-entry\.format-reels,\s*\.marketing-calendar-entry\.format-video/);
+  assert.match(redesignCss, /background:\s*rgba\(7, 77, 64, 0\.08\)/);
 });
 
-test("upcoming marketing panel reuses each content format color", () => {
+test("upcoming marketing panel follows the compact redesign", () => {
+  assert.match(appJs, /class="marketing-upcoming-heading"/);
   assert.match(appJs, /marketing-upcoming-item format-\$\{marketingSlug\(item\.format \|\| "Outro"\)\}/);
-  assert.match(stylesCss, /\.marketing-upcoming-item\.format-reels/);
-  assert.match(stylesCss, /border-left: 2px solid var\(--marketing-format-accent\)/);
-  assert.match(stylesCss, /background: var\(--marketing-format-soft\)/);
-  assert.match(stylesCss, /background: var\(--marketing-format-accent\)/);
+  assert.match(appJs, /item\.status === "Agendado" \? "scheduled" : ""/);
+  assert.match(appJs, /\.slice\(0, 5\)/);
+  assert.match(redesignCss, /\.marketing-upcoming-item\.scheduled \.marketing-date-block/);
+  assert.match(redesignCss, /grid-template-columns:\s*48px minmax\(0, 1fr\)/);
+  assert.match(redesignCss, /border:\s*1px dashed #8a8a8a/);
+  assert.match(redesignCss, /#marketingSection \.privacy-toolbar\s*\{\s*display:\s*none/);
 });
 
 test("marketing records synchronize securely and preserve history", () => {

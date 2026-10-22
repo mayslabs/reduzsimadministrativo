@@ -1145,7 +1145,7 @@ textarea:focus {
   color: #5c5c5c;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -1284,10 +1284,11 @@ textarea:focus {
   border-right: 0;
 }
 
-.marketing-summary-label {
+.marketing-summary-card > .marketing-summary-label {
   display: flex;
   align-items: center;
   gap: 7px;
+  white-space: nowrap;
 }
 
 .marketing-summary-label span {
@@ -1316,7 +1317,7 @@ textarea:focus {
 }
 
 .marketing-toolbar {
-  grid-template-columns: minmax(300px, 1fr) 210px 180px minmax(280px, auto);
+  grid-template-columns: minmax(300px, 1fr) 215px 170px 278px;
   gap: 10px;
   margin-bottom: 24px;
 }
@@ -1325,22 +1326,125 @@ textarea:focus {
   display: none;
 }
 
-.marketing-calendar,
-.marketing-production-board,
-.marketing-ideas-panel,
-.marketing-upcoming-panel {
-  border-color: var(--line);
-  box-shadow: none;
+#marketingSection .privacy-toolbar {
+  display: none;
+}
+
+.marketing-view-control {
+  min-width: 0;
 }
 
 .marketing-calendar-layout {
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 24px;
 }
 
-.marketing-calendar-panel,
-.marketing-upcoming-panel {
+.marketing-calendar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   min-width: 0;
   max-width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.marketing-calendar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 36px;
+}
+
+.marketing-calendar-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.marketing-calendar-title-row h3 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.marketing-month-controls {
+  gap: 4px;
+}
+
+.marketing-month-controls .icon-button,
+.marketing-month-controls .secondary-button {
+  min-height: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--green-dark);
+  background: #ffffff;
+}
+
+.marketing-month-controls .icon-button {
+  width: 34px;
+}
+
+.marketing-month-controls .secondary-button {
+  padding: 0 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.marketing-format-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 14px;
+}
+
+.marketing-format-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #5c5c5c;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.marketing-format-legend i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: #ffffff;
+  box-shadow: inset 3px 0 0 #e2e2e2;
+}
+
+.marketing-format-legend .format-reels {
+  background: rgba(7, 77, 64, 0.08);
+  box-shadow: inset 3px 0 0 #074d40;
+}
+
+.marketing-format-legend .format-stories {
+  background: rgba(0, 155, 119, 0.1);
+  box-shadow: inset 3px 0 0 #009b77;
+}
+
+.marketing-format-legend .format-post {
+  background: #f2f2f2;
+  box-shadow: inset 3px 0 0 #8a8a8a;
+}
+
+.marketing-format-legend .format-none {
+  border-color: #e2e2e2;
+}
+
+.marketing-calendar-frame {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
 }
 
 .marketing-calendar-scroll {
@@ -1348,11 +1452,253 @@ textarea:focus {
   max-width: 100%;
 }
 
+.marketing-calendar-weekdays {
+  border-bottom: 0;
+  background: var(--soft);
+}
+
+.marketing-calendar-weekdays span {
+  padding: 10px 12px;
+  color: #5c5c5c;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-align: left;
+}
+
+.marketing-calendar-grid {
+  gap: 1px;
+  border-top: 1px solid var(--line);
+  background: var(--line);
+}
+
+.marketing-calendar-day {
+  min-height: 128px;
+  padding: 8px;
+  border: 0;
+}
+
+.marketing-calendar-day.outside {
+  background: #fafafa;
+  opacity: 1;
+}
+
+.marketing-calendar-day.outside .marketing-calendar-entry {
+  opacity: 0.62;
+}
+
+.marketing-calendar-day.today {
+  background: rgba(0, 155, 119, 0.06);
+  box-shadow: none;
+}
+
+.marketing-calendar-day > header {
+  min-height: 26px;
+  margin-bottom: 5px;
+  padding: 0 2px 2px;
+}
+
+.marketing-calendar-day > header > span {
+  width: 26px;
+  height: 26px;
+  color: #222222;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.marketing-calendar-day.today > header > span {
+  background: var(--green-dark);
+}
+
+.marketing-calendar-day > header small {
+  color: var(--green);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.marketing-calendar-entry {
+  min-height: 35px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-left: 0;
+  border-radius: 6px;
+  color: #222222;
+  background: #ffffff;
+  box-shadow: inset 3px 0 0 #e2e2e2;
+}
+
+.marketing-calendar-entry span {
+  color: #5c5c5c;
+  font-size: 10.5px;
+}
+
+.marketing-calendar-entry strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.marketing-calendar-entry.format-reels,
+.marketing-calendar-entry.format-video {
+  border-color: transparent;
+  background: rgba(7, 77, 64, 0.08);
+  box-shadow: inset 3px 0 0 #074d40;
+}
+
+.marketing-calendar-entry.format-stories {
+  border-color: transparent;
+  background: rgba(0, 155, 119, 0.1);
+  box-shadow: inset 3px 0 0 #009b77;
+}
+
+.marketing-calendar-entry.format-post,
+.marketing-calendar-entry.format-carrossel {
+  border-color: transparent;
+  background: #f2f2f2;
+  box-shadow: inset 3px 0 0 #8a8a8a;
+}
+
+.marketing-calendar-entry.format-artigo,
+.marketing-calendar-entry.format-outro {
+  border-color: #e2e2e2;
+  background: #ffffff;
+  box-shadow: inset 3px 0 0 #e2e2e2;
+}
+
+.marketing-more-items {
+  padding: 0 4px;
+  color: var(--green);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
 .marketing-upcoming-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  max-width: 100%;
   padding: 20px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--soft);
+  box-shadow: none;
+}
+
+.marketing-upcoming-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.marketing-upcoming-heading .eyebrow {
+  margin: 0;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.marketing-upcoming-heading h3 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.marketing-upcoming-list {
+  gap: 14px;
+  padding: 0;
+}
+
+.marketing-upcoming-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 12px;
+  border: 0;
+  border-left: 0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.marketing-date-block {
+  width: 48px;
+  min-height: 48px;
+  border-radius: 10px;
+  color: var(--green-dark);
+  background: #ffffff;
+}
+
+.marketing-upcoming-item:not(.scheduled) .marketing-date-block {
+  background: #f2f2f2;
+}
+
+.marketing-upcoming-item.scheduled .marketing-date-block {
+  color: #ffffff;
+  background: var(--green-dark);
+}
+
+.marketing-date-block strong {
+  color: inherit;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.marketing-date-block small {
+  color: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+.marketing-upcoming-copy {
+  gap: 2px;
+}
+
+.marketing-upcoming-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #222222;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.marketing-upcoming-copy small {
+  color: #8a8a8a;
+  font-size: 11.5px;
+  white-space: normal;
+}
+
+.marketing-upcoming-empty {
+  margin: 0;
+  color: #8a8a8a;
+  font-size: 13px;
+}
+
+.marketing-aside-action {
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+  border: 1px dashed #8a8a8a;
+  border-radius: 10px;
+  color: var(--green-dark);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.marketing-aside-action:hover {
+  border-color: var(--green);
+  background: #ffffff;
 }
 
 /* Updates */
@@ -3301,5 +3647,35 @@ body.privacy-mode :is(
 
   .summary-layout .reduction-value.net {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 1020px) {
+  .marketing-upcoming-panel {
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .marketing-calendar-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .marketing-calendar-title-row {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .marketing-format-legend {
+    justify-content: flex-start;
+  }
+
+  .marketing-calendar-title-row h3 {
+    font-size: 19px;
+  }
+
+  .marketing-upcoming-panel {
+    padding: 18px;
   }
 }

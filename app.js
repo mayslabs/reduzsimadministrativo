@@ -4338,14 +4338,14 @@ function renderMarketingSummary() {
       value: monthItems.filter((item) => ["Planejado", "Roteiro"].includes(item.status)).length,
       icon: "notebook-pen",
       type: "planned",
-      hint: "planejamento e roteiro",
+      hint: "planejado e roteiro",
     },
     {
       label: "Em produção",
       value: monthItems.filter((item) => ["Gravação", "Edição", "Aprovação"].includes(item.status)).length,
       icon: "clapperboard",
       type: "production",
-      hint: "gravação ou aprovação",
+      hint: "gravação a aprovação",
     },
     {
       label: "Agendados",
@@ -4407,6 +4407,8 @@ function renderMarketingCalendar(items) {
   const days = monthCalendarDays(activeMarketingDate);
   const activeMonth = activeMarketingDate.getMonth();
   const activeYear = activeMarketingDate.getFullYear();
+  const rawMonthLabel = activeMarketingDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const monthLabel = `${rawMonthLabel.charAt(0).toUpperCase()}${rawMonthLabel.slice(1)}`;
   const scheduled = items.filter((item) => item.kind === "content" && item.publishDate);
   const byDay = scheduled.reduce((map, item) => {
     if (!map.has(item.publishDate)) map.set(item.publishDate, []);
@@ -4416,38 +4418,45 @@ function renderMarketingCalendar(items) {
   const upcoming = scheduled
     .filter((item) => item.publishDate >= localDateKey() && item.status !== "Publicado")
     .sort((a, b) => `${a.publishDate}T${a.publishTime || "23:59"}`.localeCompare(`${b.publishDate}T${b.publishTime || "23:59"}`))
-    .slice(0, 7);
+    .slice(0, 5);
 
   return `
     <div class="marketing-calendar-layout">
       <section class="marketing-calendar-panel">
-        <header class="marketing-panel-header">
-          <div>
-            <p class="eyebrow">Calendário editorial</p>
-            <h3>${escapeHtml(activeMarketingDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }))}</h3>
+        <header class="marketing-calendar-heading">
+          <div class="marketing-calendar-title-row">
+            <h3>${escapeHtml(monthLabel)}</h3>
+            <div class="marketing-month-controls">
+              <button class="icon-button" type="button" data-marketing-month="-1" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
+              <button class="secondary-button" type="button" data-marketing-today>Hoje</button>
+              <button class="icon-button" type="button" data-marketing-month="1" aria-label="Próximo mês"><i data-lucide="chevron-right"></i></button>
+            </div>
           </div>
-          <div class="marketing-month-controls">
-            <button class="icon-button" type="button" data-marketing-month="-1" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
-            <button class="secondary-button" type="button" data-marketing-today>Hoje</button>
-            <button class="icon-button" type="button" data-marketing-month="1" aria-label="Próximo mês"><i data-lucide="chevron-right"></i></button>
+          <div class="marketing-format-legend" aria-label="Cores dos formatos de conteúdo">
+            <span><i class="format-reels"></i> Reels / Vídeo</span>
+            <span><i class="format-stories"></i> Stories</span>
+            <span><i class="format-post"></i> Post / Carrossel</span>
+            <span><i class="format-none"></i> Sem formato</span>
           </div>
         </header>
-        <div class="marketing-calendar-scroll">
-          <div class="marketing-calendar-weekdays">
-            ${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}
-          </div>
-          <div class="marketing-calendar-grid">
-            ${days.map((date) => renderMarketingCalendarDay(date, byDay.get(localDateKey(date)) || [], activeMonth, activeYear)).join("")}
+        <div class="marketing-calendar-frame">
+          <div class="marketing-calendar-scroll">
+            <div class="marketing-calendar-weekdays">
+              ${["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => `<span>${day}</span>`).join("")}
+            </div>
+            <div class="marketing-calendar-grid">
+              ${days.map((date) => renderMarketingCalendarDay(date, byDay.get(localDateKey(date)) || [], activeMonth, activeYear)).join("")}
+            </div>
           </div>
         </div>
       </section>
       <aside class="marketing-upcoming-panel">
-        <header class="marketing-panel-header compact">
-          <div><p class="eyebrow">Próximas postagens</p><h3>Programação</h3></div>
-          <span>${upcoming.length}</span>
+        <header class="marketing-upcoming-heading">
+          <p class="eyebrow">Próximas postagens</p>
+          <h3>Programação</h3>
         </header>
         <div class="marketing-upcoming-list">
-          ${upcoming.length ? upcoming.map(renderMarketingUpcomingItem).join("") : `<p class="empty-state compact">Nenhuma postagem agendada.</p>`}
+          ${upcoming.length ? upcoming.map(renderMarketingUpcomingItem).join("") : `<p class="marketing-upcoming-empty">Nada programado.</p>`}
         </div>
         <button class="secondary-button marketing-aside-action" type="button" data-new-marketing-content><i data-lucide="plus"></i> Planejar conteúdo</button>
       </aside>
@@ -4466,11 +4475,11 @@ function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
       <div class="marketing-day-items">
         ${visible.map((item) => `
           <button class="marketing-calendar-entry format-${marketingSlug(item.format || "Outro")}" type="button" data-open-marketing="${escapeAttr(item.id)}" title="${escapeAttr(`${item.format || "Conteúdo"}: ${item.title}`)}">
-            <span>${escapeHtml([item.format || "Conteúdo", marketingChannelLabel(item), item.publishTime].filter(Boolean).join(" • "))}</span>
+            <span>${escapeHtml([item.format || "Sem formato", marketingChannelLabel(item)].filter(Boolean).join(" · "))}</span>
             <strong>${escapeHtml(item.title)}</strong>
           </button>
         `).join("")}
-        ${items.length > visible.length ? `<span class="marketing-more-items">+${items.length - visible.length} conteúdo(s)</span>` : ""}
+        ${items.length > visible.length ? `<span class="marketing-more-items">+${items.length - visible.length} ${items.length - visible.length === 1 ? "conteúdo" : "conteúdos"}</span>` : ""}
       </div>
     </article>
   `;
@@ -4478,13 +4487,12 @@ function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
 
 function renderMarketingUpcomingItem(item) {
   return `
-    <button class="marketing-upcoming-item format-${marketingSlug(item.format || "Outro")}" type="button" data-open-marketing="${escapeAttr(item.id)}">
-      <span class="marketing-date-block"><strong>${escapeHtml(item.publishDate.slice(8, 10))}</strong><small>${escapeHtml(monthName(item.publishDate.slice(5, 7)).slice(0, 3))}</small></span>
+    <button class="marketing-upcoming-item format-${marketingSlug(item.format || "Outro")} ${item.status === "Agendado" ? "scheduled" : ""}" type="button" data-open-marketing="${escapeAttr(item.id)}">
+      <span class="marketing-date-block"><strong>${escapeHtml(item.publishDate.slice(8, 10))}</strong><small>${escapeHtml(monthName(item.publishDate.slice(5, 7)).slice(0, 3).toUpperCase())}</small></span>
       <span class="marketing-upcoming-copy">
         <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
-        <small>${escapeHtml([marketingChannelLabel(item), item.format, item.publishTime].filter(Boolean).join(" • ") || "Sem canal definido")}</small>
+        <small>${escapeHtml([item.format || "Sem formato", item.status || "Sem status"].join(" · "))}</small>
       </span>
-      <span class="marketing-status-dot" title="${escapeAttr(item.format || "Outro")}"></span>
     </button>
   `;
 }
