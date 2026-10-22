@@ -21,6 +21,7 @@ const PUBLIC_PATHS = new Set([
   "/assets/apple-touch-icon.png",
   "/assets/reduzsim-logo.png",
   "/assets/reduzsim-sidebar-logo.png",
+  "/assets/reduzsim-sidebar-mark.png",
 ]);
 
 export async function onRequest(context) {

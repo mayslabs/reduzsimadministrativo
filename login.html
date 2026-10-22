@@ -14,12 +14,12 @@
     />
     <style>
       :root {
-        --brand: #00a383;
+        --brand: #009b77;
         --brand-dark: #074d40;
-        --brand-hover: #063f35;
-        --ink: #072f2a;
-        --muted: #626b69;
-        --border: #d8dddc;
+        --brand-hover: #0a5c4d;
+        --ink: #222222;
+        --muted: #5c5c5c;
+        --border: #e2e2e2;
         --surface: #ffffff;
         --danger: #b42318;
       }
@@ -92,16 +92,16 @@
 
       .brand-name {
         color: #fff;
-        font-size: 23px;
+        font-size: 22px;
         font-weight: 700;
       }
 
       .brand-product {
-        color: #fff;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 3px;
-        margin-top: 5px;
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 2.3px;
+        margin-top: 3px;
       }
 
       .brand-message {
@@ -111,10 +111,11 @@
 
       .brand-message h1 {
         color: #fff;
-        font-size: 52px;
+        font-size: clamp(34px, 4vw, 52px);
         font-weight: 700;
         line-height: 1.08;
         margin: 0;
+        text-wrap: balance;
       }
 
       .brand-message h1 span {
@@ -122,15 +123,16 @@
       }
 
       .brand-message p {
-        color: rgba(255, 255, 255, 0.94);
+        color: rgba(255, 255, 255, 0.8);
         font-size: 15px;
         line-height: 1.6;
         margin: 18px 0 0;
         max-width: 420px;
+        text-wrap: pretty;
       }
 
       .brand-legal {
-        color: #7fd9ca;
+        color: rgba(255, 255, 255, 0.6);
         font-size: 12px;
         margin: 0;
       }
@@ -141,7 +143,7 @@
         display: flex;
         justify-content: center;
         min-width: 0;
-        padding: 48px;
+        padding: 48px 32px;
       }
 
       .login-panel {
@@ -152,14 +154,14 @@
       .eyebrow {
         color: var(--brand);
         font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1.4px;
+        font-weight: 600;
+        letter-spacing: 1.1px;
         margin: 0 0 8px;
         text-transform: uppercase;
       }
 
       .login-title {
-        color: var(--ink);
+        color: var(--brand-dark);
         font-size: 30px;
         font-weight: 700;
         line-height: 1.2;
@@ -169,12 +171,12 @@
       .subtitle {
         color: var(--muted);
         font-size: 14px;
-        line-height: 1.6;
+        line-height: 1.55;
         margin: 8px 0 29px;
       }
 
       .field + .field {
-        margin-top: 18px;
+        margin-top: 16px;
       }
 
       .label-row {
@@ -188,7 +190,7 @@
       label {
         color: #111816;
         display: block;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
       }
 
@@ -219,14 +221,15 @@
         border: 1px solid var(--border);
         border-radius: 10px;
         display: flex;
-        min-height: 49px;
+        gap: 10px;
+        min-height: 48px;
         padding: 0 14px;
         transition: border-color 160ms ease, box-shadow 160ms ease;
       }
 
       .input-shell:focus-within {
         border-color: var(--brand);
-        box-shadow: 0 0 0 3px rgba(0, 163, 131, 0.12);
+        box-shadow: 0 0 0 3px rgba(0, 155, 119, 0.14);
       }
 
       .input-icon {
@@ -240,10 +243,10 @@
         background: transparent;
         border: 0;
         color: #17211f;
-        font-size: 14px;
+        font-size: 14.5px;
         min-width: 0;
         outline: 0;
-        padding: 12px;
+        padding: 12px 0;
         width: 100%;
       }
 
@@ -327,7 +330,7 @@
       }
 
       .remember-row input:focus-visible {
-        box-shadow: 0 0 0 3px rgba(0, 163, 131, 0.16);
+        box-shadow: 0 0 0 3px rgba(0, 155, 119, 0.16);
         outline: 0;
       }
 
@@ -500,7 +503,14 @@
     <main class="login-layout">
       <section class="brand-panel" aria-label="ReduzSim Gestão">
         <div class="brand-lockup">
-          <img class="brand-mark" src="./assets/reduzsim-sidebar-mark.png" alt="" />
+          <img
+            class="brand-mark"
+            src="/assets/reduzsim-sidebar-mark.png?v=158"
+            alt=""
+            width="48"
+            height="48"
+            aria-hidden="true"
+          />
           <div class="brand-wordmark" aria-label="ReduzSim Gestão">
             <span class="brand-name">ReduzSim</span>
             <span class="brand-product">GESTÃO</span>
@@ -540,7 +550,6 @@
                   maxlength="254"
                   placeholder="nome@reduzsiminss.com.br"
                   required
-                  autofocus
                 />
               </div>
             </div>

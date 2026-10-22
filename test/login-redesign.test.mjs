@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { onRequest } from "../functions/_middleware.js";
 
 const [loginHtml, loginJs, indexHtml, redesignCss] = await Promise.all([
   readFile(new URL("../login.html", import.meta.url), "utf8"),
@@ -16,6 +17,27 @@ test("login follows the supplied split-panel design responsively", () => {
   assert.match(loginHtml, /obra regularizada\./);
   assert.match(loginHtml, /grid-template-columns:\s*51\.25% 48\.75%/);
   assert.match(loginHtml, /@media \(max-width: 860px\)/);
+});
+
+test("login brand mark remains available before authentication", async () => {
+  assert.match(loginHtml, /src="\/assets\/reduzsim-sidebar-mark\.png\?v=\d+"/);
+
+  let continued = false;
+  const response = await onRequest({
+    request: new Request("https://crm.example.test/assets/reduzsim-sidebar-mark.png?v=158"),
+    env: {},
+    data: {},
+    next: async () => {
+      continued = true;
+      return new Response("brand-mark", {
+        headers: { "Content-Type": "image/png" },
+      });
+    },
+  });
+
+  assert.equal(continued, true);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Content-Type"), "image/png");
 });
 
 test("login keeps the secure server-session exchange", () => {
