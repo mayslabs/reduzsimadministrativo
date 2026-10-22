@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=167/);
+  assert.match(indexHtml, /redesign\.css\?v=168/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -36,6 +36,16 @@ test("home client list follows the supplied compact table behavior", () => {
   assert.match(appJs, /compact-client-empty/);
   assert.match(appJs, /function compactClientDisplayName/);
   assert.match(appJs, /function compactClientArea/);
+});
+
+test("home client cards follow the supplied four-column composition", () => {
+  assert.match(indexHtml, /app\.js\?v=168/);
+  assert.match(appJs, /class="client-card-header"/);
+  assert.match(appJs, /class="client-card-area"/);
+  assert.match(appJs, /client-card-task-chip/);
+  assert.match(appJs, /client-card-next-label">PRÓXIMA AÇÃO/);
+  assert.match(redesignCss, /repeat\(auto-fill, minmax\(280px, 1fr\)\)/);
+  assert.match(redesignCss, /border-top:\s*3px solid var\(--green\)/);
 });
 
 test("client summary exposes pending work in the redesigned dialog", () => {

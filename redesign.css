@@ -761,14 +761,190 @@ textarea:focus {
 }
 
 .client-grid {
-  grid-template-columns: repeat(3, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.client-card,
+.client-card.active-work,
+.client-card.finished {
+  width: 100%;
+  min-height: 235px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--green);
+  border-radius: 10px;
+  color: inherit;
+  background: #ffffff;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font: inherit;
+  overflow: hidden;
+  text-align: left;
+}
+
+.client-card:hover,
+.client-card.finished:hover {
+  border-color: var(--green);
+  border-top-color: var(--green);
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.client-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.client-card {
-  border-color: var(--line);
-  border-radius: 10px;
-  box-shadow: none;
+.client-card-identity {
+  min-width: 0;
+}
+
+.client-card .client-card-identity h3 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.client-card .client-card-identity p {
+  margin: 3px 0 0;
+  color: #8a8a8a;
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.client-card-area {
+  flex: 0 0 auto;
+  color: #222222;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.client-card-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 27px;
+}
+
+.client-card-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.client-card-status .chip {
+  min-height: 27px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.client-card-no-status {
+  color: #8a8a8a;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.client-card-task-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--green-dark);
+  background: var(--soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.client-card-divider {
+  width: 100%;
+  height: 1px;
+  margin-top: auto;
+  background: var(--line);
+}
+
+.client-card-next {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.client-card-next-label {
+  color: #8a8a8a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+}
+
+.client-card-next-value {
+  color: #5c5c5c;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.client-card-next-value.is-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--green);
+  font-weight: 500;
+}
+
+.client-card-next-value.is-empty svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+body.privacy-mode :is(
+  #clientsSection .client-card-area,
+  #clientsSection .client-card-task-chip,
+  #clientsSection .client-card-next-value
+) {
+  color: transparent !important;
+  text-shadow: none !important;
+  background-color: var(--privacy-mask) !important;
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  user-select: none;
+}
+
+@media (max-width: 720px) {
+  .client-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .client-card,
+  .client-card.active-work,
+  .client-card.finished {
+    min-height: 0;
+  }
 }
 
 /* Task workspace */

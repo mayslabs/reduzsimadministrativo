@@ -9231,39 +9231,38 @@ function clientOpenTasks(client = {}) {
 
 function renderClientCard(client) {
   const clientStatuses = getClientStatuses(client);
-  const statuses = clientStatuses
-    .slice(0, 5)
-    .map((status) => chip(status))
-    .join("");
   const completionClass = isClientFinished(client) ? "finished" : "active-work";
-  const openTasks = (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
-  const deadlines = client.deadlines || [];
+  const openTasks = clientOpenTasks(client);
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
-  const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
-  const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
-  const workSubtitle = `${workTitle}${destinationLabel(client)}`;
-  const workDetails = [client.state, client.area].filter(Boolean).join(" | ");
+  const nextAction = String(client.nextAction || "").trim();
   return `
     <button class="client-card ${completionClass}" type="button" data-open-client="${client.id}">
-      <header>
-        <div>
-          <h3>${escapeHtml(client.clientName || "Cliente sem nome")}</h3>
-          <p>${escapeHtml(workSubtitle)} ${workDetails ? `| ${escapeHtml(workDetails)}` : ""}</p>
-          ${client.linkedRegularizationId ? `<span class="service-link-badge"><i data-lucide="link-2"></i> Também em Regularização</span>` : ""}
+      <header class="client-card-header">
+        <div class="client-card-identity">
+          <h3>${escapeHtml(compactClientDisplayName(client.clientName || "Cliente sem nome"))}</h3>
+          <p>${escapeHtml(destinationLabel(client))}${client.state ? ` · ${escapeHtml(client.state)}` : ""}</p>
         </div>
+        <strong class="client-card-area">${escapeHtml(compactClientArea(client.area))}</strong>
       </header>
-      <div class="chip-list">${statuses}</div>
-      <div class="card-alerts">
-        <span class="card-alert ${openTasks.length ? "active" : ""}">
-          <i data-lucide="list-checks"></i>
-          ${openTasks.length ? `${openTasks.length} tarefa(s): ${escapeHtml(taskOwners)}` : "Sem tarefas abertas"}
-        </span>
-        <span class="card-alert ${deadlines.length ? "active deadline" : ""}">
-          <i data-lucide="calendar-clock"></i>
-          ${deadlines.length ? `${deadlines.length} prazo(s): ${escapeHtml(deadlineOwners)}` : "Sem prazos"}
-        </span>
+      <div class="client-card-badges">
+        ${
+          clientStatuses.length
+            ? `<span class="compact-client-status client-card-status">${compactStatusChips(clientStatuses)}</span>`
+            : `<span class="client-card-no-status">Sem status</span>`
+        }
+        ${
+          openTasks.length
+            ? `<span class="client-card-task-chip">${openTasks.length} ${openTasks.length === 1 ? "tarefa" : "tarefas"} · ${escapeHtml(taskOwners)}</span>`
+            : ""
+        }
       </div>
-      <p>${escapeHtml(client.nextAction || "Sem próxima ação registrada.")}</p>
+      <span class="client-card-divider" aria-hidden="true"></span>
+      <span class="client-card-next">
+        <span class="client-card-next-label">PRÓXIMA AÇÃO</span>
+        <span class="client-card-next-value ${nextAction ? "" : "is-empty"}">
+          ${nextAction ? escapeHtml(nextAction) : `<i data-lucide="plus"></i> Definir próxima ação`}
+        </span>
+      </span>
     </button>
   `;
 }
