@@ -316,6 +316,7 @@ textarea {
   border-color: var(--line);
   color: #5c5c5c;
   background: #ffffff;
+  font-weight: 500;
 }
 
 .privacy-toggle[aria-pressed="true"] {
@@ -326,6 +327,12 @@ textarea {
 
 .primary-button {
   background: var(--green-dark);
+}
+
+.topbar-actions > .primary-button {
+  padding-right: 20px;
+  padding-left: 20px;
+  font-size: 14px;
 }
 
 .primary-button:hover {
@@ -488,9 +495,27 @@ textarea:focus {
 }
 
 #clientsSection > .toolbar {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(210px, 0.36fr) minmax(150px, 0.24fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+}
+
+#clientsSection > .toolbar .search-field {
+  flex: 1 1 320px;
+}
+
+#clientsSection > .toolbar #statusFilter {
+  flex: 0 0 235px;
+  width: 235px;
+}
+
+#clientsSection > .toolbar #clientSort {
+  flex: 0 0 155px;
+  width: 155px;
+}
+
+#clientsSection > .toolbar .segmented-control {
+  flex: 0 0 auto;
 }
 
 .client-quick-filters {
@@ -509,8 +534,8 @@ textarea:focus {
 
 .compact-client-head,
 .compact-client-row {
-  min-width: 1080px;
-  grid-template-columns: minmax(240px, 2.2fr) 52px 105px minmax(180px, 1.45fr) 130px 80px minmax(190px, 1.7fr) 42px;
+  min-width: 1120px;
+  grid-template-columns: minmax(250px, 2.2fr) 52px 112px minmax(200px, 1.4fr) 140px 84px minmax(220px, 1.8fr) 52px;
   gap: 16px;
 }
 
@@ -529,7 +554,7 @@ textarea:focus {
 .compact-client-row.active-work,
 .compact-client-row.finished {
   min-height: 72px;
-  padding: 12px 20px;
+  padding: 16px 20px;
   border-bottom-color: var(--line);
   box-shadow: none;
   background: #ffffff;
@@ -542,39 +567,100 @@ textarea:focus {
 
 .compact-client-main strong {
   color: #111111;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.35;
 }
 
-.compact-client-main small,
-.compact-client-next,
-.compact-client-state,
-.compact-client-area {
+.compact-client-main small {
   font-size: 12.5px;
   font-weight: 400;
+  line-height: 1.4;
 }
 
 .compact-client-state {
+  color: #5c5c5c;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .compact-client-area {
+  color: #222222;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
   text-align: right;
 }
 
 .compact-client-status .chip {
   padding: 4px 10px;
   border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
+.compact-client-status .compact-status-chip {
+  gap: 7px;
+  line-height: 1.4;
+}
+
+.compact-status-chip > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.compact-client-status .compact-status-chip.tone-strong {
+  border-color: var(--green-dark);
+  color: #ffffff;
+  background: var(--green-dark);
+}
+
+.compact-client-status .compact-status-chip.tone-strong > span {
+  background: var(--green);
+}
+
+.compact-client-status .compact-status-chip.tone-soft {
+  border-color: rgba(0, 155, 119, 0.1);
+  color: var(--green-dark);
+  background: rgba(0, 155, 119, 0.1);
+}
+
+.compact-client-status .compact-status-chip.tone-soft > span {
+  background: var(--green);
+}
+
+.compact-client-status .compact-status-chip.tone-neutral {
+  border-color: var(--line);
+  color: #5c5c5c;
+  background: #ffffff;
+}
+
+.compact-client-status .compact-status-chip.tone-neutral > span {
+  background: #8a8a8a;
+}
+
+.compact-client-status .compact-status-chip.tone-complete {
+  border-color: var(--green);
+  color: #ffffff;
+  background: var(--green);
+}
+
+.compact-client-status .compact-status-chip.tone-complete > span {
+  background: #ffffff;
+}
+
 .compact-client-count {
-  min-height: 30px;
-  padding: 2px 9px 2px 3px;
+  display: inline-flex;
+  justify-self: start;
+  min-height: 28px;
+  width: fit-content;
+  padding: 3px 10px 3px 3px;
   border: 0;
   border-radius: 999px;
-  grid-template-columns: 23px minmax(0, 1fr);
+  gap: 8px;
   background: var(--soft);
 }
 
@@ -585,8 +671,8 @@ textarea:focus {
 .compact-client-count strong {
   display: grid;
   place-items: center;
-  width: 23px;
-  height: 23px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   color: #ffffff;
   background: var(--green-dark);
@@ -594,7 +680,9 @@ textarea:focus {
 }
 
 .compact-client-count small {
-  font-size: 11px;
+  color: var(--green-dark);
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 .compact-client-count.attention,
@@ -602,6 +690,47 @@ textarea:focus {
   border: 0;
   color: var(--green-dark);
   background: var(--soft);
+}
+
+.compact-client-empty,
+.compact-client-deadline {
+  color: #8a8a8a;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.compact-client-deadline.has-value {
+  color: var(--green-dark);
+  font-weight: 600;
+}
+
+.compact-client-next {
+  color: #5c5c5c;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+}
+
+.compact-client-next.is-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.compact-client-next.is-empty svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 
 .compact-open-pill {
@@ -2518,6 +2647,7 @@ body.privacy-mode :is(
   .marketing-toolbar,
   .updates-toolbar,
   .bills-toolbar {
+    display: grid;
     grid-template-columns: 1fr 1fr;
   }
 

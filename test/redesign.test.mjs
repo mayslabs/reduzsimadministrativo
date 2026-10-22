@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=157/);
+  assert.match(indexHtml, /redesign\.css\?v=158/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -25,7 +25,17 @@ test("regularization is removed from primary navigation without deleting its rec
 test("client metrics act as the new quick filters", () => {
   assert.match(appJs, /data-client-metric-filter/);
   assert.match(appJs, /label: "Sem status"/);
+  assert.match(appJs, /hint: "tarefas abertas"/);
+  assert.match(appJs, /hint: "prazos registrados"/);
   assert.match(appJs, /activeClientQuickFilter === stat\.filter/);
+});
+
+test("home client list follows the supplied compact table behavior", () => {
+  assert.match(indexHtml, /layout-grid"><\/i> Cartões/);
+  assert.match(appJs, /Definir próxima ação/);
+  assert.match(appJs, /compact-client-empty/);
+  assert.match(appJs, /function compactClientDisplayName/);
+  assert.match(appJs, /function compactClientArea/);
 });
 
 test("client summary exposes pending work in the redesigned dialog", () => {

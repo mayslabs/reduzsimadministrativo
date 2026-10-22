@@ -2150,10 +2150,12 @@ function renderClientFilterOptions() {
 function renderMetrics() {
   const activeClients = state.clients.filter((client) => !isClientFinished(client));
   const finishedClients = state.clients.filter(isClientFinished).length;
+  const openTaskCount = activeClients.reduce((total, client) => total + clientOpenTasks(client).length, 0);
+  const deadlineCount = activeClients.reduce((total, client) => total + (client.deadlines || []).length, 0);
   const stats = [
     { label: "Ativos", value: activeClients.length, hint: "obras em andamento", filter: "active" },
-    { label: "Com tarefa", value: activeClients.filter((client) => clientOpenTasks(client).length).length, hint: "clientes com tarefa aberta", filter: "tasks" },
-    { label: "Com prazo", value: activeClients.filter((client) => (client.deadlines || []).length).length, hint: "clientes com prazo registrado", filter: "deadlines" },
+    { label: "Com tarefa", value: openTaskCount, hint: "tarefas abertas", filter: "tasks" },
+    { label: "Com prazo", value: deadlineCount, hint: "prazos registrados", filter: "deadlines" },
     { label: "Sem status", value: activeClients.filter((client) => !getClientStatuses(client).length).length, hint: "precisam de triagem", filter: "no-status" },
     { label: "Finalizados", value: finishedClients, hint: "processos concluídos", filter: "finished" },
   ];
@@ -8716,6 +8718,12 @@ function sortClients(clients, sortMode) {
   if (sortMode === "recent") {
     return clients.sort((a, b) => clientCreatedTime(b) - clientCreatedTime(a));
   }
+  if (sortMode === "name") {
+    return clients.sort((a, b) => String(a.clientName || "").localeCompare(String(b.clientName || ""), "pt-BR"));
+  }
+  if (sortMode === "area") {
+    return clients.sort((a, b) => areaAmount(b.area) - areaAmount(a.area));
+  }
   if (sortMode === "active") {
     return clients.sort((a, b) => Number(isClientFinished(a)) - Number(isClientFinished(b)) || clientCreatedTime(b) - clientCreatedTime(a));
   }
@@ -8800,28 +8808,25 @@ function renderCompactClientRow(client) {
   const workLine = [workTitle ? workTitle.slice(0, -3) : "", destinationLabel(client)].filter(Boolean).join(" | ");
   const nextAction = String(client.nextAction || "").trim();
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
-  const deadlineOwners = ownerSummary(deadlines.map((deadline) => deadline.ownerId));
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
       <span class="compact-client-main">
-        <strong>${escapeHtml(client.clientName || "Cliente sem nome")}</strong>
+        <strong>${escapeHtml(compactClientDisplayName(client.clientName || "Cliente sem nome"))}</strong>
         <small>${escapeHtml(workLine)}</small>
         ${client.linkedRegularizationId ? `<small class="service-link-badge"><i data-lucide="link-2"></i> Também em Regularização</small>` : ""}
       </span>
       <span class="compact-client-state">${escapeHtml(client.state || "--")}</span>
-      <span class="compact-client-area">${escapeHtml(client.area || "--")}</span>
+      <span class="compact-client-area">${escapeHtml(compactClientArea(client.area))}</span>
       <span class="compact-client-status">${compactStatusChips(statuses)}</span>
-      <span class="compact-client-count ${openTasks.length ? "attention" : ""}">
-        <i data-lucide="list-checks"></i>
-        <strong>${openTasks.length}</strong>
-        <small>${openTasks.length ? escapeHtml(taskOwners) : "Sem tarefa"}</small>
+      ${
+        openTasks.length
+          ? `<span class="compact-client-count attention"><strong>${openTasks.length}</strong><small>${escapeHtml(taskOwners)}</small></span>`
+          : `<span class="compact-client-empty" aria-label="Sem tarefas">—</span>`
+      }
+      <span class="compact-client-deadline ${deadlines.length ? "has-value" : ""}" aria-label="${deadlines.length ? `${deadlines.length} prazo(s)` : "Sem prazos"}">${deadlines.length || "—"}</span>
+      <span class="compact-client-next ${nextAction ? "" : "is-empty"}">
+        ${nextAction ? escapeHtml(nextAction) : `<i data-lucide="plus"></i> Definir próxima ação`}
       </span>
-      <span class="compact-client-count ${deadlines.length ? "deadline" : ""}">
-        <i data-lucide="calendar-clock"></i>
-        <strong>${deadlines.length}</strong>
-        <small>${deadlines.length ? escapeHtml(deadlineOwners) : "Sem prazo"}</small>
-      </span>
-      <span class="compact-client-next">${escapeHtml(nextAction || "Sem próxima ação")}</span>
       <span class="compact-open-pill" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
     </button>
   `;
@@ -8829,9 +8834,46 @@ function renderCompactClientRow(client) {
 
 function compactStatusChips(statuses) {
   if (!statuses.length) return "";
-  const visible = statuses.slice(0, 2).map((status) => chip(status)).join("");
+  const visible = statuses.slice(0, 2).map(compactStatusChip).join("");
   const remaining = statuses.length - 2;
   return `${visible}${remaining > 0 ? `<span class="chip neutral compact-overflow">+${remaining}</span>` : ""}`;
+}
+
+function compactStatusChip(status) {
+  const name = normalize(status.name);
+  const tone = name === "recibos para assinatura"
+    ? "strong"
+    : name === "dados dos trabalhadores"
+      ? "soft"
+      : name === "aguardando engenheiro"
+        ? "neutral"
+        : ["cnd emitida", "finalizado"].includes(name)
+          ? "complete"
+          : "";
+  if (!tone) return chip(status);
+  return `<span class="chip compact-status-chip tone-${tone}"><span aria-hidden="true"></span>${escapeHtml(status.name)}</span>`;
+}
+
+function compactClientDisplayName(value) {
+  const text = String(value || "").trim();
+  if (!text || text !== text.toLocaleUpperCase("pt-BR")) return text;
+  const particles = new Set(["da", "das", "de", "do", "dos", "e"]);
+  const acronyms = new Set(["CNO", "CNPJ", "CPF", "DZ", "INSS"]);
+  let wordIndex = 0;
+  return text.replace(/\p{L}+/gu, (word) => {
+    const lower = word.toLocaleLowerCase("pt-BR");
+    const isFirst = wordIndex === 0;
+    wordIndex += 1;
+    if (!isFirst && particles.has(lower)) return lower;
+    if (acronyms.has(word)) return word;
+    return `${lower.charAt(0).toLocaleUpperCase("pt-BR")}${lower.slice(1)}`;
+  });
+}
+
+function compactClientArea(value) {
+  const text = String(value || "").trim();
+  if (!text) return "—";
+  return onlyDigits(text) ? formatAreaTotal(areaAmount(text)) : text;
 }
 
 function bindClientQuickActions() {
