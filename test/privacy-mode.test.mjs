@@ -20,6 +20,8 @@ test("presentation privacy starts disabled and has a global toggle", () => {
 test("presentation privacy masks the requested operational areas", () => {
   assert.match(stylesCss, /#tasksSection \.task-row-title strong/);
   assert.match(stylesCss, /#billsSection \.bills-table tbody td:first-child strong/);
+  assert.match(stylesCss, /#billsSection \.bills-table tbody td:nth-child\(2\) strong/);
+  assert.match(stylesCss, /#billsSection \.bill-summary-legend b/);
   assert.match(stylesCss, /#goalsSection \.goal-overview-metric strong/);
   assert.match(stylesCss, /#dataSection \.data-total strong/);
   assert.match(stylesCss, /#clientsSection \.client-card h3/);

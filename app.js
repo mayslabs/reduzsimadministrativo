@@ -311,6 +311,7 @@ let activeGoalsMonth = currentMonthKey();
 let activeBillsYear = BILL_YEAR;
 let activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 let activeBillsStatusFilter = "";
+let activeBillsCategoryFilter = "";
 let collapsedGuidanceIds = new Set(loadCollapsedGuidanceIds());
 let updatesImportantOnly = false;
 let taskMineOnly = false;
@@ -433,6 +434,9 @@ const el = {
   goalsMissingData: document.getElementById("goalsMissingData"),
   billsYearSelect: document.getElementById("billsYearSelect"),
   billsMonthSelect: document.getElementById("billsMonthSelect"),
+  billsPrevMonthButton: document.getElementById("billsPrevMonthButton"),
+  billsNextMonthButton: document.getElementById("billsNextMonthButton"),
+  billsPeriodLabel: document.getElementById("billsPeriodLabel"),
   exportBillsButton: document.getElementById("exportBillsButton"),
   copyPreviousBillsButton: document.getElementById("copyPreviousBillsButton"),
   manageBillCategoriesButton: document.getElementById("manageBillCategoriesButton"),
@@ -1896,6 +1900,8 @@ function bindEvents() {
     activeBillsMonth = el.billsMonthSelect.value || activeBillsMonth;
     renderBillsDashboard();
   });
+  el.billsPrevMonthButton.addEventListener("click", () => shiftBillsMonth(-1));
+  el.billsNextMonthButton.addEventListener("click", () => shiftBillsMonth(1));
   el.billsSearchInput.addEventListener("input", renderBillsDashboard);
   el.exportBillsButton.addEventListener("click", exportBillsCsv);
   el.copyPreviousBillsButton.addEventListener("click", copyPreviousMonthBills);
@@ -3412,18 +3418,30 @@ function renderBillsDashboard() {
   if (!activeBillsMonth || activeBillsMonth < "01" || activeBillsMonth > "12") activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
   el.billsYearSelect.value = BILL_YEAR;
   el.billsMonthSelect.value = activeBillsMonth;
+  if (el.billsPeriodLabel) el.billsPeriodLabel.textContent = `${monthName(activeBillsMonth)} ${activeBillsYear}`;
 
   const monthBills = currentMonthBills();
+  if (activeBillsCategoryFilter && !monthBills.some((bill) => normalize(bill.category) === normalize(activeBillsCategoryFilter))) {
+    activeBillsCategoryFilter = "";
+  }
   const summary = companyBillsSummary(monthBills);
   const filtered = filteredCompanyBills(monthBills);
 
   renderBillsSummary(summary);
   renderBillsAlert(summary);
-  renderBillsFilters();
+  renderBillsFilters(summary);
   renderBillsTable(filtered);
   renderBillsCategoryChart(summary);
   bindBillDashboardActions();
   refreshIcons();
+}
+
+function shiftBillsMonth(direction) {
+  const currentIndex = Number(activeBillsMonth) - 1;
+  const nextIndex = currentIndex + direction;
+  if (nextIndex < 0 || nextIndex > 11) return;
+  activeBillsMonth = String(nextIndex + 1).padStart(2, "0");
+  renderBillsDashboard();
 }
 
 function currentMonthBills() {
@@ -3438,6 +3456,7 @@ function filteredCompanyBills(bills) {
     const status = billEffectiveStatus(bill);
     const statusKey = billStatusKey(status);
     if (activeBillsStatusFilter && statusKey !== activeBillsStatusFilter) return false;
+    if (activeBillsCategoryFilter && normalize(bill.category) !== normalize(activeBillsCategoryFilter)) return false;
     if (!query) return true;
     return normalize([bill.description, bill.category, bill.notes, bill.amount, status].join(" ")).includes(query);
   });
@@ -3454,6 +3473,7 @@ function companyBillsSummary(bills) {
     overdueCount: 0,
     categoryTotals: new Map(),
     count: bills.length,
+    nextPending: null,
   };
 
   bills.forEach((bill) => {
@@ -3474,31 +3494,67 @@ function companyBillsSummary(bills) {
     summary.categoryTotals.set(bill.category, current + amount);
   });
 
+  summary.nextPending = bills
+    .filter((bill) => billEffectiveStatus(bill) === "A pagar")
+    .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""))[0] || null;
+
   return summary;
 }
 
 function renderBillsSummary(summary) {
-  const paidPercent = summary.total ? `${Math.round((summary.paid / summary.total) * 100)}% do mês quitado` : "Nenhum pagamento registrado";
-  const cards = [
-    { label: "Total do mês", value: calculatedCurrency(summary.total), hint: `${summary.count} conta(s) cadastrada(s)`, tone: "total", icon: "circle-dollar-sign" },
-    { label: "Pago", value: calculatedCurrency(summary.paid), hint: paidPercent, tone: "paid", icon: "check-circle-2" },
-    { label: "A pagar", value: calculatedCurrency(summary.pending), hint: `${summary.pendingCount} conta(s) pendente(s)`, tone: "pending", icon: "clock-3" },
-    { label: "Vencidas", value: calculatedCurrency(summary.overdue), hint: `${summary.overdueCount} conta(s) exige(m) ação`, tone: "overdue", icon: "circle-alert" },
+  const paidPercent = summary.total ? (summary.paid / summary.total) * 100 : 0;
+  const pendingPercent = summary.total ? (summary.pending / summary.total) * 100 : 0;
+  const overduePercent = summary.total ? (summary.overdue / summary.total) * 100 : 0;
+  const nextPendingDay = summary.nextPending?.dueDate?.slice(-2)?.replace(/^0/, "") || "";
+  const paidHint = summary.paidCount === 1 ? "1 conta quitada" : `${summary.paidCount} contas quitadas`;
+  const pendingHint = summary.nextPending
+    ? `próxima: ${summary.nextPending.description || "Conta"}${nextPendingDay ? ` · dia ${nextPendingDay}` : ""}`
+    : "nenhuma conta pendente";
+  const overdueHint = summary.overdueCount === 0
+    ? "nenhuma conta vencida"
+    : summary.overdueCount === 1 ? "1 conta vencida" : `${summary.overdueCount} contas vencidas`;
+  const tiles = [
+    { label: "Pago", value: summary.paid, hint: paidHint, tone: "paid", filter: "paid" },
+    { label: "A pagar", value: summary.pending, hint: pendingHint, tone: "pending", filter: "pending" },
+    { label: "Vencidas", value: summary.overdue, hint: overdueHint, tone: "overdue", filter: "overdue" },
   ];
-  el.billsSummary.innerHTML = cards
-    .map(
-      (card) => `
-        <article class="bill-summary-card tone-${card.tone}">
-          <span class="bill-summary-icon"><i data-lucide="${card.icon}"></i></span>
-          <div>
-            <span>${escapeHtml(card.label)}</span>
-            <strong>${escapeHtml(card.value)}</strong>
-            <small>${escapeHtml(card.hint)}</small>
-          </div>
-        </article>
-      `
-    )
-    .join("");
+  el.billsSummary.innerHTML = `
+    <section class="bill-summary-card tone-total">
+      <div class="bill-summary-top">
+        <div class="bill-summary-copy">
+          <span>Total do mês</span>
+          <strong>${escapeHtml(calculatedCurrency(summary.total))}</strong>
+          <small>${summary.count} ${summary.count === 1 ? "conta cadastrada" : "contas cadastradas"}</small>
+        </div>
+        <b>${escapeHtml(calculatedPercent(paidPercent))} quitado</b>
+      </div>
+      <div class="bill-summary-composition">
+        <div class="bill-summary-progress" aria-label="Composição do total mensal">
+          <i class="paid" style="width:${paidPercent}%"></i>
+          <i class="pending" style="width:${pendingPercent}%"></i>
+          <i class="overdue" style="width:${overduePercent}%"></i>
+        </div>
+        <div class="bill-summary-legend">
+          <span><i class="paid"></i>Pago <b>${escapeHtml(calculatedCurrency(summary.paid))}</b></span>
+          <span><i class="pending"></i>A pagar <b>${escapeHtml(calculatedCurrency(summary.pending))}</b></span>
+          <span><i class="overdue"></i>Vencidas <b>${escapeHtml(calculatedCurrency(summary.overdue))}</b></span>
+        </div>
+      </div>
+    </section>
+    ${tiles
+      .map(
+        (tile) => `
+          <button class="bill-summary-card tone-${tile.tone}" type="button" data-bill-summary-filter="${tile.filter}">
+            <span>${escapeHtml(tile.label)}</span>
+            <div>
+              <strong>${escapeHtml(calculatedCurrency(tile.value))}</strong>
+              <small>${escapeHtml(tile.hint)}</small>
+            </div>
+          </button>
+        `
+      )
+      .join("")}
+  `;
 }
 
 function renderBillsAlert(summary) {
@@ -3518,39 +3574,65 @@ function renderBillsAlert(summary) {
   `;
 }
 
-function renderBillsFilters() {
+function renderBillsFilters(summary) {
+  const counts = {
+    "": summary.count,
+    paid: summary.paidCount,
+    pending: summary.pendingCount,
+    overdue: summary.overdueCount,
+  };
   document.querySelectorAll("[data-bill-filter]").forEach((button) => {
-    button.classList.toggle("active", (button.dataset.billFilter || "") === activeBillsStatusFilter);
+    const filter = button.dataset.billFilter || "";
+    button.classList.toggle("active", filter === activeBillsStatusFilter);
+    button.innerHTML = `${escapeHtml(button.dataset.billLabel || button.textContent.trim())} <span>${counts[filter] || 0}</span>`;
   });
 }
 
 function renderBillsTable(bills) {
   el.billsTableBody.innerHTML = bills.length
     ? bills.map(renderBillRow).join("")
-    : `<tr><td colspan="7" class="empty-table-cell">Nenhuma conta encontrada para este mês.</td></tr>`;
+    : `<tr><td colspan="6" class="empty-table-cell">Nenhuma conta encontrada para este mês.</td></tr>`;
 }
 
 function renderBillRow(bill) {
   const status = billEffectiveStatus(bill);
   const isPaid = status === "Pago";
-  const notes = bill.notes ? `<small>${escapeHtml(bill.notes)}</small>` : "";
+  const statusLabel = isPaid ? "Paga" : status;
+  const dueHint = billDueHint(bill, status);
   return `
     <tr class="bill-row ${billStatusKey(status)}">
-      <td><strong>${escapeHtml(bill.description || "Conta sem nome")}</strong>${notes}</td>
-      <td>${escapeHtml(bill.category || "Outros")}</td>
-      <td>${bill.dueDate ? escapeHtml(formatDate(bill.dueDate)) : "Sem vencimento"}</td>
+      <td class="bill-check-cell">
+        <button class="bill-paid-toggle ${isPaid ? "paid" : ""}" type="button" data-toggle-bill-paid="${bill.id}" aria-label="${isPaid ? "Marcar como a pagar" : "Marcar como paga"}">
+          ${isPaid ? `<i data-lucide="check"></i>` : ""}
+        </button>
+      </td>
+      <td title="${escapeAttr(bill.notes || "")}">
+        <span class="bill-account-title"><strong>${escapeHtml(bill.description || "Conta sem nome")}</strong>${bill.recurring ? `<i data-lucide="refresh-cw" aria-label="Conta recorrente"></i>` : ""}</span>
+        <small>${escapeHtml(bill.category || "Outros")}</small>
+      </td>
+      <td><span class="bill-due-date">${bill.dueDate ? escapeHtml(formatDate(bill.dueDate)) : "Sem vencimento"}</span><small class="bill-due-hint ${billStatusKey(status)}">${escapeHtml(dueHint)}</small></td>
       <td><strong>${escapeHtml(bill.amount || calculatedCurrency(0))}</strong></td>
-      <td><span class="bill-status-pill ${billStatusKey(status)}">${escapeHtml(status)}</span></td>
-      <td><span class="bill-recurring-pill ${bill.recurring ? "yes" : "no"}">${bill.recurring ? "Sim" : "Não"}</span></td>
+      <td><span class="bill-status-pill ${billStatusKey(status)}"><i></i>${escapeHtml(statusLabel)}</span></td>
       <td>
         <div class="bill-row-actions">
           <button class="icon-button" type="button" data-edit-bill="${bill.id}" aria-label="Editar conta"><i data-lucide="pencil"></i></button>
-          <button class="icon-button" type="button" data-toggle-bill-paid="${bill.id}" aria-label="${isPaid ? "Marcar como a pagar" : "Marcar como paga"}"><i data-lucide="${isPaid ? "rotate-ccw" : "check-circle-2"}"></i></button>
           <button class="icon-button danger-icon" type="button" data-delete-bill="${bill.id}" aria-label="Remover conta"><i data-lucide="trash-2"></i></button>
         </div>
       </td>
     </tr>
   `;
+}
+
+function billDueHint(bill, status) {
+  if (status === "Pago") return "paga";
+  if (!bill.dueDate) return "sem prazo";
+  const dueDate = new Date(`${bill.dueDate}T12:00:00`);
+  const today = new Date(`${localDateKey()}T12:00:00`);
+  const days = Math.round((dueDate.getTime() - today.getTime()) / 86400000);
+  if (days === 0) return "vence hoje";
+  if (days > 0) return `vence em ${days} ${days === 1 ? "dia" : "dias"}`;
+  const lateDays = Math.abs(days);
+  return `${lateDays} ${lateDays === 1 ? "dia" : "dias"} em atraso`;
 }
 
 function renderBillsCategoryChart(summary) {
@@ -3563,41 +3645,41 @@ function renderBillsCategoryChart(summary) {
     return;
   }
 
-  const colors = billCategoryColors();
-  let cursor = 0;
-  const stops = rows.map((row, index) => {
-    const start = cursor;
-    const size = (row.amount / summary.total) * 100;
-    cursor += size;
-    return `${colors[index % colors.length]} ${start}% ${cursor}%`;
-  });
-
   el.billsCategoryChart.innerHTML = `
-    <div class="bill-donut-wrap">
-      <div class="bill-donut" style="--bill-chart:${stops.join(", ")}">
-        <span>Total gasto<strong>${escapeHtml(calculatedCurrency(summary.total))}</strong></span>
-      </div>
-      <div class="bill-category-list">
-        ${rows.map((row, index) => renderBillCategoryRow(row, summary.total, colors[index % colors.length])).join("")}
-        <div class="bill-category-total"><span>Total</span><strong>${escapeHtml(calculatedCurrency(summary.total))}</strong><span>100%</span></div>
-      </div>
+    <div class="bill-category-list">
+      ${rows.map((row, index) => renderBillCategoryRow(row, summary.total, billCategoryColor(row.category, index))).join("")}
     </div>
+    <div class="bill-category-total"><span>Total</span><strong>${escapeHtml(calculatedCurrency(summary.total))}</strong></div>
   `;
 }
 
 function renderBillCategoryRow(row, total, color) {
   const percent = total ? (row.amount / total) * 100 : 0;
   return `
-    <div class="bill-category-row">
-      <span class="bill-category-dot" style="background:${color}"></span>
-      <span>${escapeHtml(row.category)}</span>
-      <strong>${escapeHtml(calculatedCurrency(row.amount))}</strong>
-      <small>${percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</small>
-    </div>
+    <button class="bill-category-row ${normalize(row.category) === normalize(activeBillsCategoryFilter) ? "active" : ""}" type="button" data-bill-category-filter="${escapeAttr(row.category)}">
+      <span class="bill-category-line">
+        <span class="bill-category-name"><i style="background:${color}"></i>${escapeHtml(row.category)}</span>
+        <span><strong>${escapeHtml(calculatedCurrency(row.amount))}</strong> · ${percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
+      </span>
+      <span class="bill-category-track"><i style="width:${percent}%;background:${color}"></i></span>
+    </button>
   `;
 }
 
 function bindBillDashboardActions() {
+  el.billsSummary.querySelectorAll("[data-bill-summary-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeBillsStatusFilter = button.dataset.billSummaryFilter || "";
+      renderBillsDashboard();
+    });
+  });
+  el.billsCategoryChart.querySelectorAll("[data-bill-category-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const category = button.dataset.billCategoryFilter || "";
+      activeBillsCategoryFilter = normalize(category) === normalize(activeBillsCategoryFilter) ? "" : category;
+      renderBillsDashboard();
+    });
+  });
   el.billsTableBody.querySelectorAll("[data-edit-bill]").forEach((button) => {
     button.addEventListener("click", () => openBillDialog(button.dataset.editBill));
   });
@@ -3871,8 +3953,24 @@ function monthName(month) {
   }[month] || month;
 }
 
-function billCategoryColors() {
-  return ["#009f7f", "#5aa9e6", "#f2994a", "#f26b6b", "#8b5cf6", "#c78000", "#64748b", "#14b8a6", "#a3a3a3"];
+function billCategoryColor(category, index = 0) {
+  const colors = {
+    pessoal: "#074d40",
+    outros: "#009b77",
+    aluguel: "#2f7fb8",
+    "cartao de credito": "#d9534f",
+    bni: "#7b5cc4",
+    imposto: "#e08a1e",
+    condominio: "#5c6b7a",
+    energia: "#e5b700",
+    contabilidade: "#3ba6a0",
+    educacao: "#c2569b",
+    sistema: "#4f6bd8",
+    internet: "#8baa2e",
+    acipa: "#a0674b",
+  };
+  const fallback = ["#074d40", "#009b77", "#2f7fb8", "#d9534f", "#7b5cc4", "#e08a1e", "#5c6b7a", "#3ba6a0"];
+  return colors[normalize(category)] || fallback[index % fallback.length];
 }
 
 function renderGoalsDashboard() {

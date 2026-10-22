@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=163" />
+    <link rel="stylesheet" href="./redesign.css?v=164" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -478,15 +478,20 @@
             <div>
               <p class="eyebrow">Acesso administrativo</p>
               <h2>Financeiro interno</h2>
-              <p class="section-subtitle">Controle mensal de despesas, vencimentos e recorrências da operação.</p>
+              <p class="section-subtitle">Despesas, vencimentos e recorrências da operação.</p>
             </div>
             <div class="inline-actions bills-actions">
-              <label>Ano
+              <div class="bills-period-control" aria-label="Selecionar mês das contas">
+                <button id="billsPrevMonthButton" class="icon-button" type="button" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
+                <span id="billsPeriodLabel" class="bills-period-label" aria-live="polite"></span>
+                <button id="billsNextMonthButton" class="icon-button" type="button" aria-label="Próximo mês"><i data-lucide="chevron-right"></i></button>
+              </div>
+              <label hidden aria-hidden="true">Ano
                 <select id="billsYearSelect" aria-label="Selecionar ano das contas">
                   <option value="2026">2026</option>
                 </select>
               </label>
-              <label>Mês
+              <label hidden aria-hidden="true">Mês
                 <select id="billsMonthSelect" aria-label="Selecionar mês das contas">
                   <option value="01">Janeiro</option>
                   <option value="02">Fevereiro</option>
@@ -516,25 +521,24 @@
               <div class="toolbar bills-toolbar">
                 <label class="search-field">
                   <i data-lucide="search"></i>
-                  <input id="billsSearchInput" type="search" placeholder="Buscar conta, categoria ou observação" />
+                  <input id="billsSearchInput" type="search" placeholder="Buscar conta ou categoria" />
                 </label>
                 <div class="segmented-control bills-filter-control" role="group" aria-label="Filtrar contas">
-                  <button class="active" type="button" data-bill-filter="">Todas</button>
-                  <button type="button" data-bill-filter="paid">Pagas</button>
-                  <button type="button" data-bill-filter="pending">A pagar</button>
-                  <button type="button" data-bill-filter="overdue">Vencidas</button>
+                  <button class="active" type="button" data-bill-filter="" data-bill-label="Todas">Todas <span>0</span></button>
+                  <button type="button" data-bill-filter="paid" data-bill-label="Pagas">Pagas <span>0</span></button>
+                  <button type="button" data-bill-filter="pending" data-bill-label="A pagar">A pagar <span>0</span></button>
+                  <button type="button" data-bill-filter="overdue" data-bill-label="Vencidas">Vencidas <span>0</span></button>
                 </div>
               </div>
               <div class="table-wrap">
                 <table class="data-table bills-table">
                   <thead>
                     <tr>
+                      <th><span class="sr-only">Pagamento</span></th>
                       <th>Conta</th>
-                      <th>Categoria</th>
                       <th>Vencimento</th>
                       <th>Valor</th>
                       <th>Status</th>
-                      <th>Recorrente</th>
                       <th>Ações</th>
                     </tr>
                   </thead>
@@ -544,9 +548,10 @@
             </section>
 
             <section class="bills-category-card">
-              <div class="mini-heading">
-                <h3>Gastos por categoria</h3>
-                <button id="manageBillCategoriesButton" class="small-button" type="button"><i data-lucide="tags"></i> Categorias</button>
+              <div class="mini-heading bills-category-heading">
+                <p class="eyebrow">Gastos por categoria</p>
+                <h3>Para onde vai o dinheiro</h3>
+                <button id="manageBillCategoriesButton" class="small-button" type="button" hidden aria-hidden="true"><i data-lucide="tags"></i> Categorias</button>
               </div>
               <div id="billsCategoryChart" class="bills-category-chart"></div>
             </section>
@@ -1238,7 +1243,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=163"></script>
+    <script src="./app.js?v=164"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
