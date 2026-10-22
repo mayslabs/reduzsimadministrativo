@@ -5329,6 +5329,24 @@ body.privacy-mode :is(
   cursor: pointer;
 }
 
+#billsSection button.bill-summary-card > div {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: auto;
+}
+
+#billsSection button.bill-summary-card > div > strong {
+  margin: 0;
+}
+
+#billsSection button.bill-summary-card > div > small {
+  width: 100%;
+  min-height: 32px;
+}
+
 #billsSection button.bill-summary-card:hover,
 #billsSection button.bill-summary-card:focus-visible {
   background: #e9eeec;
@@ -5398,7 +5416,7 @@ body.privacy-mode :is(
 
 #billsSection .bill-summary-copy > strong {
   margin: 0;
-  font-size: 44px;
+  font-size: 38px;
   line-height: 1.05;
 }
 

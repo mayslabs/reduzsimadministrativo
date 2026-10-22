@@ -23,6 +23,9 @@ test("accounts summary shows composition and actionable status totals", () => {
   assert.match(appJs, /nextPending/);
   assert.match(redesignCss, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
   assert.match(redesignCss, /\.bill-summary-card\.tone-total\s*\{[\s\S]*?grid-column:\s*span 2/);
+  assert.match(redesignCss, /button\.bill-summary-card > div\s*\{[\s\S]*?min-height:\s*0[\s\S]*?margin-top:\s*auto/);
+  assert.match(redesignCss, /button\.bill-summary-card > div > small\s*\{[\s\S]*?min-height:\s*32px/);
+  assert.match(redesignCss, /\.bill-summary-copy > strong\s*\{[\s\S]*?font-size:\s*38px/);
 });
 
 test("accounts list exposes payment, recurrence, status and compact actions", () => {
