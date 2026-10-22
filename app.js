@@ -421,6 +421,7 @@ const el = {
   dataDrilldown: document.getElementById("dataDrilldown"),
   goalsYearSelect: document.getElementById("goalsYearSelect"),
   goalsMonthSelect: document.getElementById("goalsMonthSelect"),
+  goalsPeriodLabel: document.getElementById("goalsPeriodLabel"),
   goalsPrevMonthButton: document.getElementById("goalsPrevMonthButton"),
   goalsNextMonthButton: document.getElementById("goalsNextMonthButton"),
   editGoalsButton: document.getElementById("editGoalsButton"),
@@ -3909,13 +3910,18 @@ function syncGoalSelectors(data) {
     .map((month) => `<option value="${month.key}">${escapeHtml(month.label)}</option>`)
     .join("");
   el.goalsMonthSelect.value = activeGoalsMonth;
+  const month = data.months.find((item) => item.key === activeGoalsMonth) || data.months[0];
+  if (el.goalsPeriodLabel) el.goalsPeriodLabel.textContent = `${month?.label || "Mês"} ${activeGoalsYear}`;
 }
 
 function shiftGoalMonth(direction) {
-  const data = companyGoalsData(activeGoalsYear);
-  const currentIndex = data.months.findIndex((month) => month.key === activeGoalsMonth);
-  const nextIndex = Math.min(data.months.length - 1, Math.max(0, currentIndex + direction));
-  activeGoalsMonth = data.months[nextIndex]?.key || activeGoalsMonth;
+  const [year, month] = String(activeGoalsMonth || `${activeGoalsYear}-01`).split("-").map(Number);
+  const nextDate = new Date(year, month - 1 + direction, 1);
+  const nextYear = String(nextDate.getFullYear());
+  const availableYears = [...el.goalsYearSelect.options].map((option) => option.value);
+  if (!availableYears.includes(nextYear)) return;
+  activeGoalsYear = nextYear;
+  activeGoalsMonth = `${nextYear}-${String(nextDate.getMonth() + 1).padStart(2, "0")}`;
   renderGoalsDashboard();
 }
 
@@ -3939,20 +3945,69 @@ function goalsYearProgress(year) {
   };
 }
 
+function goalWholeCurrency(value) {
+  return (Number(value) || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  });
+}
+
+function renderGoalThresholdRail(total, floor, target, stretch, variant = "monthly", pace = null) {
+  const scale = Math.max(Number(stretch) || 0, 1);
+  const fill = Math.min(100, goalPercent(total, scale));
+  const tiers = [
+    { label: "Piso", amount: floor },
+    { label: "Meta", amount: target },
+    { label: "Supermeta", amount: stretch },
+  ];
+  return `
+    <div class="goal-threshold-rail ${variant}">
+      <div class="goal-threshold-track" style="--goal-threshold-fill:${fill}%">
+        <span class="goal-threshold-fill"></span>
+        ${pace === null ? "" : `<i class="goal-pace-marker" style="left:${Math.min(100, goalPercent(pace, scale))}%" title="Ritmo esperado para a meta"></i>`}
+        ${tiers
+          .map(
+            (tier) => `
+              <i class="goal-threshold-marker ${total >= tier.amount ? "reached" : ""}" style="left:${Math.min(100, goalPercent(tier.amount, scale))}%"></i>
+            `
+          )
+          .join("")}
+      </div>
+      <div class="goal-threshold-labels">
+        ${tiers
+          .map(
+            (tier) => `
+              <div class="goal-threshold-label">
+                <span><i></i>${escapeHtml(tier.label)}</span>
+                <strong>${escapeHtml(goalWholeCurrency(tier.amount))}</strong>
+                <small>${escapeHtml(goalPercentLabel(total, tier.amount))} alcançado</small>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderGoalsOverview(data, month, settings) {
   const monthTotal = month?.total || 0;
   const monthContracts = month?.contracts || [];
   const targetPercent = Math.min(100, Math.round(goalPercent(monthTotal, settings.target)));
   const remainingTarget = Math.max(settings.target - monthTotal, 0);
   const monthTicket = monthContracts.length ? monthTotal / monthContracts.length : 0;
-  const feedback = remainingTarget
-    ? `Faltam ${calculatedCurrency(remainingTarget)} para atingir a meta mensal.`
-    : "Excelente! A meta mensal foi atingida.";
+  const feedback = monthTotal >= settings.stretch
+    ? "Supermeta batida"
+    : monthTotal >= settings.target
+      ? `Meta batida · faltam ${calculatedCurrency(settings.stretch - monthTotal)} para a supermeta`
+      : `Faltam ${calculatedCurrency(remainingTarget)} para a meta`;
+  const gapLabel = remainingTarget ? "Falta para a meta" : "Acima da meta";
+  const gapValue = remainingTarget || Math.max(monthTotal - settings.target, 0);
 
   return `
     <section class="goals-overview-card">
       <div class="goal-month-hero">
-        <p class="goals-card-kicker">Meta mensal</p>
         <div class="goal-hero-content">
           <div class="goal-ring" style="--goal-ring:${targetPercent}%">
             <div class="goal-ring-content">
@@ -3961,112 +4016,128 @@ function renderGoalsOverview(data, month, settings) {
             </div>
           </div>
           <div class="goal-main-value">
+            <p class="goals-card-kicker">Meta mensal · ${escapeHtml(month?.label || "Mês")}</p>
             <strong>${escapeHtml(calculatedCurrency(monthTotal))}</strong>
             <span>de ${escapeHtml(calculatedCurrency(settings.target))}</span>
-            <p><i data-lucide="check-circle-2"></i>${escapeHtml(feedback)}</p>
+            <p class="goal-feedback"><i></i>${escapeHtml(feedback)}</p>
           </div>
         </div>
       </div>
       <div class="goal-overview-side">
         <div class="goal-overview-metrics">
-          ${renderGoalMetric("wallet", "Receita recebida no mês", calculatedCurrency(monthTotal), "")}
-          ${renderGoalMetric("flag", "Falta para a meta", calculatedCurrency(remainingTarget), remainingTarget ? "" : "Meta batida")}
-          ${renderGoalMetric("users", "Clientes pagos no mês", monthContracts.length, "Contratos pagos")}
-          ${renderGoalMetric("banknote", "Ticket médio", calculatedCurrency(monthTicket), "Por contrato")}
+          ${renderGoalMetric("Clientes pagos", monthContracts.length)}
+          ${renderGoalMetric("Ticket médio", calculatedCurrency(monthTicket))}
+          ${renderGoalMetric(gapLabel, calculatedCurrency(gapValue))}
         </div>
-        <div class="goal-threshold-grid">
-          ${renderGoalThresholdCard("Piso mensal", settings.floor, monthTotal, "floor")}
-          ${renderGoalThresholdCard("Meta mensal", settings.target, monthTotal, "target")}
-          ${renderGoalThresholdCard("Supermeta mensal", settings.stretch, monthTotal, "stretch")}
-        </div>
+        ${renderGoalThresholdRail(monthTotal, settings.floor, settings.target, settings.stretch)}
       </div>
     </section>
   `;
 }
 
-function renderGoalMetric(icon, label, value, hint) {
+function renderGoalMetric(label, value) {
   return `
     <article class="goal-overview-metric">
-      <i data-lucide="${icon}"></i>
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(String(value))}</strong>
-      ${hint ? `<small>${escapeHtml(hint)}</small>` : ""}
-    </article>
-  `;
-}
-
-function renderGoalThresholdCard(label, amount, total, tone) {
-  const percent = Math.min(100, Math.round(goalPercent(total, amount)));
-  return `
-    <article class="goal-threshold-card ${tone}">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(calculatedCurrency(amount))}</strong>
-      <small>${escapeHtml(goalPercentLabel(total, amount))} alcançado</small>
-      <div class="goal-mini-track"><i style="width:${percent}%"></i></div>
     </article>
   `;
 }
 
 function renderGoalsAnnualPanel(data, settings, annualTarget, annualStretch) {
   const annualFloor = settings.floor * 12;
-  const targetProgress = Math.min(100, Math.round(goalPercent(data.total, annualStretch)));
   const yearProgress = goalsYearProgress(activeGoalsYear);
+  const remainingMonths = Math.max(12 - yearProgress.elapsedMonths, 0);
+  const projection = yearProgress.elapsedMonths ? (data.total / yearProgress.elapsedMonths) * 12 : 0;
+  const neededPerMonth = remainingMonths ? Math.max(annualTarget - data.total, 0) / remainingMonths : 0;
+  const expectedPace = annualTarget * (yearProgress.elapsedMonths / 12);
+  const paceDifference = data.total - expectedPace;
+  const paceMonth = yearProgress.elapsedMonths
+    ? goalMonthName(`${activeGoalsYear}-${String(yearProgress.elapsedMonths).padStart(2, "0")}`).toLowerCase()
+    : "o início do ano";
+  const paceText = paceDifference >= 0
+    ? `Ritmo esperado até ${paceMonth}: ${goalWholeCurrency(expectedPace)} · você está ${goalWholeCurrency(paceDifference)} acima`
+    : `Ritmo esperado até ${paceMonth}: ${goalWholeCurrency(expectedPace)} · faltam ${goalWholeCurrency(Math.abs(paceDifference))} para entrar no ritmo`;
   return `
     <section class="goal-annual-panel">
-      <div class="goal-annual-main">
-        <p class="goals-card-kicker"><i data-lucide="target"></i> Meta anual</p>
-        <div class="goal-annual-total">
-          <strong>${escapeHtml(calculatedCurrency(data.total))}</strong>
-          <span>de ${escapeHtml(calculatedCurrency(annualTarget))}</span>
+      <div class="goal-annual-header">
+        <div class="goal-annual-main">
+          <p class="goals-card-kicker">Meta anual · ${escapeHtml(activeGoalsYear)}</p>
+          <div class="goal-annual-total">
+            <strong>${escapeHtml(calculatedCurrency(data.total))}</strong>
+            <span>de ${escapeHtml(calculatedCurrency(annualTarget))} · ${escapeHtml(goalPercentLabel(data.total, annualTarget))} alcançado</span>
+          </div>
         </div>
-        <div class="goal-annual-track">
-          <span style="width:${targetProgress}%"></span>
-          <i class="floor" style="left:${Math.min(100, Math.round(goalPercent(annualFloor, annualStretch)))}%"></i>
-          <i class="target" style="left:${Math.min(100, Math.round(goalPercent(annualTarget, annualStretch)))}%"></i>
-          <i class="stretch" style="left:100%"></i>
-        </div>
-        <div class="goal-annual-labels">
-          <span>Piso anual<br><strong>${escapeHtml(calculatedCurrency(annualFloor))}</strong></span>
-          <span>Meta anual<br><strong>${escapeHtml(calculatedCurrency(annualTarget))}</strong></span>
-          <span>Supermeta anual<br><strong>${escapeHtml(calculatedCurrency(annualStretch))}</strong></span>
+        <div class="goal-annual-insights">
+          <article class="goal-year-progress">
+            <span>Ano concluído</span>
+            <strong>${yearProgress.percent}% <small>${yearProgress.elapsedMonths} de 12 meses</small></strong>
+          </article>
+          <article class="goal-annual-insight">
+            <span>Projeção no ritmo atual</span>
+            <strong>${escapeHtml(goalWholeCurrency(projection))}</strong>
+          </article>
+          <article class="goal-annual-insight needed">
+            <span>Necessário por mês restante</span>
+            <strong>${escapeHtml(goalWholeCurrency(neededPerMonth))}</strong>
+          </article>
         </div>
       </div>
-      <div class="goal-year-progress">
-        <strong>${yearProgress.percent}% do ano concluído</strong>
-        <span>${yearProgress.elapsedMonths} de 12 meses</span>
-      </div>
-      <div class="goal-annual-thresholds">
-        ${renderGoalThresholdCard("Piso anual", annualFloor, data.total, "floor")}
-        ${renderGoalThresholdCard("Meta anual", annualTarget, data.total, "target")}
-        ${renderGoalThresholdCard("Supermeta anual", annualStretch, data.total, "stretch")}
-      </div>
+      ${renderGoalThresholdRail(data.total, annualFloor, annualTarget, annualStretch, "annual", expectedPace)}
+      <p class="goal-pace-message"><i></i>${escapeHtml(paceText)}</p>
     </section>
   `;
 }
 
 function renderGoalsMonthlyPerformance(data, settings) {
-  const maxTotal = Math.max(settings.stretch, ...data.months.map((month) => month.total), 1);
+  const maxTotal = Math.max(settings.stretch, ...data.months.map((month) => month.total), 1) * 1.08;
+  const now = new Date();
+  const numericYear = Number(activeGoalsYear);
+  const targetPosition = Math.min(100, goalPercent(settings.target, maxTotal));
+  const floorPosition = Math.min(100, goalPercent(settings.floor, maxTotal));
+  const bars = data.months.map((month, index) => {
+    const future = numericYear > now.getFullYear() || (numericYear === now.getFullYear() && index > now.getMonth());
+    const tone = future ? "future" : month.total >= settings.target ? "met" : month.total >= settings.floor ? "floor" : "below";
+    return {
+      ...month,
+      future,
+      tone,
+      height: month.total ? Math.max(2, Math.min(100, goalPercent(month.total, maxTotal))) : 0,
+    };
+  });
   return `
     <section class="goal-performance-panel">
-      <div class="mini-heading">
-        <h3>Desempenho mensal - ${escapeHtml(activeGoalsYear)}</h3>
-        <span>Meta mensal: ${escapeHtml(calculatedCurrency(settings.target))}</span>
+      <div class="goal-performance-header">
+        <div>
+          <p class="goals-card-kicker">Desempenho mensal · ${escapeHtml(activeGoalsYear)}</p>
+          <h3>Receita por mês</h3>
+        </div>
+        <div class="goal-chart-legend" aria-label="Legenda do gráfico">
+          <span><i class="met"></i>Meta batida</span>
+          <span><i class="floor"></i>Acima do piso</span>
+          <span><i class="below"></i>Abaixo do piso</span>
+        </div>
       </div>
-      <div class="goal-month-bars">
-        ${data.months
-          .map((month) => {
-            const height = Math.max(6, Math.round((month.total / maxTotal) * 100));
-            return `
-              <button class="goal-month-bar-button ${month.key === activeGoalsMonth ? "active" : ""}" type="button" data-goal-month="${month.key}">
-                <strong>${escapeHtml(formatCompactCurrency(month.total))}</strong>
-                <span class="goal-month-bar" style="--bar-height:${height}%"><i></i></span>
-                <small>${escapeHtml(month.label.slice(0, 3))}</small>
-              </button>
-            `;
-          })
-          .join("")}
+      <div class="goal-chart-plot">
+        <div class="goal-chart-line target" style="bottom:${targetPosition}%"><span>Meta</span></div>
+        <div class="goal-chart-line floor" style="bottom:${floorPosition}%"><span>Piso</span></div>
+        <div class="goal-chart-columns">
+          ${bars
+            .map(
+              (month) => `
+                <button class="goal-month-bar-button ${month.key === activeGoalsMonth ? "active" : ""} ${month.tone}" type="button" data-goal-month="${month.key}" aria-label="${escapeHtml(`${month.label}: ${calculatedCurrency(month.total)}`)}">
+                  <strong>${month.future ? "" : escapeHtml(formatCompactCurrency(month.total))}</strong>
+                  <i class="goal-month-bar" style="--bar-height:${month.height}%"></i>
+                </button>
+              `
+            )
+            .join("")}
+        </div>
       </div>
-      <p class="goal-panel-hint"><i data-lucide="info"></i> Clique em um mês para visualizar os contratos correspondentes.</p>
+      <div class="goal-chart-months">
+        ${bars.map((month) => `<span class="${month.key === activeGoalsMonth ? "active" : ""}">${escapeHtml(month.label.slice(0, 3))}</span>`).join("")}
+      </div>
+      <p class="goal-panel-hint">Clique em um mês para ver os contratos pagos.</p>
     </section>
   `;
 }
@@ -4074,31 +4145,37 @@ function renderGoalsMonthlyPerformance(data, settings) {
 function renderGoalContracts(data) {
   const month = data.months.find((item) => item.key === activeGoalsMonth) || data.months[0];
   if (!month) return;
-  el.goalsContractsTitle.textContent = `Contratos pagos em ${month.label}`;
-  el.goalsContractsList.innerHTML = month.contracts.length
-    ? [
-        ...month.contracts.map(
-          (contract) => `
+  el.goalsContractsTitle.textContent = month.label;
+  const rows = month.contracts.length
+    ? month.contracts
+        .map((contract) => {
+          const [, contractMonth, contractDay] = String(contract.contractClosedDate || "").split("-");
+          const status = contract.financeStatus || "Em andamento";
+          const isPaid = normalize(status) === "pago";
+          return `
             <article class="goal-contract-row">
-              <div>
+              <div class="goal-contract-copy">
                 <strong>${escapeHtml(contract.clientName || "Cliente sem nome")}</strong>
-                <span>${escapeHtml(contract.source)} | ${formatDate(contract.contractClosedDate)}</span>
+                <span>${escapeHtml([contract.source, contractDay && contractMonth ? `${contractDay}/${contractMonth}` : "", contract.origin].filter(Boolean).join(" · "))}</span>
               </div>
-              <div>
-                <span>${escapeHtml([contract.origin, contract.financeStatus].filter(Boolean).join(" | ") || "Sem detalhe")}</span>
+              <div class="goal-contract-value">
                 <strong>${escapeHtml(calculatedCurrency(contract.amount))}</strong>
+                <span class="goal-contract-status ${isPaid ? "paid" : ""}">${escapeHtml(status)}</span>
               </div>
               ${
                 contract.sourceType === "client"
-                  ? `<button class="small-button" type="button" data-open-goal-client="${contract.id}"><i data-lucide="external-link"></i> Abrir</button>`
-                  : `<button class="small-button" type="button" data-edit-regularization="${contract.id}"><i data-lucide="pencil"></i> Editar</button>`
+                  ? `<button class="icon-button goal-contract-open" type="button" data-open-goal-client="${contract.id}" aria-label="Abrir card de ${escapeHtml(contract.clientName || "cliente")}"><i data-lucide="chevron-right"></i></button>`
+                  : `<button class="icon-button goal-contract-open" type="button" data-edit-regularization="${contract.id}" aria-label="Abrir cadastro de ${escapeHtml(contract.clientName || "cliente")}"><i data-lucide="chevron-right"></i></button>`
               }
             </article>
-          `
-        ),
-        `<footer class="goal-contract-total"><span>Total realizado em ${escapeHtml(month.label)}</span><strong>${escapeHtml(calculatedCurrency(month.total))}</strong></footer>`,
-      ].join("")
-    : `<p class="empty-state compact">Nenhum contrato fechado neste mês.</p>`;
+          `;
+        })
+        .join("")
+    : `<p class="empty-state compact">Nenhum contrato pago neste mês.</p>`;
+  el.goalsContractsList.innerHTML = `
+    <div class="goal-contract-items">${rows}</div>
+    <footer class="goal-contract-total"><span>Total em ${escapeHtml(month.label)}</span><strong>${escapeHtml(calculatedCurrency(month.total))}</strong></footer>
+  `;
 }
 
 function renderGoalMissingData(items) {
@@ -11141,7 +11218,9 @@ function positionPrivacyToolbar(sectionId) {
     actions.className = "inline-actions";
     header.append(actions);
   }
-  actions.prepend(el.privacyToolbar);
+  const goalsPeriodControl = sectionId === "goalsSection" ? actions.querySelector(".goals-month-control") : null;
+  if (goalsPeriodControl) goalsPeriodControl.after(el.privacyToolbar);
+  else actions.prepend(el.privacyToolbar);
 }
 
 function markNewTaskActivitiesRead() {

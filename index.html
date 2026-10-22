@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=162" />
+    <link rel="stylesheet" href="./redesign.css?v=163" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -437,10 +437,10 @@
             <div>
               <p class="eyebrow">Gestão</p>
               <h2>Metas da empresa</h2>
-              <p class="section-subtitle">Acompanhe o desempenho real de clientes pagos e o progresso das metas da empresa.</p>
+              <p class="section-subtitle">Receita real de clientes pagos e o progresso de cada meta.</p>
             </div>
             <div class="goals-header-actions">
-              <label class="goals-filter">
+              <label class="goals-filter" hidden aria-hidden="true">
                 <i data-lucide="calendar"></i>
                 <select id="goalsYearSelect" aria-label="Selecionar ano das metas">
                   <option value="2026">2026</option>
@@ -449,7 +449,8 @@
               </label>
               <div class="goals-month-control" aria-label="Selecionar mês das metas">
                 <button id="goalsPrevMonthButton" class="icon-button" type="button" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
-                <select id="goalsMonthSelect" aria-label="Selecionar mês das metas"></select>
+                <span id="goalsPeriodLabel" class="goals-period-label" aria-live="polite"></span>
+                <select id="goalsMonthSelect" aria-label="Selecionar mês das metas" hidden></select>
                 <button id="goalsNextMonthButton" class="icon-button" type="button" aria-label="Próximo mês"><i data-lucide="chevron-right"></i></button>
               </div>
               <button id="editGoalsButton" class="primary-button" type="button"><i data-lucide="pencil"></i> Editar metas</button>
@@ -462,7 +463,8 @@
           <div class="goals-detail-grid">
             <div id="goalsPerformancePanel" class="goals-performance-slot"></div>
             <section class="goals-contract-panel">
-              <div class="mini-heading">
+              <div class="mini-heading goal-contract-heading">
+                <p class="goals-card-kicker">Contratos pagos</p>
                 <h3 id="goalsContractsTitle">Contratos do mês</h3>
               </div>
               <div id="goalsContractsList" class="goals-contract-list"></div>
@@ -1236,7 +1238,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=162"></script>
+    <script src="./app.js?v=163"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
