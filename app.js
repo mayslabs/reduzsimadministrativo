@@ -2046,7 +2046,7 @@ function showApp() {
   el.loginView.hidden = true;
   el.appView.hidden = false;
   el.loginView.style.display = "none";
-  el.appView.style.display = "grid";
+  el.appView.style.removeProperty("display");
   setPrivacyMode(true);
   updateCurrentUserDisplay();
   configureNavigationForRole();
@@ -2335,17 +2335,17 @@ function renderDataDashboard() {
     renderDataFilterOptions();
     const data = inssDataSummary();
     el.dataSummary.innerHTML = renderDataSummary(data);
-    el.dataQualityPanel.innerHTML = renderDataQualityPanel(data.quality);
+    el.dataQualityPanel.innerHTML = renderDataQualityPanel(data);
     el.dataPanels.innerHTML = [
       reportMonthlyContractsPanel(data),
       reportMonthlyFeesPanel(data),
-      reportHorizontalPanel("Localização", "Obras por estado", data.byState, "byState", data.totalWorks, { badge: "Top 6 estados", icon: "map-pin" }),
-      reportDonutPanel("Comercial", "Origem dos clientes", data.byOrigin, "byOrigin", data.totalWorks, { icon: "users" }),
-      reportHorizontalPanel("Perfil da obra", "Obras por destinação", data.byDestination, "byDestination", data.totalWorks, { badge: dataSelectedPeriodLabel(), icon: "network" }),
-      reportDonutPanel("Perfil do cliente", "PF ou PJ", data.byDocumentType, "byDocumentType", data.documentTypeTotal, { icon: "contact" }),
+      reportHorizontalPanel("Localização", "Obras por estado", data.byState, "byState", data.totalWorks, { badge: dataDisplayPeriodLabel() }),
+      reportDonutPanel("Comercial", "Origem dos clientes", data.byOrigin, "byOrigin", data.totalWorks, { badge: false }),
+      reportDestinationPanel(data.byDestination, data.totalWorks),
+      reportClientProfilePanel(data),
     ].join("");
     if (el.dataTicketPanels) el.dataTicketPanels.innerHTML = renderDataTicketPanels(data);
-    if (el.dataReportFooter) el.dataReportFooter.innerHTML = renderDataReportFooter();
+    if (el.dataReportFooter) el.dataReportFooter.innerHTML = "";
     renderDataDrilldown();
     bindDataDashboardActions();
     refreshIcons();
@@ -2445,14 +2445,26 @@ function sortedDataRecordValues(records, getValues) {
 }
 
 function renderDataSummary(data) {
+  const workLabel = data.totalWorks === 1 ? "obra" : "obras";
   const totals = [
-    { label: "Economia bruta", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy", icon: "circle-dollar-sign" },
-    { label: "Contratos fechados", value: data.withContractDate, hint: `${data.totalWorks - data.withContractDate} sem data de fechamento`, tone: "works", icon: "file-check-2" },
+    { label: "Contratos fechados", value: data.withContractDate, hintHtml: `<span class="data-sensitive-inline">${data.pfCount} PF · ${data.pjCount} PJ</span>`, tone: "works", icon: "file-check-2" },
     { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees", icon: "user-round" },
     { label: "Ticket médio", value: calculatedCurrency(data.ticketAverage), hint: "Honorários por contrato fechado", tone: "ticket", icon: "crosshair" },
     { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area", icon: "ruler" },
   ];
-  return totals.map(renderDataTotal).join("");
+  return `
+    <article class="data-total report-metric tone-economy data-economy-card">
+      <header>
+        <span>Economia bruta gerada</span>
+        <small>${escapeHtml(dataDisplayPeriodLabel())}</small>
+      </header>
+      <div>
+        <strong>${escapeHtml(calculatedCurrency(data.grossEconomyTotal))}</strong>
+        <p>INSS sem redução menos INSS com redução · <span class="data-sensitive-inline">${data.totalWorks} ${workLabel}</span></p>
+      </div>
+    </article>
+    ${totals.map(renderDataTotal).join("")}
+  `;
 }
 
 function renderDataTotal(item) {
@@ -2462,18 +2474,27 @@ function renderDataTotal(item) {
       <div>
         <span>${escapeHtml(item.label)}</span>
         <strong>${escapeHtml(String(item.value))}</strong>
-        <small>${escapeHtml(item.hint)}</small>
+        <small>${item.hintHtml || escapeHtml(item.hint)}</small>
       </div>
     </article>
   `;
 }
 
-function renderDataQualityPanel(items) {
+function renderDataQualityPanel(data) {
+  const items = data.quality;
+  const missingCount = items.reduce((sum, item) => sum + item.count, 0);
+  const summary = missingCount
+    ? "Há cadastros que precisam de conferência."
+    : "Todos os cadastros estão completos.";
   return `
-    <section class="data-quality-card">
+    <section class="data-quality-card ${missingCount ? "has-issues" : "is-complete"}">
       <header class="data-quality-heading">
-        <i data-lucide="shield-check"></i>
-        <h3>Conferência dos dados</h3>
+        <span class="data-quality-status"><i data-lucide="${missingCount ? "triangle-alert" : "check"}"></i></span>
+        <div>
+          <h3>Conferência dos dados</h3>
+          <p>${escapeHtml(summary)}</p>
+        </div>
+        <time>Última atualização: ${escapeHtml(formatDateTime(new Date().toISOString()))}</time>
       </header>
       <div class="data-quality-list">
         ${items.map(renderDataQualityItem).join("")}
@@ -2483,13 +2504,10 @@ function renderDataQualityPanel(items) {
 }
 
 function renderDataQualityItem(item) {
-  const meta = dataQualityMeta(item.key);
   return `
-    <button class="data-quality-item ${item.count ? "needs-attention" : ""} tone-${meta.tone}" type="button" data-data-quality="${item.key}">
-      <span class="data-quality-icon"><i data-lucide="${escapeAttr(meta.icon)}"></i></span>
+    <button class="data-quality-item ${item.count ? "needs-attention" : ""}" type="button" data-data-quality="${item.key}">
       <span>${escapeHtml(item.label)}</span>
       <strong>${item.count}</strong>
-      <small>Ver detalhes</small>
     </button>
   `;
 }
@@ -2530,6 +2548,8 @@ function bindDataDashboardActions() {
 
 function inssDataSummary() {
   const records = filteredDataRecords();
+  const reportYear = dataReportYear();
+  const trendRecords = filteredDataRecords({ ignorePeriod: true }).filter((record) => dataMonthKey(record.contractClosedDate).startsWith(`${reportYear}-`));
   const documentRecords = records.filter((record) => record.includeDocumentType);
   const summary = {
     totalArea: 0,
@@ -2561,11 +2581,6 @@ function inssDataSummary() {
     if (grossEconomy !== null) summary.grossEconomyTotal += grossEconomy;
 
     incrementDataMap(summary.monthlyWorks, contractClosedMonthLabel(record), record.id);
-    if (record.contractClosedDate) {
-      const monthKey = dataMonthKey(record.contractClosedDate);
-      incrementMonthlyCountMap(summary.monthlyContracts, monthKey, record.id);
-      if (feeAmount !== null) incrementMonthlyAmountMap(summary.monthlyFees, monthKey, feeAmount, record.id);
-    }
     incrementDataMap(summary.byState, record.state || "Sem estado", record.id);
     const destinations = destinationList(record.destination);
     (destinations.length ? destinations : ["Sem destinação"]).forEach((destination) => incrementDataMap(summary.byDestination, destination, record.id));
@@ -2582,6 +2597,14 @@ function inssDataSummary() {
     }
   });
 
+  trendRecords.forEach((record) => {
+    if (!record.contractClosedDate) return;
+    const monthKey = dataMonthKey(record.contractClosedDate);
+    const feeAmount = currencyAmount(record.feeValue);
+    incrementMonthlyCountMap(summary.monthlyContracts, monthKey, record.id);
+    if (feeAmount !== null) incrementMonthlyAmountMap(summary.monthlyFees, monthKey, feeAmount, record.id);
+  });
+
   return {
     ...summary,
     quality: dataQualityItems(records),
@@ -2592,6 +2615,8 @@ function inssDataSummary() {
     byDestination: mapToSortedRows(summary.byDestination),
     byDocumentType: mapToSortedRows(summary.byDocumentType),
     byOrigin: mapToSortedRows(summary.byOrigin),
+    pfCount: documentRecords.filter((record) => documentTypeForClient(record) !== "cnpj").length,
+    pjCount: documentRecords.filter((record) => documentTypeForClient(record) === "cnpj").length,
     ticketAverage: summary.ticketContractCount ? summary.ticketFeeTotal / summary.ticketContractCount : null,
     ticketByOrigin: mapToAverageRows(summary.ticketByOrigin),
     ticketByDestination: mapToAverageRows(summary.ticketByDestination),
@@ -2658,7 +2683,8 @@ function dedupeCommercialRecords(records = []) {
   return [...byContract.values()];
 }
 
-function filteredDataRecords() {
+function filteredDataRecords(options = {}) {
+  const ignorePeriod = Boolean(options.ignorePeriod);
   const service = el.dataServiceFilter?.value || "";
   const period = el.dataPeriodFilter.value;
   const workStatus = el.dataWorkStatusFilter.value;
@@ -2677,7 +2703,7 @@ function filteredDataRecords() {
     const finished = record.finished;
 
     return (
-      matchesDataPeriod(record, period) &&
+      (ignorePeriod || matchesDataPeriod(record, period)) &&
       (!workStatus || (workStatus === "finished" ? finished : !finished)) &&
       (!stateFilter || stateLabel === stateFilter) &&
       (!destinationFilter || destinationLabels.includes(destinationFilter)) &&
@@ -2748,14 +2774,16 @@ function dataQualityClients(key, clients = filteredDataClients()) {
 
 function reportMonthlyContractsPanel(data) {
   const rows = data.monthlyContracts;
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  const contractLabel = total === 1 ? "contrato" : "contratos";
   return `
     <article class="data-panel report-panel report-panel-wide">
       <header class="report-panel-header">
         <div>
-          <p class="eyebrow"><i data-lucide="chart-column"></i> Volume</p>
+          <p class="eyebrow">Volume</p>
           <h3>Contratos fechados por mês</h3>
         </div>
-        <span>${escapeHtml(dataSelectedPeriodLabel())}</span>
+        <span>${escapeHtml(`${dataReportYear()} · ${total} ${contractLabel}`)}</span>
       </header>
       <div class="report-month-chart">
         ${rows.map((row) => reportMonthBar(row)).join("")}
@@ -2765,8 +2793,10 @@ function reportMonthlyContractsPanel(data) {
 }
 
 function reportMonthBar(row) {
+  const active = row.key === dataActiveReportMonthKey();
+  const future = dataReportYear() === String(new Date().getFullYear()) && row.key > currentMonthKey();
   return `
-    <button class="report-month-bar" type="button" data-data-group="monthlyWorks" data-data-label="${escapeAttr(row.label)}" style="--bar-height:${row.percent}%">
+    <button class="report-month-bar ${active ? "is-active" : ""} ${future ? "is-future" : ""}" type="button" data-data-group="monthlyWorks" data-data-label="${escapeAttr(row.label)}" style="--bar-height:${row.percent}%" aria-label="${escapeAttr(`${row.label}: ${row.count} contrato(s)`)}">
       <span>${row.count ? row.count : ""}</span>
       <i aria-hidden="true"></i>
       <small>${escapeHtml(row.shortLabel)}</small>
@@ -2780,10 +2810,10 @@ function reportMonthlyFeesPanel(data) {
     <article class="data-panel report-panel report-panel-wide">
       <header class="report-panel-header">
         <div>
-          <p class="eyebrow"><i data-lucide="circle-dollar-sign"></i> Financeiro</p>
+          <p class="eyebrow">Financeiro</p>
           <h3>Honorários fechados por mês</h3>
         </div>
-        <span>Total ${dataReportYear()} · ${escapeHtml(formatCompactCurrency(total))}</span>
+        <span>${dataReportYear()} · ${escapeHtml(formatCompactCurrency(total))}</span>
       </header>
       ${reportLineChart(data.monthlyFees)}
     </article>
@@ -2796,15 +2826,25 @@ function reportLineChart(rows) {
   const pad = { top: 18, right: 18, bottom: 34, left: 44 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
-  const max = Math.max(...rows.map((row) => row.total), 1);
-  const points = rows.map((row, index) => {
-    const x = pad.left + (rows.length === 1 ? 0 : (index / (rows.length - 1)) * plotWidth);
+  const rawMax = Math.max(...rows.map((row) => row.total), 1000);
+  const step = Math.ceil(rawMax / 3 / 1000) * 1000;
+  const max = step * 3;
+  const currentYear = String(new Date().getFullYear());
+  const visibleRows = dataReportYear() === currentYear
+    ? rows.slice(0, new Date().getMonth() + 1)
+    : rows;
+  const points = visibleRows.map((row, index) => {
+    const sourceIndex = rows.findIndex((candidate) => candidate.key === row.key);
+    const x = pad.left + (rows.length === 1 ? 0 : (sourceIndex / (rows.length - 1)) * plotWidth);
     const y = pad.top + plotHeight - (row.total / max) * plotHeight;
     return { ...row, x, y };
   });
   const path = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-    const value = max * ratio;
+  const baseline = pad.top + plotHeight;
+  const areaPath = points.length ? `${path} L ${points.at(-1).x.toFixed(1)} ${baseline.toFixed(1)} L ${points[0].x.toFixed(1)} ${baseline.toFixed(1)} Z` : "";
+  const ticks = [3, 2, 1, 0].map((level) => {
+    const ratio = level / 3;
+    const value = step * level;
     const y = pad.top + plotHeight - ratio * plotHeight;
     return { value, y };
   });
@@ -2820,10 +2860,16 @@ function reportLineChart(rows) {
             `
           )
           .join("")}
-        <path d="${path}"></path>
-        ${points.map((point) => `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4"></circle>`).join("")}
-        ${points
-          .map((point) => `<text class="month-label" x="${point.x.toFixed(1)}" y="${height - 8}">${escapeHtml(point.shortLabel)}</text>`)
+        <path class="report-line-area" d="${areaPath}"></path>
+        <path class="report-line-path" d="${path}"></path>
+        ${points.map((point) => `<circle class="${point.key === dataActiveReportMonthKey() ? "is-active" : ""}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4"></circle>`).join("")}
+        ${rows
+          .map((point, index) => {
+            const x = pad.left + (rows.length === 1 ? 0 : (index / (rows.length - 1)) * plotWidth);
+            const active = point.key === dataActiveReportMonthKey();
+            const future = dataReportYear() === currentYear && point.key > currentMonthKey();
+            return `<text class="month-label ${active ? "is-active" : ""} ${future ? "is-future" : ""}" x="${x.toFixed(1)}" y="${height - 8}">${escapeHtml(point.shortLabel)}</text>`;
+          })
           .join("")}
       </svg>
     </div>
@@ -2836,10 +2882,10 @@ function reportHorizontalPanel(groupLabel, title, rows, group, total, options = 
     <article class="data-panel report-panel">
       <header class="report-panel-header">
         <div>
-          <p class="eyebrow"><i data-lucide="${escapeAttr(options.icon || "bar-chart-3")}"></i> ${escapeHtml(groupLabel)}</p>
+          <p class="eyebrow">${escapeHtml(groupLabel)}</p>
           <h3>${escapeHtml(title)}</h3>
         </div>
-        <span>${escapeHtml(options.badge || dataSelectedPeriodLabel())}</span>
+        ${options.badge === false ? "" : `<span>${escapeHtml(options.badge || dataDisplayPeriodLabel())}</span>`}
       </header>
       <div class="report-horizontal-list">
         ${
@@ -2862,6 +2908,78 @@ function reportHorizontalRow(row, group, total, index) {
   `;
 }
 
+function reportDestinationPanel(rows, total) {
+  const visibleRows = rows.slice(0, 6);
+  return `
+    <article class="data-panel report-panel report-destination-panel">
+      <header class="report-panel-header">
+        <div>
+          <p class="eyebrow">Perfil da obra</p>
+          <h3>Obras por destinação</h3>
+        </div>
+      </header>
+      <div class="report-destination-list">
+        ${
+          visibleRows.length
+            ? visibleRows.map((row) => `
+                <button class="report-destination-row" type="button" data-data-group="byDestination" data-data-label="${escapeAttr(row.label)}">
+                  <span><b>${escapeHtml(row.label)}</b><strong>${escapeHtml(reportCountShare(row.count, total))}</strong></span>
+                  <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+                </button>
+              `).join("")
+            : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
+        }
+      </div>
+    </article>
+  `;
+}
+
+function reportClientProfilePanel(data) {
+  const total = data.documentTypeTotal;
+  const profiles = [
+    { label: "Pessoa física", shortLabel: "PF", count: data.pfCount, tone: "pf" },
+    { label: "Pessoa jurídica", shortLabel: "PJ", count: data.pjCount, tone: "pj" },
+  ].map((profile) => ({
+    ...profile,
+    percent: total ? (profile.count / total) * 100 : 0,
+  }));
+
+  return `
+    <article class="data-panel report-panel report-profile-panel">
+      <header class="report-panel-header">
+        <div>
+          <p class="eyebrow">Perfil do cliente</p>
+          <h3>Pessoa física ou jurídica</h3>
+        </div>
+      </header>
+      <div class="report-profile-content">
+        <div class="report-profile-bar" aria-label="Distribuição entre pessoa física e jurídica">
+          ${profiles.map((profile) => `
+            <button
+              class="report-profile-segment tone-${profile.tone}"
+              type="button"
+              data-data-group="byDocumentType"
+              data-data-label="${profile.shortLabel}"
+              style="width:${profile.percent}%"
+              ${profile.count ? "" : "disabled"}
+            >
+              ${profile.count ? `<span>${profile.shortLabel} · ${profile.percent.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%</span>` : ""}
+            </button>
+          `).join("")}
+        </div>
+        <div class="report-profile-legend">
+          ${profiles.map((profile) => `
+            <button type="button" data-data-group="byDocumentType" data-data-label="${profile.shortLabel}" ${profile.count ? "" : "disabled"}>
+              <span><i class="tone-${profile.tone}" aria-hidden="true"></i>${profile.label}</span>
+              <strong>${profile.count} <small>${profile.percent.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}%</small></strong>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 function reportDonutPanel(groupLabel, title, rows, group, total, options = {}) {
   const visibleRows = rows.slice(0, 6);
   const chartTotal = visibleRows.reduce((sum, row) => sum + row.count, 0);
@@ -2869,10 +2987,10 @@ function reportDonutPanel(groupLabel, title, rows, group, total, options = {}) {
     <article class="data-panel report-panel">
       <header class="report-panel-header">
         <div>
-          <p class="eyebrow"><i data-lucide="${escapeAttr(options.icon || "pie-chart")}"></i> ${escapeHtml(groupLabel)}</p>
+          <p class="eyebrow">${escapeHtml(groupLabel)}</p>
           <h3>${escapeHtml(title)}</h3>
         </div>
-        <span>${escapeHtml(options.badge || dataSelectedPeriodLabel())}</span>
+        ${options.badge === false ? "" : `<span>${escapeHtml(options.badge || dataDisplayPeriodLabel())}</span>`}
       </header>
       <div class="report-donut-layout">
         <div class="report-donut" style="--report-donut:${escapeAttr(reportConicGradient(visibleRows))}">
@@ -2907,36 +3025,33 @@ function renderDataTicketPanels(data) {
   return `
     <section class="data-ticket-section">
       <div class="data-ticket-heading">
-        <div>
-          <h3>Ticket médio</h3>
-          <span>Indicadores de honorários calculados com contratos que possuem data de fechamento e valor preenchido.</span>
-        </div>
+        <h3>Ticket médio</h3>
+        <i aria-hidden="true"></i>
       </div>
+      <p class="data-ticket-description">Calculado com contratos que têm data de fechamento e valor de honorários.</p>
       <div class="data-ticket-grid">
         <article class="data-ticket-card ticket-highlight">
-          <span class="report-metric-icon"><i data-lucide="circle-dollar-sign"></i></span>
           <h3>Ticket médio de honorários</h3>
-          <strong>${escapeHtml(calculatedCurrency(data.ticketAverage))}</strong>
-          <span>Honorários / contratos fechados</span>
+          <div>
+            <strong>${escapeHtml(calculatedCurrency(data.ticketAverage))}</strong>
+            <span>Honorários ÷ contratos fechados</span>
+          </div>
         </article>
-        ${dataAveragePanel("Ticket médio por origem", data.ticketByOrigin, "users")}
-        ${dataAveragePanel("Ticket médio por destinação", data.ticketByDestination, "network")}
+        ${dataAveragePanel("Por origem", data.ticketByOrigin, "origin")}
+        ${dataAveragePanel("Por destinação", data.ticketByDestination, "destination")}
       </div>
     </section>
   `;
 }
 
-function dataAveragePanel(title, rows, icon) {
+function dataAveragePanel(title, rows, layout) {
   return `
-    <article class="data-ticket-card">
-      <header class="ticket-average-heading">
-        <h3><i data-lucide="${escapeAttr(icon)}"></i> ${escapeHtml(title)}</h3>
-        <span>${escapeHtml(dataSelectedPeriodLabel())}</span>
-      </header>
+    <article class="data-ticket-card ticket-layout-${escapeAttr(layout)}">
+      <h3>${escapeHtml(title)}</h3>
       <div class="ticket-average-list">
         ${
           rows.length
-            ? rows.slice(0, 6).map((row, index) => dataAverageRow(row, index)).join("")
+            ? rows.slice(0, 6).map((row) => dataAverageRow(row, layout)).join("")
             : `<p class="empty-state compact">Nenhum contrato com honorários para calcular.</p>`
         }
       </div>
@@ -2944,9 +3059,17 @@ function dataAveragePanel(title, rows, icon) {
   `;
 }
 
-function dataAverageRow(row, index = 0) {
+function dataAverageRow(row, layout = "origin") {
+  if (layout === "destination") {
+    return `
+      <div class="ticket-average-row ticket-average-stacked">
+        <span><b>${escapeHtml(row.label)}</b><strong>${escapeHtml(calculatedCurrency(row.average))}</strong></span>
+        <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+      </div>
+    `;
+  }
   return `
-    <div class="ticket-average-row" style="--row-color:${escapeAttr(reportChartColor(index))}">
+    <div class="ticket-average-row">
       <span>${escapeHtml(row.label)}</span>
       <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
       <strong>${escapeHtml(calculatedCurrency(row.average))}</strong>
@@ -2989,7 +3112,9 @@ function renderDataDrilldown() {
 }
 
 function dataClientsForDrilldown(drilldown) {
-  const clients = filteredDataClients();
+  const clients = drilldown.type === "group" && drilldown.group === "monthlyWorks"
+    ? filteredDataRecords({ ignorePeriod: true }).filter((client) => dataMonthKey(client.contractClosedDate).startsWith(`${dataReportYear()}-`))
+    : filteredDataClients();
   if (drilldown.type === "quality") return dataQualityClients(drilldown.key, clients);
   return clients.filter((client) => dataClientMatchesGroup(client, drilldown.group, drilldown.label));
 }
@@ -3018,7 +3143,7 @@ function dataGroupTitle(group) {
     monthlyWorks: "Contratos fechados por mês",
     byState: "Obras por estado",
     byDestination: "Obras por destinação",
-    byDocumentType: "PF ou PJ",
+    byDocumentType: "Pessoa física ou jurídica",
     byOrigin: "Origem dos clientes",
   }[group] || "Dados";
 }
@@ -3153,6 +3278,24 @@ function dataSelectedPeriodLabel() {
   return "Período selecionado";
 }
 
+function dataDisplayPeriodLabel() {
+  const period = el.dataPeriodFilter?.value || "";
+  if (period === "month") return dataMonthOptionLabel(currentMonthKey()).replace("/", " ");
+  if (period === "year") return String(new Date().getFullYear());
+  if (period === "last12") return "Últimos 12 meses";
+  if (/^year:\d{4}$/.test(period)) return period.slice(5);
+  if (/^month:\d{4}-\d{2}$/.test(period)) return dataMonthOptionLabel(period.slice(6)).replace("/", " ");
+  return "Todo período";
+}
+
+function dataActiveReportMonthKey() {
+  const period = el.dataPeriodFilter?.value || "";
+  if (period === "month") return currentMonthKey();
+  if (/^month:\d{4}-\d{2}$/.test(period)) return period.slice(6);
+  const current = currentMonthKey();
+  return current.startsWith(`${dataReportYear()}-`) ? current : "";
+}
+
 function dataReportMonths(year = dataReportYear()) {
   const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   return monthNames.map((shortLabel, index) => {
@@ -3174,7 +3317,7 @@ function dataMonthOptionLabel(monthKey) {
 }
 
 function reportChartColor(index) {
-  return ["#009f7f", "#ff6fa8", "#7c3aed", "#f59e0b", "#2f80ed", "#94a3b8"][index % 6];
+  return ["#074d40", "#00a383", "#8a8a8a", "#dfe3e2", "#5b8f82", "#a6cfc5"][index % 6];
 }
 
 function reportConicGradient(rows) {
@@ -3193,7 +3336,7 @@ function reportConicGradient(rows) {
 
 function reportCountShare(count, total) {
   const share = total ? (count / total) * 100 : 0;
-  return `${count} (${share.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)`;
+  return `${count} · ${share.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 }
 
 function formatCompactCurrency(value) {
