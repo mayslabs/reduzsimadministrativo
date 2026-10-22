@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=160" />
+    <link rel="stylesheet" href="./redesign.css?v=161" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -269,53 +269,47 @@
             <div>
               <p class="eyebrow">Acompanhamento da equipe</p>
               <h2>Atualizações</h2>
-              <p class="section-subtitle">Acompanhe mudanças importantes da equipe e dos clientes em um feed mais organizado.</p>
+              <p class="section-subtitle">O que mudou nos clientes e na rotina da equipe.</p>
             </div>
             <div class="inline-actions">
               <button id="markAllUpdatesReadButton" class="primary-button" type="button"><i data-lucide="check-check"></i> Marcar todas como lidas</button>
             </div>
           </div>
 
-          <div id="updatesSummary" class="updates-summary" aria-live="polite"></div>
-
           <div class="toolbar updates-toolbar">
             <label class="search-field">
               <i data-lucide="search"></i>
               <input id="updatesSearchInput" type="search" placeholder="Buscar atualização ou cliente" />
             </label>
-            <select id="updatesReadFilter" aria-label="Filtrar atualizações lidas">
-              <option value="">Todas</option>
-              <option value="unread">Não lidas</option>
-            </select>
+            <select id="updatesUserFilter" aria-label="Filtrar atualizações por usuário"></select>
             <select id="updatesPeriodFilter" aria-label="Filtrar atualizações por período">
-              <option value="today" selected>Hoje</option>
+              <option value="30days" selected>Últimos 30 dias</option>
+              <option value="today">Hoje</option>
               <option value="yesterday">Ontem</option>
               <option value="7days">Últimos 7 dias</option>
-              <option value="30days">Últimos 30 dias</option>
-              <option value="">Todo período</option>
             </select>
-            <select id="updatesUserFilter" aria-label="Filtrar atualizações por usuário"></select>
-            <select id="updatesTypeFilter" aria-label="Filtrar atualizações por tipo">
+            <button id="updatesReadFilter" class="secondary-button updates-state-filter" type="button" value="" aria-pressed="false">
+              Não lidas <span class="updates-filter-count">0</span>
+            </button>
+            <select id="updatesTypeFilter" hidden aria-hidden="true" tabindex="-1">
               <option value="">Todos os tipos</option>
               <option value="client">Cliente</option>
               <option value="note">Anotação</option>
-              <option value="status">Status</option>
               <option value="task">Tarefa</option>
-              <option value="meeting">Reunião</option>
               <option value="deadline">Prazo</option>
               <option value="monthly">Mensal</option>
               <option value="marketing">Marketing</option>
-              <option value="guidance">Orientação</option>
-              <option value="finance">Financeiro</option>
-              <option value="history">Histórico</option>
             </select>
-            <button id="updatesImportantFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="star"></i> Somente importantes</button>
+            <button id="updatesImportantFilterButton" class="secondary-button filter-toggle updates-state-filter" type="button" aria-pressed="false"><i data-lucide="star"></i> Importantes</button>
           </div>
 
-          <p class="updates-retention-note">
-            <i data-lucide="clock-3"></i>
-            Atualizações ficam disponíveis por 30 dias. O histórico permanente permanece no card do cliente.
-          </p>
+          <div class="updates-filter-row">
+            <div id="updatesSummary" class="updates-type-tabs" aria-label="Filtrar atualizações por tipo" aria-live="polite"></div>
+            <p class="updates-retention-note">
+              <i data-lucide="clock-3"></i>
+              Ficam aqui por 30 dias · o histórico completo fica no card do cliente
+            </p>
+          </div>
 
           <div class="updates-content-grid">
             <div id="updatesList" class="updates-list"></div>
@@ -1242,7 +1236,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=160"></script>
+    <script src="./app.js?v=161"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

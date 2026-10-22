@@ -1844,7 +1844,10 @@ function bindEvents() {
     renderTaskCenter();
   });
   el.updatesSearchInput.addEventListener("input", renderUpdates);
-  el.updatesReadFilter.addEventListener("change", renderUpdates);
+  el.updatesReadFilter.addEventListener("click", () => {
+    el.updatesReadFilter.value = el.updatesReadFilter.value === "unread" ? "" : "unread";
+    renderUpdates();
+  });
   el.updatesPeriodFilter.addEventListener("change", renderUpdates);
   el.updatesUserFilter.addEventListener("change", renderUpdates);
   el.updatesTypeFilter.addEventListener("change", renderUpdates);
@@ -5046,6 +5049,7 @@ function renderUpdates() {
   const unreadCount = visibleActivities.filter((activity) => !activityIsRead(activity)).length;
   el.updatesUnreadBadge.hidden = !unreadCount;
   el.updatesUnreadBadge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+  renderUpdatesReadFilter(unreadCount);
   renderUpdatesSummary(visibleActivities);
 
   const query = normalize(el.updatesSearchInput.value);
@@ -5055,7 +5059,7 @@ function renderUpdates() {
   const type = el.updatesTypeFilter.value;
   const activities = visibleActivities
     .filter((activity) => {
-      const displayType = activityDisplayType(activity);
+      const displayType = updateActivityCategory(activity);
       const haystack = normalize([
         activity.title,
         activity.detail,
@@ -5075,26 +5079,35 @@ function renderUpdates() {
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  el.updatesList.innerHTML = activities.length
-    ? groupedActivitiesByDay(activities)
+  const feedActivities = compactUpdateActivitiesForFeed(activities);
+  el.updatesList.innerHTML = feedActivities.length
+    ? groupedActivitiesByDay(feedActivities)
         .map(([day, dayActivities]) => updateDayGroup(day, dayActivities))
         .join("")
     : `<p class="empty-state">Nenhuma atualização encontrada.</p>`;
   renderUpdatesAside(visibleActivities, activities);
 
+  el.updatesSummary.querySelectorAll("[data-update-type]").forEach((button) => {
+    button.addEventListener("click", () => {
+      el.updatesTypeFilter.value = button.dataset.updateType || "";
+      renderUpdates();
+    });
+  });
+
   document.querySelectorAll("[data-open-update-client]").forEach((button) => {
     button.addEventListener("click", () => {
-      markActivityRead(button.dataset.activityId, false);
+      markActivitiesRead(updateControlActivityIds(button), false);
       openLinkedClientRecord(button.dataset.openUpdateClient, button.dataset.clientSource || "inss");
       renderUpdates();
     });
   });
   document.querySelectorAll("[data-mark-activity-read]").forEach((button) => {
-    button.addEventListener("click", () => markActivityRead(button.dataset.markActivityRead));
+    button.addEventListener("click", () => markActivitiesRead(updateControlActivityIds(button)));
   });
   document.querySelectorAll("[data-toggle-update-details]").forEach((button) => {
     button.addEventListener("click", () => {
       const activityId = button.dataset.toggleUpdateDetails;
+      markActivitiesRead(updateControlActivityIds(button), false);
       if (expandedUpdateIds.has(activityId)) expandedUpdateIds.delete(activityId);
       else expandedUpdateIds.add(activityId);
       renderUpdates();
@@ -5103,7 +5116,7 @@ function renderUpdates() {
   document.querySelectorAll("[data-toggle-update-day]").forEach((button) => {
     button.addEventListener("click", () => {
       const day = button.dataset.toggleUpdateDay;
-      if (day === activityDayKey(new Date())) {
+      if (isDefaultOpenUpdateDay(day)) {
         if (collapsedUpdateDays.has(day)) collapsedUpdateDays.delete(day);
         else collapsedUpdateDays.add(day);
       } else if (expandedPastUpdateDays.has(day)) {
@@ -5116,7 +5129,7 @@ function renderUpdates() {
   });
   document.querySelectorAll("[data-open-update-marketing]").forEach((button) => {
     button.addEventListener("click", () => {
-      markActivityRead(button.dataset.activityId, false);
+      markActivitiesRead(updateControlActivityIds(button), false);
       switchSection("marketingSection");
       openMarketingDialog(button.dataset.openUpdateMarketing);
       renderUpdates();
@@ -5131,80 +5144,81 @@ function renderUpdates() {
   refreshIcons();
 }
 
-function renderUpdatesSummary(activities) {
-  if (!el.updatesSummary) return;
-  const stats = [
-    { label: "Não lidas", value: activities.filter((activity) => !activityIsRead(activity)).length, type: "unread", icon: "mail" },
-    { label: "Hoje", value: activities.filter((activity) => matchesActivityPeriod(activity, "today")).length, type: "today", icon: "calendar-days" },
-  ];
-
-  el.updatesSummary.innerHTML = stats
-    .map(
-      (stat) => `
-        <article class="updates-summary-card ${stat.type}">
-          <span class="updates-summary-icon"><i data-lucide="${stat.icon}"></i></span>
-          <div>
-            <span>${stat.label}</span>
-            <strong>${stat.value}</strong>
-          </div>
-        </article>
-      `
-    )
-    .join("");
+function renderUpdatesReadFilter(unreadCount) {
+  if (!el.updatesReadFilter) return;
+  const active = el.updatesReadFilter.value === "unread";
+  el.updatesReadFilter.classList.toggle("active", active);
+  el.updatesReadFilter.setAttribute("aria-pressed", String(active));
+  el.updatesReadFilter.innerHTML = `Não lidas <span class="updates-filter-count">${unreadCount > 99 ? "99+" : unreadCount}</span>`;
 }
 
-function renderUpdatesAside(allActivities, filteredActivities) {
+function renderUpdatesSummary(activities) {
+  if (!el.updatesSummary) return;
+  const selectedType = el.updatesTypeFilter.value;
+  const options = [{ value: "", label: "Todos" }, ...updateActivityTypeOptions()];
+  el.updatesSummary.innerHTML = options.map((option) => {
+    const count = activities
+      .filter((activity) => !option.value || updateActivityCategory(activity) === option.value)
+      .reduce((total, activity) => total + updateActivityWeight(activity), 0);
+    const active = selectedType === option.value;
+    return `
+      <button class="updates-type-tab ${active ? "active" : ""}" type="button" data-update-type="${escapeAttr(option.value)}" aria-pressed="${active}">
+        ${escapeHtml(option.label)} <span>${count}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderUpdatesAside(allActivities) {
   if (!el.updatesAside) return;
   const todayActivities = allActivities.filter((activity) => matchesActivityPeriod(activity, "today"));
-  const todayCountLabel = `${todayActivities.length} ${todayActivities.length === 1 ? "atualização" : "atualizações"}`;
-  const todayRows = [
-    {
-      label: "Anotações",
-      hint: "Registros feitos hoje",
-      icon: "message-square",
-      type: "note",
-      value: todayActivities.filter((activity) => activityDisplayType(activity) === "note").length,
-    },
-    {
-      label: "Tarefas e prazos",
-      hint: "Pendências movimentadas",
-      icon: "calendar-check",
-      type: "task",
-      value: todayActivities.filter((activity) => ["task", "deadline"].includes(activityDisplayType(activity))).length,
-    },
-    {
-      label: "Mensal",
-      hint: "Acompanhamentos mensais",
-      icon: "calendar-days",
-      type: "monthly",
-      value: todayActivities.filter((activity) => activityDisplayType(activity) === "monthly").length,
-    },
-  ];
+  const todayTotal = todayActivities.reduce((total, activity) => total + updateActivityWeight(activity), 0);
+  const todayRows = updateActivityTypeOptions()
+    .map((option) => ({
+      ...option,
+      value: todayActivities
+        .filter((activity) => updateActivityCategory(activity) === option.value)
+        .reduce((total, activity) => total + updateActivityWeight(activity), 0),
+    }))
+    .filter((row) => row.value)
+    .sort((a, b) => b.value - a.value);
+  const peopleMap = todayActivities.reduce((map, activity) => {
+    const name = ownerName(activity.actorId) || "Equipe";
+    map.set(name, (map.get(name) || 0) + updateActivityWeight(activity));
+    return map;
+  }, new Map());
+  const todayPeople = [...peopleMap.entries()]
+    .map(([name, value]) => ({ name, value, initial: name.slice(0, 1).toUpperCase() }))
+    .sort((a, b) => b.value - a.value);
   const importantActivities = allActivities
     .filter(activityIsImportant)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 5);
+    .slice(0, 4);
+  const importantCount = allActivities.filter(activityIsImportant).length;
 
   el.updatesAside.innerHTML = `
-    <section class="updates-side-card">
-      <header>
+    <section class="updates-side-card updates-today-card">
+      <header class="updates-today-header">
         <div>
-          <p>Resumo do dia</p>
-          <h3>Hoje</h3>
+          <p>Resumo de hoje</p>
+          <strong>${todayTotal}</strong>
         </div>
-        <span>${todayCountLabel}</span>
+        <span>${todayTotal === 1 ? "atualização" : "atualizações"}</span>
       </header>
-      <div class="updates-side-list">
-        ${todayRows.map(renderUpdatesSideRow).join("")}
+      <div class="updates-summary-bars">
+        ${todayRows.map((row) => renderUpdatesSideRow(row, todayTotal)).join("")}
+      </div>
+      <div class="updates-summary-people">
+        ${todayPeople.map((person) => `<span><i>${escapeHtml(person.initial)}</i>${escapeHtml(person.name)} · ${person.value}</span>`).join("")}
       </div>
     </section>
-    <section class="updates-side-card">
-      <header>
+    <section class="updates-side-card updates-priority-card">
+      <header class="updates-priority-header">
         <div>
           <p>Prioridade</p>
           <h3>Importantes</h3>
         </div>
-        <i data-lucide="star"></i>
+        <span>${importantCount}</span>
       </header>
       <div class="updates-important-list">
         ${
@@ -5213,39 +5227,113 @@ function renderUpdatesAside(allActivities, filteredActivities) {
             : `<p class="updates-side-empty">Nenhuma atualização importante no momento.</p>`
         }
       </div>
-      <p class="updates-important-criteria">Critério: urgência, vencimento, nova atribuição, pagamento atrasado ou falha de sincronização.</p>
-      <button class="updates-aside-link" type="button" data-show-important-updates>
-        Ver todas as importantes
-      </button>
     </section>
-    <p class="updates-aside-note">Exibindo ${filteredActivities.length} de ${allActivities.length} atualizações visíveis.</p>
   `;
 }
 
-function renderUpdatesSideRow(row) {
+function renderUpdatesSideRow(row, total) {
+  const percentage = Math.max(0, Math.min(100, (row.value / Math.max(1, total)) * 100));
   return `
-    <div class="updates-side-row update-type-${row.type}">
-      <span class="updates-side-icon"><i data-lucide="${row.icon}"></i></span>
+    <div class="updates-summary-bar">
       <div>
         <span>${escapeHtml(row.label)}</span>
-        <small>${escapeHtml(row.hint)}</small>
+        <strong>${row.value}</strong>
       </div>
-      <strong>${row.value}</strong>
+      <span class="updates-summary-track"><i style="width: ${percentage.toFixed(2)}%"></i></span>
     </div>
   `;
 }
 
+function updateActivityTypeOptions() {
+  return [
+    { value: "client", label: "Cliente" },
+    { value: "note", label: "Anotação" },
+    { value: "monthly", label: "Mensal" },
+    { value: "task", label: "Tarefa" },
+    { value: "deadline", label: "Prazo" },
+    { value: "marketing", label: "Marketing" },
+  ];
+}
+
+function updateActivityCategory(activity = {}) {
+  const type = activityDisplayType(activity);
+  if (["status", "history", "finance", "guidance", "sync"].includes(type)) return "client";
+  if (type === "meeting") return "task";
+  return type;
+}
+
+function updateActivityWeight(activity = {}) {
+  const explicitCount = Number(activity.groupCount || activity.changeCount || activity.count || 0);
+  if (Number.isFinite(explicitCount) && explicitCount > 1) return Math.floor(explicitCount);
+  const category = updateActivityCategory(activity);
+  if (category === "monthly") return 1;
+  if (category !== "client") return 1;
+  return Math.max(1, activityDetailLines(activity).length);
+}
+
+function updateActivityAction(activity = {}) {
+  const firstWord = String(activity.title || "Atualizou").trim().split(/\s+/u)[0].replace(/[^\p{L}-]/gu, "");
+  return firstWord || "Atualizou";
+}
+
+function updateActivityWhenLabel(dateValue) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "data não informada";
+  const key = activityDayKey(date);
+  const today = activityDayKey(new Date());
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = activityDayKey(yesterdayDate);
+  const dayLabel = key === today ? "hoje" : key === yesterday ? "ontem" : formatDate(key);
+  return `${dayLabel}, ${activityTimeLabel(dateValue)}`;
+}
+
+function updateActivityBatchSummary(activity = {}) {
+  const count = updateActivityWeight(activity);
+  if (count <= 1) return "";
+  if (updateActivityCategory(activity) === "monthly") {
+    const months = (activity._groupActivities || [activity])
+      .flatMap((item) => String(item.detail || "").match(/\b\d{4}-\d{2}\b/g) || [])
+      .filter((month, index, values) => values.indexOf(month) === index)
+      .sort();
+    if (months.length > 1) {
+      return `${count} competências · ${updateMonthShortLabel(months[0])} a ${updateMonthShortLabel(months.at(-1))}`;
+    }
+    return `${count} competências atualizadas`;
+  }
+  return `${count} alterações seguidas agrupadas`;
+}
+
+function updateMonthShortLabel(monthKey) {
+  const [year, month] = String(monthKey || "").split("-").map(Number);
+  if (!year || !month) return String(monthKey || "");
+  return new Date(year, month - 1, 1)
+    .toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })
+    .replace(" de ", "/")
+    .replace(".", "");
+}
+
+function renderUpdateActivityTitle(activity = {}) {
+  const title = String(activity.title || "Atualização");
+  const marketingTitle = activity.marketingItemId
+    ? state.marketingItems.find((item) => item.id === activity.marketingItemId)?.title || ""
+    : "";
+  const target = String(activity.clientName || marketingTitle || "").trim();
+  if (!target) return escapeHtml(title);
+  const index = title.toLocaleLowerCase("pt-BR").indexOf(target.toLocaleLowerCase("pt-BR"));
+  if (index < 0) return escapeHtml(title);
+  return `${escapeHtml(title.slice(0, index))}<strong>${escapeHtml(title.slice(index, index + target.length))}</strong>${escapeHtml(title.slice(index + target.length))}`;
+}
+
 function renderUpdatesImportantItem(activity) {
-  const displayType = activityDisplayType(activity);
+  const displayType = updateActivityCategory(activity);
   const title = activity.clientName || activity.title || "Atualização";
   const reason = activityImportanceReason(activity);
-  const meta = `${reason || activityTypeLabel(displayType)} • ${activityActorLabel(activity, displayType)} • ${activityTimeLabel(activity.createdAt)}`;
+  const meta = `${updateActivityAction(activity)} por ${ownerName(activity.actorId)} · ${updateActivityWhenLabel(activity.createdAt)}`;
   const content = `
-    <span class="updates-important-dot" aria-hidden="true"></span>
-    <span>
-      <strong>${escapeHtml(title)}</strong>
-      <small>${escapeHtml(meta)}</small>
-    </span>
+    <strong>${escapeHtml(title)}</strong>
+    <span>${escapeHtml(reason || activityTypeLabel(displayType))}</span>
+    <small>${escapeHtml(meta)}</small>
   `;
   if (activity.clientId) {
     return `
@@ -5290,16 +5378,35 @@ function activityIsRead(activity) {
 }
 
 function markActivityRead(activityId, shouldRender = true) {
-  const activity = state.activities.find((item) => item.id === activityId);
-  if (!activity || activityIsRead(activity)) return;
-  activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
+  markActivitiesRead([activityId], shouldRender);
+}
+
+function markActivitiesRead(activityIds, shouldRender = true) {
+  const ids = [...new Set((activityIds || []).filter(Boolean))];
+  const changedIds = [];
+  ids.forEach((activityId) => {
+    const activity = state.activities.find((item) => item.id === activityId);
+    if (!activity || activityIsRead(activity)) return;
+    activity.readBy = [...new Set([...(activity.readBy || []), currentUser.id])];
+    changedIds.push(activityId);
+  });
+  if (!changedIds.length) return;
   window.ReduzSimCloud
-    ?.markActivitiesRead([activityId])
-    .then(() => updateActivityReadBaseline([activityId]))
+    ?.markActivitiesRead(changedIds)
+    .then(() => updateActivityReadBaseline(changedIds))
     .catch(showSyncError);
   if (!shouldRender) return;
   renderTaskNavSignals();
   renderUpdates();
+}
+
+function updateControlActivityIds(control) {
+  const raw = control?.dataset?.activityIds
+    || control?.dataset?.activityId
+    || control?.dataset?.markActivityRead
+    || control?.dataset?.toggleUpdateDetails
+    || "";
+  return String(raw).split(",").map((value) => value.trim()).filter(Boolean);
 }
 
 function markAllActivitiesRead() {
@@ -7096,10 +7203,55 @@ function groupedActivitiesByDay(activities) {
   }, []);
 }
 
+function compactUpdateActivitiesForFeed(activities) {
+  return activities.reduce((compacted, activity) => {
+    const previous = compacted.at(-1);
+    const previousMember = previous?._groupActivities?.at(-1) || previous;
+    if (!previous || !canGroupMonthlyActivities(previousMember, activity)) {
+      compacted.push(activity);
+      return compacted;
+    }
+
+    const members = [...(previous._groupActivities || [previous]), activity];
+    const allRead = members.every(activityIsRead);
+    const readBy = allRead
+      ? [...new Set([...(previous.readBy || []), currentUser.id])]
+      : (previous.readBy || []).filter((userId) => userId !== currentUser.id);
+    const action = normalize(updateActivityAction(previous));
+    const title = action === "criou"
+      ? `Criou controles mensais em ${previous.clientName || "cliente"}.`
+      : `Atualizou controles mensais em ${previous.clientName || "cliente"}.`;
+    compacted[compacted.length - 1] = {
+      ...previous,
+      title,
+      detail: members.map((item) => activityDetailLines(item)[0]).filter(Boolean).join("\n"),
+      groupCount: members.reduce((total, item) => total + updateActivityWeight(item), 0),
+      readBy,
+      _groupActivities: members,
+      _groupActivityIds: members.map((item) => item.id),
+    };
+    return compacted;
+  }, []);
+}
+
+function canGroupMonthlyActivities(first = {}, second = {}) {
+  if (updateActivityCategory(first) !== "monthly" || updateActivityCategory(second) !== "monthly") return false;
+  if (activityDayKey(first.createdAt) !== activityDayKey(second.createdAt)) return false;
+  if (first.actorId !== second.actorId || first.clientId !== second.clientId) return false;
+  if (normalize(updateActivityAction(first)) !== normalize(updateActivityAction(second))) return false;
+  const elapsed = Math.abs(new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime());
+  return Number.isFinite(elapsed) && elapsed <= 10 * 60 * 1000;
+}
+
+function updateActivityIds(activity = {}) {
+  const ids = activity._groupActivityIds || [activity.id];
+  return ids.filter(Boolean).join(",");
+}
+
 function updateDayGroup(day, activities) {
-  const isToday = day === activityDayKey(new Date());
-  const collapsed = isToday ? collapsedUpdateDays.has(day) : !expandedPastUpdateDays.has(day);
-  const countLabel = `${activities.length} ${activities.length === 1 ? "atualização" : "atualizações"}`;
+  const collapsed = isDefaultOpenUpdateDay(day) ? collapsedUpdateDays.has(day) : !expandedPastUpdateDays.has(day);
+  const count = activities.reduce((total, activity) => total + updateActivityWeight(activity), 0);
+  const countLabel = `${count} ${count === 1 ? "atualização" : "atualizações"}`;
   return `
     <section class="update-day-group ${collapsed ? "collapsed" : ""}">
       <div class="update-day-heading">
@@ -7116,43 +7268,47 @@ function updateDayGroup(day, activities) {
   `;
 }
 
+function isDefaultOpenUpdateDay(day) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return day === activityDayKey(today) || day === activityDayKey(yesterday);
+}
+
 function updateTimelineItem(activity) {
   const unread = !activityIsRead(activity);
-  const displayType = activityDisplayType(activity);
+  const displayType = updateActivityCategory(activity);
   const importanceReason = activityImportanceReason(activity);
   const priorityClass = importanceReason ? "update-priority" : "";
   const expanded = expandedUpdateIds.has(activity.id);
   const detailHtml = renderUpdateDetail(activity);
   const hasDetails = activityDetailLines(activity).length > 0;
+  const batchSummary = updateActivityBatchSummary(activity);
+  const activityIds = updateActivityIds(activity);
   return `
-    <article class="update-item ${unread ? "unread" : ""} ${expanded ? "expanded" : ""} ${priorityClass} update-type-${displayType}" data-activity="${activity.id}">
+    <article class="update-item ${unread ? "unread" : ""} ${expanded ? "expanded" : ""} ${priorityClass} update-type-${displayType}" data-activity="${escapeAttr(activity.id)}">
       <div class="update-time">
         <strong>${activityTimeLabel(activity.createdAt)}</strong>
-        ${unread ? `<span>Nova</span>` : ""}
       </div>
       <div class="update-icon"><i data-lucide="${activityIcon(displayType)}"></i></div>
       <div class="update-content">
         <div class="update-meta">
           <span class="update-type-pill">${escapeHtml(activityTypeLabel(displayType))}</span>
+          <span class="update-actor">por ${escapeHtml(ownerName(activity.actorId))}</span>
           ${importanceReason ? `<span class="update-importance-reason"><i data-lucide="star"></i>${escapeHtml(importanceReason)}</span>` : ""}
-          <span><i data-lucide="user-round"></i>${escapeHtml(activityActorLabel(activity, displayType))}</span>
-          ${activityResponsibleLabel(activity, displayType) ? `<span class="update-responsible"><i data-lucide="user-check"></i>${escapeHtml(activityResponsibleLabel(activity, displayType))}</span>` : ""}
         </div>
-        <h3>${escapeHtml(activity.title)}</h3>
+        <h3>${renderUpdateActivityTitle(activity)}</h3>
+        ${batchSummary ? `<p class="update-batch-summary">${escapeHtml(batchSummary)}</p>` : ""}
         ${detailHtml}
       </div>
       <div class="inline-actions update-actions">
-        ${activity.clientId ? `<button class="small-button" type="button" data-open-update-client="${activity.clientId}" data-client-source="${activity.clientSource || "inss"}" data-activity-id="${activity.id}"><i data-lucide="external-link"></i> Abrir card</button>` : ""}
-        ${activity.marketingItemId ? `<button class="small-button" type="button" data-open-update-marketing="${escapeAttr(activity.marketingItemId)}" data-activity-id="${escapeAttr(activity.id)}"><i data-lucide="external-link"></i> Abrir conteúdo</button>` : ""}
+        ${unread ? `<button class="update-unread-dot" type="button" data-mark-activity-read="${escapeAttr(activity.id)}" data-activity-ids="${escapeAttr(activityIds)}" aria-label="Marcar atualização como lida" title="Não lida"></button>` : ""}
+        ${activity.clientId ? `<button class="small-button update-open-card" type="button" data-open-update-client="${escapeAttr(activity.clientId)}" data-client-source="${escapeAttr(activity.clientSource || "inss")}" data-activity-id="${escapeAttr(activity.id)}" data-activity-ids="${escapeAttr(activityIds)}">Abrir card</button>` : ""}
+        ${activity.marketingItemId && !hasDetails ? `<button class="update-row-chevron is-button" type="button" data-open-update-marketing="${escapeAttr(activity.marketingItemId)}" data-activity-id="${escapeAttr(activity.id)}" data-activity-ids="${escapeAttr(activityIds)}" aria-label="Abrir conteúdo"><i data-lucide="chevron-right"></i></button>` : ""}
         ${
           hasDetails
-            ? `<button class="small-button" type="button" data-toggle-update-details="${activity.id}" aria-expanded="${expanded}"><i data-lucide="${expanded ? "chevron-up" : "chevron-down"}"></i> ${expanded ? "Recolher" : "Ver detalhes"}</button>`
-            : ""
-        }
-        ${
-          unread
-            ? `<button class="small-button" type="button" data-mark-activity-read="${activity.id}"><i data-lucide="check"></i> Marcar lida</button>`
-            : ""
+            ? `<button class="update-row-chevron is-button" type="button" data-toggle-update-details="${escapeAttr(activity.id)}" data-activity-ids="${escapeAttr(activityIds)}" aria-expanded="${expanded}" aria-label="${expanded ? "Recolher detalhes" : "Ver detalhes"}"><i data-lucide="${expanded ? "chevron-up" : "chevron-down"}"></i></button>`
+            : !activity.marketingItemId ? `<span class="update-row-chevron" aria-hidden="true"><i data-lucide="chevron-down"></i></span>` : ""
         }
       </div>
     </article>
@@ -7383,8 +7539,8 @@ function activityDayLabel(dayKey) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayKey = activityDayKey(yesterday);
-  if (dayKey === today) return `Hoje - ${formatDate(dayKey)}`;
-  if (dayKey === yesterdayKey) return `Ontem - ${formatDate(dayKey)}`;
+  if (dayKey === today) return `Hoje · ${formatDate(dayKey)}`;
+  if (dayKey === yesterdayKey) return `Ontem · ${formatDate(dayKey)}`;
   return formatDate(dayKey);
 }
 
@@ -10952,9 +11108,12 @@ function switchSection(sectionId) {
     renderMarketing();
   }
   if (sectionId === "updatesSection") {
-    el.updatesPeriodFilter.value = "today";
+    el.updatesPeriodFilter.value = "30days";
     expandedPastUpdateDays.clear();
     collapsedUpdateDays.delete(activityDayKey(new Date()));
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    collapsedUpdateDays.delete(activityDayKey(yesterday));
     renderUpdates();
   }
   if (sectionId === "goalsSection") {
