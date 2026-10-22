@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=158" />
+    <link rel="stylesheet" href="./redesign.css?v=159" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -180,13 +180,13 @@
         <section id="tasksSection" class="app-section" hidden>
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Operação</p>
+              <p id="tasksEyebrow" class="eyebrow">Operação</p>
               <h2>Tarefas</h2>
-              <p class="section-subtitle">Rotina operacional da equipe, retornos e prioridades do dia.</p>
+              <p class="section-subtitle">Rotina da equipe, retornos pendentes e prioridades do dia.</p>
             </div>
             <div class="inline-actions">
               <button id="addMeetingButton" class="secondary-button" type="button"><i data-lucide="users-round"></i> Nova reunião</button>
-              <button id="addInternalTaskButton" class="secondary-button" type="button"><i data-lucide="plus"></i> Nova tarefa</button>
+              <button id="addInternalTaskButton" class="primary-button" type="button"><i data-lucide="plus"></i> Nova tarefa</button>
             </div>
           </div>
 
@@ -208,7 +208,7 @@
             </label>
             <select id="taskOwnerFilter" aria-label="Filtrar por responsável"></select>
             <select id="taskClientFilter" aria-label="Filtrar por cliente"></select>
-            <select id="taskStatusFilter" class="task-status-filter" aria-label="Filtrar por status">
+            <select id="taskStatusFilter" class="task-status-filter" aria-label="Filtrar por status" hidden>
               <option value="">Todos</option>
               <option value="open">Abertas</option>
               <option value="overdue">Atrasadas</option>
@@ -222,9 +222,9 @@
             </select>
             <button id="taskMineFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="user-check"></i> Minhas tarefas</button>
             <div class="segmented-control calendar-mode" role="group" aria-label="Modo de visualização das tarefas">
-              <button id="taskDayModeButton" class="active" type="button"><i data-lucide="sun"></i> Meu dia</button>
-              <button id="taskWeekModeButton" type="button"><i data-lucide="calendar-days"></i> Semana</button>
-              <button id="taskMonthModeButton" type="button"><i data-lucide="list"></i> Lista</button>
+              <button id="taskDayModeButton" class="active" type="button">Meu dia</button>
+              <button id="taskWeekModeButton" type="button">Semana</button>
+              <button id="taskMonthModeButton" type="button">Lista</button>
             </div>
           </div>
 
@@ -1242,7 +1242,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=158"></script>
+    <script src="./app.js?v=159"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

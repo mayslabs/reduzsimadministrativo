@@ -357,6 +357,7 @@ const el = {
   quickInternalTaskButton: document.getElementById("quickInternalTaskButton"),
   addInternalTaskButton: document.getElementById("addInternalTaskButton"),
   addMeetingButton: document.getElementById("addMeetingButton"),
+  tasksEyebrow: document.getElementById("tasksEyebrow"),
   taskOverview: document.getElementById("taskOverview"),
   previousTaskPeriodButton: document.getElementById("previousTaskPeriodButton"),
   nextTaskPeriodButton: document.getElementById("nextTaskPeriodButton"),
@@ -4978,6 +4979,14 @@ function closeMarketingDialog() {
 }
 
 function renderTaskCenter() {
+  if (el.tasksEyebrow) {
+    const currentDateLabel = new Intl.DateTimeFormat("pt-BR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+    }).format(new Date());
+    el.tasksEyebrow.textContent = `Operação · ${currentDateLabel}`;
+  }
   renderTaskOwnerFilter();
   renderTaskClientFilter();
   renderTaskQuickFilters();
@@ -6096,33 +6105,45 @@ function renderTaskDayBoard(items) {
     ? openItems.filter((item) => item.visibility === "admin")
     : [];
   const operationalItems = openItems.filter((item) => item.visibility !== "admin");
-  const todayItems = operationalItems.filter((item) => item.date === selectedDay);
-  const overdueItems = operationalItems.filter((item) => item.urgency === "overdue");
   const waitingItems = operationalItems.filter((item) => isWaitingReturnItem(item, selectedDay));
+  const activeOperationalItems = operationalItems.filter((item) => !isWaitingReturnItem(item, selectedDay));
+  const todayItems = activeOperationalItems.filter((item) => item.date === selectedDay);
+  const overdueItems = activeOperationalItems.filter((item) => item.urgency === "overdue");
   const upcomingItems = operationalItems
-    .filter((item) => item.date && item.date > selectedDay && !isWaitingReturnItem(item, selectedDay))
-    .slice(0, 8);
-  const noDateItems = operationalItems.filter((item) => item.urgency === "no-date").slice(0, 4);
-  const nextActions = [...upcomingItems, ...noDateItems].sort(taskItemSorter).slice(0, 8);
+    .filter((item) => item.date && item.date > selectedDay && !isWaitingReturnItem(item, selectedDay));
   const dayTitle = selectedDay === localDateKey() ? "Prioridades de hoje" : "Prioridades do dia";
 
   return `
     <div class="task-dashboard-board">
       <div class="task-dashboard-main">
-        ${renderTaskTablePanel(dayTitle, todayItems, "today", "circle-dot", { limit: 6, empty: "Sem prioridades para hoje." })}
-        ${renderTaskTablePanel("Próximas ações", nextActions, "upcoming", "list-checks", { limit: 6, empty: "Nenhuma próxima ação filtrada." })}
+        ${renderTaskTablePanel("Atrasadas", overdueItems, "overdue", "triangle-alert", {
+          limit: 80,
+          subtitle: "resolva primeiro",
+          strongBadge: true,
+          empty: "Nada atrasado. Bom trabalho.",
+        })}
+        ${renderTaskTablePanel(dayTitle, todayItems, "today", "circle-dot", {
+          limit: 80,
+          subtitle: selectedDay === localDateKey() ? "vencem hoje" : "vencem neste dia",
+          empty: "Sem prioridades para hoje.",
+        })}
+        ${renderTaskTablePanel("Próximas ações", upcomingItems, "upcoming", "list-checks", {
+          limit: 80,
+          subtitle: "próximos dias",
+          empty: "Nenhuma ação agendada.",
+        })}
         ${currentUser.role === "admin" ? `
           <div class="task-admin-board">
             ${renderTaskTablePanel("Tarefas da administração", adminItems, "admin-only", "shield-check", {
               limit: 80,
+              subtitle: "exclusivas do administrativo",
               empty: "Nenhuma tarefa exclusiva da administração.",
             })}
           </div>
         ` : ""}
       </div>
       <aside class="task-dashboard-side">
-        ${renderTaskSidePanel("Aguardando retorno", waitingItems, "waiting", "hourglass", { limit: 4 })}
-        ${renderTaskSidePanel("Atrasadas", overdueItems, "overdue", "triangle-alert", { limit: 4 })}
+        ${renderTaskWaitingPanel(waitingItems)}
       </aside>
     </div>
   `;
@@ -6145,9 +6166,10 @@ function renderTaskTablePanel(title, items, key, icon, options = {}) {
   const hiddenCount = Math.max(0, items.length - visibleItems.length);
   return `
     <section class="task-work-panel ${key}">
-      <header>
-        <span><i data-lucide="${icon}"></i>${escapeHtml(title)}</span>
-        <strong>${items.length}</strong>
+      <header class="task-panel-heading">
+        <span class="task-panel-title">${escapeHtml(title)}</span>
+        <strong class="task-panel-count ${options.strongBadge && items.length ? "strong" : ""}">${items.length}</strong>
+        ${options.subtitle ? `<small>${escapeHtml(options.subtitle)}</small>` : ""}
       </header>
       <div class="task-table-list">
         ${visibleItems.length ? visibleItems.map(renderTaskTableRow).join("") : `<p class="empty-state compact">${escapeHtml(options.empty || "Sem tarefas.")}</p>`}
@@ -6157,19 +6179,36 @@ function renderTaskTablePanel(title, items, key, icon, options = {}) {
   `;
 }
 
-function renderTaskSidePanel(title, items, key, icon, options = {}) {
-  const limit = options.limit || 4;
-  const visibleItems = [...items].sort(taskItemSorter).slice(0, limit);
+function renderTaskWaitingPanel(items) {
+  const ordered = [...items].sort(taskItemSorter);
+  const groups = [
+    {
+      label: "Cliente",
+      items: ordered.filter((item) => localizeLabel(item.status || "") !== "Aguardando terceiro"),
+    },
+    {
+      label: "Terceiros",
+      items: ordered.filter((item) => localizeLabel(item.status || "") === "Aguardando terceiro"),
+    },
+  ].filter((group) => group.items.length);
+
   return `
-    <section class="task-side-panel ${key}">
-      <header>
-        <span><i data-lucide="${icon}"></i>${escapeHtml(title)}</span>
-        <strong>${items.length}</strong>
+    <section class="task-side-panel task-return-panel waiting">
+      <header class="task-return-heading">
+        <div>
+          <span>Aguardando retorno</span>
+          <strong>${items.length}</strong>
+        </div>
+        <small>Cobre quem está devendo resposta.</small>
       </header>
-      <div class="task-side-list">
-        ${visibleItems.length ? visibleItems.map(renderTaskSideRow).join("") : `<p class="empty-state compact">Sem tarefas.</p>`}
-      </div>
-      ${items.length > limit ? `<button class="task-panel-link" type="button" data-task-status-jump="${escapeAttr(key)}">Ver todas (${items.length})</button>` : ""}
+      ${groups.length
+        ? groups.map((group) => `
+            <section class="task-return-group">
+              <h4>${escapeHtml(group.label)} · ${group.items.length}</h4>
+              <div class="task-side-list">${group.items.map(renderTaskSideRow).join("")}</div>
+            </section>
+          `).join("")
+        : `<p class="empty-state compact">Nenhum retorno pendente.</p>`}
     </section>
   `;
 }
@@ -6182,22 +6221,22 @@ function renderTaskTableRow(item) {
   return `
     <article class="task-table-row ${taskTypeClass(item)} ${taskOwnerClass(item.ownerId)} ${item.urgency} priority-${normalize(priority)} status-${taskStatusClass(statusLabel)} ${expanded ? "expanded" : ""}" data-toggle-task-card="${escapeAttr(key)}">
       <span class="task-check-ring" aria-hidden="true"></span>
-      <div class="task-row-title">
-        <strong>${escapeHtml(item.title)}</strong>
-        <small>${escapeHtml(taskItemContext(item))}</small>
+      <div class="task-row-content">
+        <div class="task-row-title">
+          <strong>${escapeHtml(item.title)}</strong>
+          <small>${escapeHtml(taskItemContext(item))}</small>
+        </div>
+        <div class="task-row-meta">
+          <span class="task-row-owner">
+            ${taskOwnerAvatar(item.ownerId)}
+            <span>${escapeHtml(ownerName(item.ownerId))}</span>
+          </span>
+          <span class="task-row-date ${item.urgency}"><i data-lucide="calendar"></i>${escapeHtml(taskDateMetaText(item))}</span>
+          <span class="task-row-status"><span class="task-status-pill">${escapeHtml(statusLabel)}</span></span>
+          ${priority === "Normal" ? "" : `<span class="task-row-priority"><span class="priority-pill">${escapeHtml(priority)}</span></span>`}
+        </div>
       </div>
-      <div class="task-row-owner">
-        ${taskOwnerAvatar(item.ownerId)}
-        <span>${escapeHtml(ownerName(item.ownerId))}</span>
-      </div>
-      <div class="task-row-date"><i data-lucide="calendar"></i>${escapeHtml(taskDateText(item))}</div>
-      <div class="task-row-priority">
-        <span class="priority-pill">${escapeHtml(priority)}</span>
-      </div>
-      <div class="task-row-status">
-        <span class="task-status-pill">${escapeHtml(statusLabel)}</span>
-      </div>
-      <div class="task-row-control">${taskPrimaryAction(item)}</div>
+      <div class="task-row-control">${taskCompactAction(item)}</div>
       <div class="task-row-expanded" ${expanded ? "" : "hidden"}>
         ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
         ${item.followUpNotes ? `<p><strong>Acompanhamento:</strong> ${escapeHtml(item.followUpNotes)}</p>` : ""}
@@ -6221,13 +6260,12 @@ function renderTaskSideRow(item) {
         <small>${escapeHtml(taskItemContext(item))}</small>
       </div>
       <div class="task-side-meta">
-        ${taskOwnerAvatar(item.ownerId)}
-        <span>${escapeHtml(ownerName(item.ownerId))}</span>
-        <span><i data-lucide="calendar"></i>${escapeHtml(taskDateText(item))}</span>
+        <span class="task-side-owner">${taskOwnerAvatar(item.ownerId)}<span>${escapeHtml(ownerName(item.ownerId))}</span></span>
+        <span class="task-waiting-age">${escapeHtml(taskWaitingElapsedText(item))}</span>
       </div>
       <div class="task-side-actions">
         ${taskStatusControl(item, statusLabel)}
-        ${taskPrimaryAction(item)}
+        ${taskSidePrimaryAction(item)}
       </div>
       <div class="task-side-details" ${expanded ? "" : "hidden"}>
         ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
@@ -6256,6 +6294,46 @@ function taskDateText(item) {
   const base = item.date === today ? "Hoje" : item.date === tomorrow ? "Amanhã" : formatDate(item.date);
   const timeMatch = String(item.description || "").match(/Horário:\s*([0-9]{2}:[0-9]{2})/);
   return timeMatch ? `${base}, ${timeMatch[1]}` : base;
+}
+
+function taskDateMetaText(item) {
+  if (!item.date) return "Sem prazo";
+  const dayDistance = taskDayDistance(item.date);
+  if (item.urgency === "overdue" && dayDistance < 0) {
+    const lateDays = Math.abs(dayDistance);
+    return `${formatShortDate(item.date)} · ${lateDays} ${lateDays === 1 ? "dia" : "dias"} de atraso`;
+  }
+  return taskDateText(item);
+}
+
+function taskWaitingElapsedText(item) {
+  if (!item.date) return "sem data de retorno";
+  const dayDistance = taskDayDistance(item.date);
+  if (dayDistance === 0) return "parado hoje";
+  if (dayDistance > 0) return `retorno em ${dayDistance} ${dayDistance === 1 ? "dia" : "dias"}`;
+  const stoppedDays = Math.abs(dayDistance);
+  return `parado há ${stoppedDays} ${stoppedDays === 1 ? "dia" : "dias"}`;
+}
+
+function taskDayDistance(dateValue) {
+  const target = new Date(`${dateValue}T12:00:00`);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
+
+function taskCompactAction(item) {
+  if (item.internalTaskId) return `<button class="icon-button task-compact-action" type="button" data-edit-internal-task="${escapeAttr(item.internalTaskId)}" aria-label="Editar tarefa"><i data-lucide="chevron-right"></i></button>`;
+  if (item.internalMeetingId) return `<button class="icon-button task-compact-action" type="button" data-edit-meeting="${escapeAttr(item.internalMeetingId)}" aria-label="Editar reunião"><i data-lucide="chevron-right"></i></button>`;
+  if (item.clientId) return `<button class="icon-button task-compact-action" type="button" data-open-task-client="${escapeAttr(item.clientId)}" data-client-source="${escapeAttr(item.clientSource || "inss")}" aria-label="Abrir card do cliente"><i data-lucide="chevron-right"></i></button>`;
+  return "";
+}
+
+function taskSidePrimaryAction(item) {
+  if (item.internalTaskId) return `<button class="small-button" type="button" data-edit-internal-task="${escapeAttr(item.internalTaskId)}">Abrir <i data-lucide="chevron-right"></i></button>`;
+  if (item.internalMeetingId) return `<button class="small-button" type="button" data-edit-meeting="${escapeAttr(item.internalMeetingId)}">Abrir <i data-lucide="chevron-right"></i></button>`;
+  if (item.clientId) return `<button class="small-button" type="button" data-open-task-client="${escapeAttr(item.clientId)}" data-client-source="${escapeAttr(item.clientSource || "inss")}">Abrir <i data-lucide="chevron-right"></i></button>`;
+  return "";
 }
 
 function taskPrimaryAction(item) {
@@ -6287,8 +6365,7 @@ function taskStatusControl(item, statusLabel) {
 function isWaitingReturnItem(item, referenceDay = localDateKey()) {
   const status = localizeLabel(item.status || "");
   const waiting = ["Aguardando cliente", "Aguardando terceiro"].includes(status) || item.urgency === "waiting";
-  if (!waiting || item.urgency === "done") return false;
-  return Boolean(item.date && item.date < referenceDay);
+  return waiting && item.urgency !== "done";
 }
 
 function renderOverdueTasks(items) {
@@ -6617,12 +6694,12 @@ function renderTaskOverview(items) {
     .map(
       (stat) => `
         <article class="task-stat ${stat.key}">
-          <span class="task-stat-icon"><i data-lucide="${stat.icon}"></i></span>
-          <div>
+          <div class="task-stat-heading">
             <span>${stat.label}</span>
-            <strong>${stat.value}</strong>
-            <small>${stat.hint}</small>
+            ${stat.key === "overdue" && stat.value ? `<em>Requer ação</em>` : ""}
           </div>
+          <strong>${stat.value}</strong>
+          <small>${stat.hint}</small>
         </article>
       `
     )
@@ -11327,9 +11404,9 @@ function brazilianStates() {
 
 function taskUrgency(item) {
   if (["Concluída", "Concluído"].includes(localizeLabel(item.status))) return "done";
+  if (item.kind.includes("Tarefa") && isWaitingTaskStatus(item.status)) return "waiting";
   if (!item.date) return "no-date";
   const today = localDateKey();
-  if (item.date < today && item.kind.includes("Tarefa") && isWaitingTaskStatus(item.status)) return "waiting";
   if (item.date < today) return "overdue";
   if (item.date === today) return "today";
   return "upcoming";
