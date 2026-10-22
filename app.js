@@ -308,6 +308,7 @@ let activeMarketingItemId = "";
 let activeMarketingDraftKind = "content";
 let activeMarketingScriptMode = "structured";
 let activeMarketingIdeaObjective = "";
+let marketingDragSuppressClick = false;
 let activeDataDrilldown = null;
 let activeGoalsYear = String(new Date().getFullYear());
 let activeGoalsMonth = currentMonthKey();
@@ -4706,15 +4707,15 @@ function renderMarketingProduction(items) {
     <section class="marketing-board-panel">
       <header class="marketing-board-heading">
         <h3>Fluxo de produção</h3>
-        <span>${contents.length} ${contents.length === 1 ? "conteúdo" : "conteúdos"} · use a seta para avançar de etapa</span>
+        <span>${contents.length} ${contents.length === 1 ? "conteúdo" : "conteúdos"} · arraste os cartões entre as etapas</span>
       </header>
       <div class="marketing-pipeline">
         ${MARKETING_CONTENT_STATUSES.map((status, index) => {
           const statusItems = contents.filter((item) => item.status === status);
           return `
-            <section class="marketing-pipeline-column status-${marketingSlug(status)}">
+            <section class="marketing-pipeline-column status-${marketingSlug(status)}" data-marketing-drop-stage="${escapeAttr(status)}" aria-label="Etapa ${escapeAttr(status)}. Solte cartões aqui para alterar a etapa.">
               <header><span><small>${String(index + 1).padStart(2, "0")}</small>${escapeHtml(status)}</span><strong class="${statusItems.length ? "has-items" : ""}">${statusItems.length}</strong></header>
-              <div>
+              <div class="marketing-pipeline-dropzone">
                 ${statusItems.length ? statusItems.map(renderMarketingPipelineCard).join("") : `<p class="marketing-column-empty">Nenhum conteúdo</p>`}
               </div>
             </section>
@@ -4727,12 +4728,11 @@ function renderMarketingProduction(items) {
 
 function renderMarketingPipelineCard(item) {
   const linked = item.clientId ? findLinkedClientRecord(item.clientId, item.clientSource) : null;
-  const stageIndex = MARKETING_CONTENT_STATUSES.indexOf(item.status);
   const owner = ownerName(item.ownerId);
   const itemDate = item.publishDate || item.productionDate;
   const dateLabel = itemDate ? formatDate(itemDate).slice(0, 5) : "Sem data";
   return `
-    <article class="marketing-pipeline-card format-${marketingSlug(item.format || "Outro")}">
+    <article class="marketing-pipeline-card format-${marketingSlug(item.format || "Outro")}" draggable="true" data-marketing-drag-item="${escapeAttr(item.id)}" aria-label="${escapeAttr(item.title || "Conteúdo sem título")}. Arraste para alterar a etapa.">
       <button class="marketing-card-open" type="button" data-open-marketing="${escapeAttr(item.id)}">
         <span class="marketing-card-meta">${escapeHtml([item.format || "Conteúdo", marketingChannelLabel(item)].filter(Boolean).join(" · "))}</span>
         <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
@@ -4740,10 +4740,7 @@ function renderMarketingPipelineCard(item) {
       </button>
       <div class="marketing-card-footer">
         <span class="marketing-card-owner"><i>${escapeHtml((owner || "?").charAt(0).toUpperCase())}</i>${escapeHtml(owner)} · ${escapeHtml(dateLabel)}</span>
-        <span class="marketing-card-stage-actions">
-          ${stageIndex > 0 ? `<button type="button" data-marketing-stage-shift="-1" data-marketing-item="${escapeAttr(item.id)}" aria-label="Voltar para ${escapeAttr(MARKETING_CONTENT_STATUSES[stageIndex - 1])}" title="Voltar etapa"><i data-lucide="chevron-left"></i></button>` : ""}
-          ${stageIndex < MARKETING_CONTENT_STATUSES.length - 1 ? `<button class="next" type="button" data-marketing-stage-shift="1" data-marketing-item="${escapeAttr(item.id)}" aria-label="Avançar para ${escapeAttr(MARKETING_CONTENT_STATUSES[stageIndex + 1])}" title="Avançar etapa"><i data-lucide="chevron-right"></i></button>` : ""}
-        </span>
+        <span class="marketing-card-drag-handle" aria-hidden="true" title="Arraste para outra etapa"><i data-lucide="grip-vertical"></i></span>
       </div>
     </article>
   `;
@@ -4795,6 +4792,10 @@ function bindMarketingWorkspaceActions() {
   el.marketingWorkspace.querySelectorAll("[data-open-marketing]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
+      if (marketingDragSuppressClick) {
+        event.preventDefault();
+        return;
+      }
       openMarketingDialog(button.dataset.openMarketing);
     });
   });
@@ -4814,15 +4815,7 @@ function bindMarketingWorkspaceActions() {
   el.marketingWorkspace.querySelectorAll("[data-marketing-status]").forEach((select) => {
     select.addEventListener("change", () => updateMarketingStatus(select.dataset.marketingStatus, select.value));
   });
-  el.marketingWorkspace.querySelectorAll("[data-marketing-stage-shift]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const item = state.marketingItems.find((candidate) => candidate.id === button.dataset.marketingItem);
-      const currentIndex = MARKETING_CONTENT_STATUSES.indexOf(item?.status);
-      const nextIndex = currentIndex + Number(button.dataset.marketingStageShift);
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= MARKETING_CONTENT_STATUSES.length) return;
-      updateMarketingStatus(item.id, MARKETING_CONTENT_STATUSES[nextIndex]);
-    });
-  });
+  bindMarketingPipelineDragAndDrop();
   el.marketingWorkspace.querySelectorAll("[data-marketing-idea-objective]").forEach((button) => {
     button.addEventListener("click", () => {
       activeMarketingIdeaObjective = button.dataset.marketingIdeaObjective || "";
@@ -4833,6 +4826,75 @@ function bindMarketingWorkspaceActions() {
   el.marketingWorkspace.querySelector("[data-new-marketing-idea]")?.addEventListener("click", () => openMarketingDialog("", "idea"));
   el.marketingWorkspace.querySelectorAll("[data-convert-marketing-idea]").forEach((button) => {
     button.addEventListener("click", () => convertMarketingIdea(button.dataset.convertMarketingIdea));
+  });
+}
+
+function bindMarketingPipelineDragAndDrop() {
+  const cards = [...el.marketingWorkspace.querySelectorAll("[data-marketing-drag-item]")];
+  const columns = [...el.marketingWorkspace.querySelectorAll("[data-marketing-drop-stage]")];
+  if (!cards.length || !columns.length) return;
+
+  let draggedItemId = "";
+  const clearDragState = () => {
+    cards.forEach((card) => {
+      card.classList.remove("is-dragging");
+      card.setAttribute("aria-grabbed", "false");
+    });
+    columns.forEach((column) => column.classList.remove("is-drag-over"));
+    el.marketingWorkspace.classList.remove("is-dragging-card");
+  };
+
+  cards.forEach((card) => {
+    card.setAttribute("aria-grabbed", "false");
+    card.addEventListener("dragstart", (event) => {
+      draggedItemId = card.dataset.marketingDragItem || "";
+      if (!draggedItemId) {
+        event.preventDefault();
+        return;
+      }
+      marketingDragSuppressClick = true;
+      card.classList.add("is-dragging");
+      card.setAttribute("aria-grabbed", "true");
+      el.marketingWorkspace.classList.add("is-dragging-card");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", draggedItemId);
+      }
+    });
+    card.addEventListener("dragend", () => {
+      clearDragState();
+      draggedItemId = "";
+      window.setTimeout(() => {
+        marketingDragSuppressClick = false;
+      }, 0);
+    });
+  });
+
+  columns.forEach((column) => {
+    column.addEventListener("dragenter", (event) => {
+      if (!draggedItemId) return;
+      event.preventDefault();
+      columns.forEach((candidate) => candidate.classList.toggle("is-drag-over", candidate === column));
+    });
+    column.addEventListener("dragover", (event) => {
+      if (!draggedItemId) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    });
+    column.addEventListener("dragleave", (event) => {
+      if (!column.contains(event.relatedTarget)) column.classList.remove("is-drag-over");
+    });
+    column.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const itemId = event.dataTransfer?.getData("text/plain") || draggedItemId;
+      const nextStatus = column.dataset.marketingDropStage || "";
+      clearDragState();
+      draggedItemId = "";
+      if (itemId && nextStatus) updateMarketingStatus(itemId, nextStatus);
+      window.setTimeout(() => {
+        marketingDragSuppressClick = false;
+      }, 0);
+    });
   });
 }
 

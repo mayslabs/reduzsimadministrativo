@@ -58,11 +58,16 @@ test("upcoming marketing panel follows the compact redesign", () => {
 
 test("marketing production and idea views follow the supplied workspace", () => {
   assert.match(appJs, /class="marketing-board-heading"/);
-  assert.match(appJs, /use a seta para avançar de etapa/);
-  assert.match(appJs, /data-marketing-stage-shift="1"/);
+  assert.match(appJs, /arraste os cartões entre as etapas/);
+  assert.match(appJs, /draggable="true" data-marketing-drag-item/);
+  assert.match(appJs, /data-marketing-drop-stage/);
+  assert.match(appJs, /function bindMarketingPipelineDragAndDrop/);
+  assert.doesNotMatch(appJs, /data-marketing-stage-shift/);
   assert.match(appJs, /class="marketing-ideas-heading"/);
   assert.match(appJs, /data-marketing-idea-objective/);
-  assert.match(redesignCss, /grid-template-columns:\s*repeat\(7, minmax\(220px, 1fr\)\)/);
+  assert.match(redesignCss, /grid-template-columns:\s*repeat\(7, minmax\(0, 1fr\)\)/);
+  assert.match(redesignCss, /marketing-pipeline-column\.is-drag-over/);
+  assert.match(redesignCss, /marketing-pipeline-card\.is-dragging/);
   assert.match(redesignCss, /grid-template-columns:\s*repeat\(auto-fill, minmax\(360px, 1fr\)\)/);
 });
 

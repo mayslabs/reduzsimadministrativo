@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=168/);
+  assert.match(indexHtml, /redesign\.css\?v=169/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -39,7 +39,7 @@ test("home client list follows the supplied compact table behavior", () => {
 });
 
 test("home client cards follow the supplied four-column composition", () => {
-  assert.match(indexHtml, /app\.js\?v=168/);
+  assert.match(indexHtml, /app\.js\?v=169/);
   assert.match(appJs, /class="client-card-header"/);
   assert.match(appJs, /class="client-card-area"/);
   assert.match(appJs, /client-card-task-chip/);
