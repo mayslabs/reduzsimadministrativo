@@ -317,7 +317,7 @@ let taskMineOnly = false;
 let advancedClientFiltersOpen = false;
 let visibleHistoryCount = 20;
 let activeSyncIssue = null;
-let privacyModeEnabled = true;
+let privacyModeEnabled = false;
 const expandedUpdateIds = new Set();
 const collapsedUpdateDays = new Set();
 const expandedPastUpdateDays = new Set();
@@ -2047,7 +2047,7 @@ function showApp() {
   el.appView.hidden = false;
   el.loginView.style.display = "none";
   el.appView.style.removeProperty("display");
-  setPrivacyMode(true);
+  setPrivacyMode(false);
   updateCurrentUserDisplay();
   configureNavigationForRole();
   renderAll();

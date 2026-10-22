@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [loginHtml, loginJs] = await Promise.all([
+const [loginHtml, loginJs, indexHtml, redesignCss] = await Promise.all([
   readFile(new URL("../login.html", import.meta.url), "utf8"),
   readFile(new URL("../login.js", import.meta.url), "utf8"),
+  readFile(new URL("../index.html", import.meta.url), "utf8"),
+  readFile(new URL("../redesign.css", import.meta.url), "utf8"),
 ]);
 
 test("login follows the supplied split-panel design responsively", () => {
@@ -30,4 +32,10 @@ test("new login controls are functional and accessible", () => {
   assert.match(loginJs, /Auth\.Persistence\.LOCAL/);
   assert.match(loginJs, /Auth\.Persistence\.SESSION/);
   assert.match(loginJs, /setAttribute\("aria-pressed"/);
+});
+
+test("the legacy login fallback never flashes while the application starts", () => {
+  assert.match(indexHtml, /<main id="loginView" class="login-view" hidden>/);
+  assert.match(indexHtml, /<main id="appView" class="app-shell" hidden>/);
+  assert.match(redesignCss, /#loginView\[hidden\][\s\S]*display:\s*none !important/);
 });

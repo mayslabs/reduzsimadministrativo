@@ -8,11 +8,12 @@ const [indexHtml, appJs, stylesCss] = await Promise.all([
   readFile(new URL("../styles.css", import.meta.url), "utf8"),
 ]);
 
-test("presentation privacy starts enabled and has a global toggle", () => {
+test("presentation privacy starts disabled and has a global toggle", () => {
   assert.match(indexHtml, /id="privacyToggleButton"/);
-  assert.match(indexHtml, /id="privacyToggleLabel">Privacidade ativa/);
-  assert.match(appJs, /let privacyModeEnabled = true;/);
-  assert.match(appJs, /setPrivacyMode\(true\);/);
+  assert.match(indexHtml, /aria-pressed="false"/);
+  assert.match(indexHtml, /id="privacyToggleLabel">Dados visíveis/);
+  assert.match(appJs, /let privacyModeEnabled = false;/);
+  assert.match(appJs, /setPrivacyMode\(false\);/);
   assert.match(appJs, /setPrivacyMode\(!privacyModeEnabled\)/);
 });
 

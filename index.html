@@ -12,11 +12,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=156" />
+    <link rel="stylesheet" href="./redesign.css?v=157" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
-    <main id="loginView" class="login-view">
+    <main id="loginView" class="login-view" hidden>
       <section class="login-panel">
         <img src="./assets/reduzsim-logo.png" alt="ReduzSim" class="login-logo" />
         <form id="loginForm" class="login-form">
@@ -89,11 +89,11 @@
                 id="privacyToggleButton"
                 class="privacy-toggle"
                 type="button"
-                aria-pressed="true"
-                title="Mostrar dados protegidos"
+                aria-pressed="false"
+                title="Ocultar dados para apresentação"
               >
-                <i data-lucide="eye-off"></i>
-                <span id="privacyToggleLabel">Privacidade ativa</span>
+                <i data-lucide="eye"></i>
+                <span id="privacyToggleLabel">Dados visíveis</span>
               </button>
             </div>
             <button id="newClientButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo cliente</button>
@@ -1240,7 +1240,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=156"></script>
+    <script src="./app.js?v=157"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
