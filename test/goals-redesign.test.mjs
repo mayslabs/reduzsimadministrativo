@@ -20,6 +20,11 @@ test("goals header follows the supplied compact period layout", () => {
 
 test("monthly and annual goals use one threshold rail with forecast insights", () => {
   assert.match(appJs, /function renderGoalThresholdRail/);
+  assert.match(appJs, /--goal-floor-segment:\$\{floorSegment\}%/);
+  assert.match(appJs, /--goal-stretch-segment:\$\{stretchSegment\}%/);
+  assert.match(appJs, /tier\.reached \? `Alcançado/);
+  assert.match(appJs, /`Faltam \$\{goalWholeCurrency/);
+  assert.match(appJs, /da meta anual<\/span>/);
   assert.match(appJs, /Projeção no ritmo atual/);
   assert.match(appJs, /Necessário por mês restante/);
   assert.match(appJs, /Ritmo esperado até/);

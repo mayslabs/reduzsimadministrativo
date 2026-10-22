@@ -4058,7 +4058,14 @@ function renderGoalThresholdRail(total, floor, target, stretch, variant = "month
     { label: "Piso", amount: floor },
     { label: "Meta", amount: target },
     { label: "Supermeta", amount: stretch },
-  ];
+  ].map((tier) => ({
+    ...tier,
+    position: Math.min(100, goalPercent(tier.amount, scale)),
+    reached: total >= tier.amount,
+  }));
+  const floorSegment = tiers[0].position;
+  const targetSegment = Math.max(0, tiers[1].position - tiers[0].position);
+  const stretchSegment = Math.max(0, 100 - tiers[1].position);
   return `
     <div class="goal-threshold-rail ${variant}">
       <div class="goal-threshold-track" style="--goal-threshold-fill:${fill}%">
@@ -4067,19 +4074,19 @@ function renderGoalThresholdRail(total, floor, target, stretch, variant = "month
         ${tiers
           .map(
             (tier) => `
-              <i class="goal-threshold-marker ${total >= tier.amount ? "reached" : ""}" style="left:${Math.min(100, goalPercent(tier.amount, scale))}%"></i>
+              <i class="goal-threshold-marker ${tier.reached ? "reached" : ""}" style="left:${tier.position}%" title="${escapeAttr(`${tier.label}: ${goalWholeCurrency(tier.amount)}. ${tier.reached ? "Alcançado" : `Faltam ${goalWholeCurrency(Math.max(tier.amount - total, 0))}`}`)}"></i>
             `
           )
           .join("")}
       </div>
-      <div class="goal-threshold-labels">
+      <div class="goal-threshold-labels" style="--goal-floor-segment:${floorSegment}%;--goal-target-segment:${targetSegment}%;--goal-stretch-segment:${stretchSegment}%">
         ${tiers
           .map(
             (tier) => `
-              <div class="goal-threshold-label">
+              <div class="goal-threshold-label ${tier.reached ? "reached" : "pending"}">
                 <span><i></i>${escapeHtml(tier.label)}</span>
                 <strong>${escapeHtml(goalWholeCurrency(tier.amount))}</strong>
-                <small>${escapeHtml(goalPercentLabel(total, tier.amount))} alcançado</small>
+                <small>${escapeHtml(tier.reached ? `Alcançado · ${goalPercentLabel(total, tier.amount)}` : `Faltam ${goalWholeCurrency(Math.max(tier.amount - total, 0))}`)}</small>
               </div>
             `
           )
@@ -4163,7 +4170,7 @@ function renderGoalsAnnualPanel(data, settings, annualTarget, annualStretch) {
           <p class="goals-card-kicker">Meta anual · ${escapeHtml(activeGoalsYear)}</p>
           <div class="goal-annual-total">
             <strong>${escapeHtml(calculatedCurrency(data.total))}</strong>
-            <span>de ${escapeHtml(calculatedCurrency(annualTarget))} · ${escapeHtml(goalPercentLabel(data.total, annualTarget))} alcançado</span>
+            <span>de ${escapeHtml(calculatedCurrency(annualTarget))} · ${escapeHtml(goalPercentLabel(data.total, annualTarget))} da meta anual</span>
           </div>
         </div>
         <div class="goal-annual-insights">
