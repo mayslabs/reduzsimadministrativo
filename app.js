@@ -4482,9 +4482,9 @@ function renderMarketing() {
     : [];
   renderMarketingFilters();
   renderMarketingViewControls();
-  renderMarketingSummary();
-
   const items = filteredMarketingItems();
+  renderMarketingSummary(items);
+
   if (activeMarketingView === "production") {
     el.marketingWorkspace.innerHTML = renderMarketingProduction(items);
   } else if (activeMarketingView === "ideas") {
@@ -4526,41 +4526,45 @@ function renderMarketingViewControls() {
   });
 }
 
-function renderMarketingSummary() {
+function renderMarketingSummary(items = filteredMarketingItems()) {
   const monthKey = marketingMonthKey(activeMarketingDate);
-  const monthItems = state.marketingItems.filter((item) => item.kind === "content" && marketingItemMonth(item) === monthKey);
+  const contentItems = items.filter((item) => (
+    item.kind === "content"
+    && (activeMarketingView !== "calendar" || marketingItemMonth(item) === monthKey)
+  ));
+  const ideaItems = items.filter((item) => item.kind === "idea");
   const stats = [
     {
       label: "Ideias no banco",
-      value: state.marketingItems.filter((item) => item.kind === "idea").length,
+      value: ideaItems.length,
       icon: "lightbulb",
       type: "ideas",
       hint: "para desenvolver",
     },
     {
       label: "Para produzir",
-      value: monthItems.filter((item) => ["Planejado", "Roteiro"].includes(item.status)).length,
+      value: contentItems.filter((item) => ["Planejado", "Roteiro"].includes(item.status)).length,
       icon: "notebook-pen",
       type: "planned",
       hint: "planejado e roteiro",
     },
     {
       label: "Em produção",
-      value: monthItems.filter((item) => ["Gravação", "Edição", "Aprovação"].includes(item.status)).length,
+      value: contentItems.filter((item) => ["Gravação", "Edição", "Aprovação"].includes(item.status)).length,
       icon: "clapperboard",
       type: "production",
       hint: "gravação a aprovação",
     },
     {
       label: "Agendados",
-      value: monthItems.filter((item) => item.status === "Agendado").length,
+      value: contentItems.filter((item) => item.status === "Agendado").length,
       icon: "calendar-clock",
       type: "scheduled",
       hint: "prontos para sair",
     },
     {
       label: "Publicados",
-      value: monthItems.filter((item) => item.status === "Publicado").length,
+      value: contentItems.filter((item) => item.status === "Publicado").length,
       icon: "circle-check-big",
       type: "published",
       hint: "neste período",

@@ -71,6 +71,17 @@ test("marketing production and idea views follow the supplied workspace", () => 
   assert.match(redesignCss, /grid-template-columns:\s*repeat\(auto-fill, minmax\(360px, 1fr\)\)/);
 });
 
+test("marketing production summary counts the same filtered items as the board", () => {
+  assert.match(appJs, /const items = filteredMarketingItems\(\);\s*renderMarketingSummary\(items\);/);
+  assert.match(appJs, /function renderMarketingSummary\(items = filteredMarketingItems\(\)\)/);
+  assert.match(appJs, /activeMarketingView !== "calendar" \|\| marketingItemMonth\(item\) === monthKey/);
+  assert.match(appJs, /value: contentItems\.filter\(\(item\) => \["Planejado", "Roteiro"\]\.includes\(item\.status\)\)\.length/);
+  assert.match(appJs, /value: contentItems\.filter\(\(item\) => \["Gravação", "Edição", "Aprovação"\]\.includes\(item\.status\)\)\.length/);
+  assert.match(appJs, /value: contentItems\.filter\(\(item\) => item\.status === "Agendado"\)\.length/);
+  assert.match(appJs, /value: contentItems\.filter\(\(item\) => item\.status === "Publicado"\)\.length/);
+  assert.doesNotMatch(appJs, /const monthItems = state\.marketingItems/);
+});
+
 test("marketing editors use the content and compact idea layouts", () => {
   assert.match(indexHtml, /id="marketingFormatChoices"/);
   assert.match(indexHtml, /id="marketingPriorityChoices"/);
