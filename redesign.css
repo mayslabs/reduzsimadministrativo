@@ -2402,6 +2402,9 @@ textarea:focus {
 
 .data-summary-grid .report-metric > div {
   display: flex;
+  width: 100%;
+  flex: 1 1 auto;
+  align-self: stretch;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-end;
@@ -2409,13 +2412,17 @@ textarea:focus {
   min-height: 0;
 }
 
-.data-summary-grid .report-metric > div > span {
+.data-summary-grid .report-metric > .data-summary-label {
+  align-self: flex-start;
   color: #5c5c5c;
   font-size: 12.5px;
   font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
 }
 
-.data-summary-grid .report-metric > div > strong {
+.data-summary-grid .report-metric > .data-summary-value > strong {
+  align-self: flex-start;
   margin: 0;
   color: var(--green-dark);
   font-size: 26px;
@@ -2423,13 +2430,17 @@ textarea:focus {
   line-height: 1.1;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
+  text-align: left;
 }
 
-.data-summary-grid .report-metric > div > small {
+.data-summary-grid .report-metric > .data-summary-value > small {
+  align-self: flex-start;
+  margin: 0;
   color: #8a8a8a;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.55;
+  text-align: left;
 }
 
 .data-summary-grid .data-economy-card {
@@ -2470,16 +2481,20 @@ textarea:focus {
 }
 
 .data-summary-grid .data-economy-card > div > strong {
+  align-self: flex-start;
   color: #ffffff;
   font-size: 44px;
   line-height: 1.05;
+  text-align: left;
 }
 
 .data-economy-card p {
+  align-self: flex-start;
   margin: 0;
   color: rgba(255, 255, 255, 0.74);
   font-size: 13px;
   line-height: 1.5;
+  text-align: left;
 }
 
 .data-summary-grid .tone-economy > div > span,

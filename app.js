@@ -2477,8 +2477,8 @@ function renderDataTotal(item) {
   return `
     <article class="data-total report-metric tone-${item.tone}">
       <span class="report-metric-icon"><i data-lucide="${escapeAttr(item.icon)}"></i></span>
-      <div>
-        <span>${escapeHtml(item.label)}</span>
+      <span class="data-summary-label">${escapeHtml(item.label)}</span>
+      <div class="data-summary-value">
         <strong>${escapeHtml(String(item.value))}</strong>
         <small>${item.hintHtml || escapeHtml(item.hint)}</small>
       </div>

@@ -20,6 +20,15 @@ test("reports follow the supplied hierarchy and panel composition", () => {
   assert.match(redesignCss, /\.data-quality-list\s*\{[\s\S]*grid-template-columns:\s*repeat\(6/);
 });
 
+test("summary cards share one left-aligned content axis", () => {
+  assert.match(appJs, /class="data-summary-label"/);
+  assert.match(appJs, /class="data-summary-value"/);
+  assert.match(redesignCss, /> \.data-summary-label\s*\{[\s\S]*align-self:\s*flex-start/);
+  assert.match(redesignCss, /> \.data-summary-value > strong\s*\{[\s\S]*text-align:\s*left/);
+  assert.match(redesignCss, /> \.data-summary-value > small\s*\{[\s\S]*text-align:\s*left/);
+  assert.match(redesignCss, /\.data-economy-card > div > strong\s*\{[\s\S]*align-self:\s*flex-start/);
+});
+
 test("annual charts retain the selected year's trend while period cards stay filtered", () => {
   assert.match(appJs, /const records = filteredDataRecords\(\);/);
   assert.match(appJs, /filteredDataRecords\(\{ ignorePeriod: true \}\)/);
