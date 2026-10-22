@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=166" />
+    <link rel="stylesheet" href="./redesign.css?v=167" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -1102,7 +1102,7 @@
       <form id="marketingForm" class="marketing-form">
         <header class="dialog-header marketing-dialog-header">
           <div class="marketing-dialog-title">
-            <span><i data-lucide="notebook-tabs"></i></span>
+            <span><i data-lucide="lightbulb"></i></span>
             <div>
               <h2 id="marketingDialogTitle">Novo conteúdo</h2>
               <p id="marketingDialogSubtitle" class="section-subtitle">Planeje a produção e a publicação.</p>
@@ -1115,16 +1115,16 @@
         <div class="marketing-dialog-body">
           <div class="marketing-form-column">
             <section class="marketing-form-section">
-              <h3>1. Informações do conteúdo</h3>
+              <h3>01 · Informações</h3>
               <div class="marketing-field-grid">
                 <label class="span-2">Título
-                  <input id="marketingTitleInput" type="text" maxlength="160" placeholder="Ex.: 5 documentos necessários para regularizar um imóvel" required />
+                  <input id="marketingTitleInput" type="text" maxlength="160" placeholder="Ex.: 5 documentos para regularizar um imóvel" required />
                 </label>
                 <label class="span-2">Descrição
-                  <textarea id="marketingDescriptionInput" rows="3" maxlength="1200" placeholder="Registre a ideia, o contexto e o objetivo do conteúdo."></textarea>
+                  <textarea id="marketingDescriptionInput" rows="3" maxlength="1200" placeholder="A ideia, o contexto e o objetivo do conteúdo"></textarea>
                 </label>
                 <label class="span-2">Tema ou pilar
-                  <input id="marketingPillarInput" type="text" list="marketingPillarsList" maxlength="80" placeholder="Ex.: Educativo" />
+                  <input id="marketingPillarInput" type="text" list="marketingPillarsList" maxlength="80" placeholder="Ex.: INSS de obras, Fiscalização e defesa" />
                   <datalist id="marketingPillarsList">
                     <option value="INSS de obras"></option>
                     <option value="Regularização de imóvel"></option>
@@ -1136,60 +1136,68 @@
                     <option value="Institucional"></option>
                   </datalist>
                 </label>
-                <label>Formato<select id="marketingFormatInput"></select></label>
-                <div class="marketing-multi-field">
-                  <span class="marketing-field-label">Canal</span>
-                  <details id="marketingChannelPicker" class="marketing-multi-select">
-                    <summary id="marketingChannelSummary">Selecione</summary>
-                    <div class="marketing-multi-menu">
-                      <div id="marketingChannelInput" class="marketing-multi-options"></div>
-                      <div class="marketing-multi-actions">
-                        <button id="marketingChannelClearButton" type="button">Limpar</button>
-                        <button id="marketingChannelDoneButton" type="button">Concluir</button>
-                      </div>
-                    </div>
-                  </details>
-                </div>
                 <fieldset id="marketingObjectiveGroup" class="marketing-choice-field span-2">
                   <legend>Objetivo</legend>
                   <div class="marketing-choice-grid">
-                    <label><input type="radio" name="marketingObjective" value="Educar" /><i data-lucide="book-open"></i> Educar</label>
-                    <label><input type="radio" name="marketingObjective" value="Vender" /><i data-lucide="chart-no-axes-column-increasing"></i> Vender</label>
-                    <label><input type="radio" name="marketingObjective" value="Informar" /><i data-lucide="info"></i> Informar</label>
-                    <label><input type="radio" name="marketingObjective" value="Autoridade" /><i data-lucide="star"></i> Autoridade</label>
+                    <label><input type="radio" name="marketingObjective" value="Educar" /><span>ensinar</span><strong>Educar</strong></label>
+                    <label><input type="radio" name="marketingObjective" value="Vender" /><span>converter</span><strong>Vender</strong></label>
+                    <label><input type="radio" name="marketingObjective" value="Informar" /><span>notícia</span><strong>Informar</strong></label>
+                    <label><input type="radio" name="marketingObjective" value="Autoridade" /><span>posicionar</span><strong>Autoridade</strong></label>
                   </div>
                 </fieldset>
-                <label id="marketingClientField" class="span-2">Cliente vinculado (opcional)
+                <div class="marketing-option-field span-2">
+                  <span class="marketing-field-label">Formato</span>
+                  <div id="marketingFormatChoices" class="marketing-chip-options" role="radiogroup" aria-label="Formato do conteúdo"></div>
+                  <select id="marketingFormatInput" class="marketing-native-choice" hidden aria-hidden="true" tabindex="-1"></select>
+                </div>
+                <div class="marketing-multi-field span-2">
+                  <span class="marketing-field-label">Canais</span>
+                  <div id="marketingChannelPicker" class="marketing-channel-picker">
+                    <span id="marketingChannelSummary" hidden>Selecione</span>
+                    <div id="marketingChannelInput" class="marketing-multi-options"></div>
+                    <div class="marketing-multi-actions" hidden>
+                      <button id="marketingChannelClearButton" type="button">Limpar</button>
+                      <button id="marketingChannelDoneButton" type="button">Concluir</button>
+                    </div>
+                  </div>
+                </div>
+                <label id="marketingClientField" class="span-2"><span>Cliente vinculado <small>· opcional</small></span>
                   <select id="marketingClientInput"></select>
                 </label>
               </div>
             </section>
 
             <section id="marketingProductionSection" class="marketing-form-section">
-              <h3>2. Produção</h3>
+              <h3>02 · Produção</h3>
               <div class="marketing-field-grid">
                 <label>Responsável<select id="marketingOwnerInput"></select></label>
-                <label>Status<select id="marketingContentStatusInput"></select></label>
-                <label>Prioridade<select id="marketingPriorityInput"></select></label>
+                <label>Etapa<select id="marketingContentStatusInput"></select></label>
                 <label>Data de produção<input id="marketingProductionDateInput" type="date" /></label>
                 <label>Data da postagem<input id="marketingPublishDateInput" type="date" /></label>
                 <label>Horário<input id="marketingPublishTimeInput" type="time" /></label>
+                <div class="marketing-priority-field">
+                  <span class="marketing-field-label">Prioridade</span>
+                  <div id="marketingPriorityChoices" class="marketing-priority-options" role="radiogroup" aria-label="Prioridade do conteúdo"></div>
+                  <select id="marketingPriorityInput" class="marketing-native-choice" hidden aria-hidden="true" tabindex="-1"></select>
+                </div>
               </div>
             </section>
           </div>
 
           <div id="marketingContentDetails" class="marketing-form-column">
             <section class="marketing-form-section">
-              <h3>3. Roteiro</h3>
-              <div class="segmented-control marketing-script-mode" role="group" aria-label="Formato do roteiro">
-                <button id="marketingStructuredScriptButton" class="active" type="button">Estruturado</button>
-                <button id="marketingFreeScriptButton" type="button">Texto livre</button>
+              <div class="marketing-form-section-header">
+                <h3>03 · Roteiro</h3>
+                <div class="segmented-control marketing-script-mode" role="group" aria-label="Formato do roteiro">
+                  <button id="marketingStructuredScriptButton" class="active" type="button">Estruturado</button>
+                  <button id="marketingFreeScriptButton" type="button">Texto livre</button>
+                </div>
               </div>
               <div id="marketingStructuredScriptFields" class="marketing-script-fields">
-                <label>Gancho inicial<textarea id="marketingHookInput" rows="2" maxlength="1000" placeholder="Como você vai prender a atenção nos primeiros segundos?"></textarea></label>
-                <label>Problema<textarea id="marketingProblemInput" rows="2" maxlength="1600" placeholder="Qual problema ou dúvida será apresentado?"></textarea></label>
-                <label>Explicação<textarea id="marketingExplanationInput" rows="3" maxlength="2600" placeholder="Desenvolva os principais pontos do conteúdo."></textarea></label>
-                <label>Conclusão e chamada para ação<textarea id="marketingConclusionInput" rows="2" maxlength="1200" placeholder="Finalize e indique o próximo passo."></textarea></label>
+                <label>Gancho inicial<textarea id="marketingHookInput" rows="2" maxlength="1000" placeholder="Como prender a atenção nos primeiros segundos?"></textarea></label>
+                <label>Problema<textarea id="marketingProblemInput" rows="2" maxlength="1600" placeholder="Qual dúvida ou dor será apresentada?"></textarea></label>
+                <label>Explicação<textarea id="marketingExplanationInput" rows="3" maxlength="2600" placeholder="Os principais pontos do conteúdo"></textarea></label>
+                <label>Conclusão e chamada para ação<textarea id="marketingConclusionInput" rows="2" maxlength="1200" placeholder="Qual o próximo passo para quem assiste?"></textarea></label>
               </div>
               <div id="marketingFreeScriptFields" class="marketing-script-fields" hidden>
                 <label>Roteiro completo<textarea id="marketingFreeScriptInput" rows="12" maxlength="6000" placeholder="Escreva o roteiro livremente."></textarea></label>
@@ -1197,11 +1205,14 @@
             </section>
 
             <section class="marketing-form-section">
-              <h3>4. Publicação</h3>
+              <h3>04 · Publicação</h3>
               <div class="marketing-script-fields">
                 <label>Legenda<textarea id="marketingCaptionInput" rows="3" maxlength="3000" placeholder="Texto que acompanhará a publicação."></textarea></label>
                 <label>Link da arte ou vídeo<input id="marketingAssetLinkInput" type="url" maxlength="500" placeholder="https://" /></label>
-                <label class="marketing-checkbox-row"><input id="marketingGenerateTaskInput" type="checkbox" /> <span>Gerar tarefa de produção na Central de Tarefas</span></label>
+                <label class="marketing-checkbox-row">
+                  <input id="marketingGenerateTaskInput" type="checkbox" />
+                  <span><strong>Gerar tarefa de produção</strong><small>Cria uma tarefa na Central de Tarefas para o responsável</small></span>
+                </label>
               </div>
             </section>
 
@@ -1213,11 +1224,13 @@
         </div>
 
         <footer class="dialog-footer marketing-dialog-footer">
-          <button id="deleteMarketingItemButton" class="danger-button" type="button"><i data-lucide="trash-2"></i> Excluir</button>
-          <div class="inline-actions">
+          <div class="marketing-footer-start">
+            <button id="deleteMarketingItemButton" class="danger-button" type="button"><i data-lucide="trash-2"></i> Excluir</button>
             <button id="cancelMarketingDialogButton" class="secondary-button" type="button">Cancelar</button>
+          </div>
+          <div class="inline-actions">
             <button id="saveMarketingDraftButton" class="secondary-button" type="button">Salvar rascunho</button>
-            <button id="saveMarketingItemButton" class="primary-button" type="submit"><i data-lucide="save"></i> Salvar conteúdo</button>
+            <button id="saveMarketingItemButton" class="primary-button" type="submit">Salvar conteúdo</button>
           </div>
         </footer>
       </form>
@@ -1243,7 +1256,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=166"></script>
+    <script src="./app.js?v=167"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

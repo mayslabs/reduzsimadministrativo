@@ -56,6 +56,28 @@ test("upcoming marketing panel follows the compact redesign", () => {
   assert.match(redesignCss, /#marketingSection \.privacy-toolbar\s*\{\s*display:\s*none/);
 });
 
+test("marketing production and idea views follow the supplied workspace", () => {
+  assert.match(appJs, /class="marketing-board-heading"/);
+  assert.match(appJs, /use a seta para avançar de etapa/);
+  assert.match(appJs, /data-marketing-stage-shift="1"/);
+  assert.match(appJs, /class="marketing-ideas-heading"/);
+  assert.match(appJs, /data-marketing-idea-objective/);
+  assert.match(redesignCss, /grid-template-columns:\s*repeat\(7, minmax\(220px, 1fr\)\)/);
+  assert.match(redesignCss, /grid-template-columns:\s*repeat\(auto-fill, minmax\(360px, 1fr\)\)/);
+});
+
+test("marketing editors use the content and compact idea layouts", () => {
+  assert.match(indexHtml, /id="marketingFormatChoices"/);
+  assert.match(indexHtml, /id="marketingPriorityChoices"/);
+  assert.match(indexHtml, /01 · Informações/);
+  assert.match(indexHtml, /04 · Publicação/);
+  assert.match(appJs, /classList\.toggle\("idea-dialog", item\.kind === "idea"\)/);
+  assert.match(appJs, /function renderMarketingFormatChoices/);
+  assert.match(appJs, /function renderMarketingPriorityChoices/);
+  assert.match(redesignCss, /marketing-dialog\.idea-dialog\s*\{\s*width:\s*min\(640px/);
+  assert.match(redesignCss, /marketing-dialog-body\s*\{\s*grid-template-columns:\s*repeat\(2/);
+});
+
 test("marketing records synchronize securely and preserve history", () => {
   assert.match(stateApi, /stateKey:\s*"marketingItems"/);
   assert.match(stateApi, /table:\s*"marketing_items"/);

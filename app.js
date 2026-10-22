@@ -27,6 +27,8 @@ const MARKETING_CHANNELS = ["Instagram", "Facebook", "LinkedIn", "Site", "YouTub
 const MARKETING_FORMATS = ["Reels", "Carrossel", "Post", "Stories", "Vídeo", "Artigo", "Outro"];
 const MARKETING_OBJECTIVES = ["Educar", "Vender", "Informar", "Autoridade"];
 const MARKETING_CONTENT_STATUSES = ["Planejado", "Roteiro", "Gravação", "Edição", "Aprovação", "Agendado", "Publicado"];
+const MARKETING_DIALOG_FORMATS = ["Reels", "Stories", "Post", "Carrossel", "Vídeo"];
+const MARKETING_DIALOG_CHANNELS = ["Instagram", "TikTok", "YouTube", "LinkedIn"];
 const MARKETING_MAX_HISTORY = 100;
 const REGULARIZATION_FIXED_FIELD_KEYS = new Set([
   "clientName",
@@ -305,6 +307,7 @@ let activeMarketingDate = new Date();
 let activeMarketingItemId = "";
 let activeMarketingDraftKind = "content";
 let activeMarketingScriptMode = "structured";
+let activeMarketingIdeaObjective = "";
 let activeDataDrilldown = null;
 let activeGoalsYear = String(new Date().getFullYear());
 let activeGoalsMonth = currentMonthKey();
@@ -561,6 +564,7 @@ const el = {
   marketingDescriptionInput: document.getElementById("marketingDescriptionInput"),
   marketingPillarInput: document.getElementById("marketingPillarInput"),
   marketingFormatInput: document.getElementById("marketingFormatInput"),
+  marketingFormatChoices: document.getElementById("marketingFormatChoices"),
   marketingChannelInput: document.getElementById("marketingChannelInput"),
   marketingChannelPicker: document.getElementById("marketingChannelPicker"),
   marketingChannelSummary: document.getElementById("marketingChannelSummary"),
@@ -572,6 +576,7 @@ const el = {
   marketingOwnerInput: document.getElementById("marketingOwnerInput"),
   marketingContentStatusInput: document.getElementById("marketingContentStatusInput"),
   marketingPriorityInput: document.getElementById("marketingPriorityInput"),
+  marketingPriorityChoices: document.getElementById("marketingPriorityChoices"),
   marketingProductionDateInput: document.getElementById("marketingProductionDateInput"),
   marketingPublishDateInput: document.getElementById("marketingPublishDateInput"),
   marketingPublishTimeInput: document.getElementById("marketingPublishTimeInput"),
@@ -1765,6 +1770,19 @@ function bindEvents() {
   el.saveMarketingDraftButton?.addEventListener("click", () => saveMarketingItem({ draft: true }));
   el.marketingStructuredScriptButton?.addEventListener("click", () => setMarketingScriptMode("structured"));
   el.marketingFreeScriptButton?.addEventListener("click", () => setMarketingScriptMode("free"));
+  el.marketingFormatChoices?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-marketing-format-choice]");
+    if (!button) return;
+    const nextFormat = button.dataset.marketingFormatChoice;
+    el.marketingFormatInput.value = el.marketingFormatInput.value === nextFormat ? "" : nextFormat;
+    renderMarketingFormatChoices(el.marketingFormatInput.value);
+  });
+  el.marketingPriorityChoices?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-marketing-priority-choice]");
+    if (!button) return;
+    el.marketingPriorityInput.value = button.dataset.marketingPriorityChoice;
+    renderMarketingPriorityChoices(el.marketingPriorityInput.value);
+  });
   el.marketingChannelClearButton?.addEventListener("click", () => {
     el.marketingChannelInput.querySelectorAll('input[type="checkbox"]').forEach((input) => {
       input.checked = false;
@@ -4686,16 +4704,16 @@ function renderMarketingProduction(items) {
   const contents = items.filter((item) => item.kind === "content");
   return `
     <section class="marketing-board-panel">
-      <header class="marketing-panel-header">
-        <div><p class="eyebrow">Fluxo de produção</p><h3>Conteúdos por etapa</h3></div>
-        <span>${contents.length} conteúdo(s)</span>
+      <header class="marketing-board-heading">
+        <h3>Fluxo de produção</h3>
+        <span>${contents.length} ${contents.length === 1 ? "conteúdo" : "conteúdos"} · use a seta para avançar de etapa</span>
       </header>
       <div class="marketing-pipeline">
-        ${MARKETING_CONTENT_STATUSES.map((status) => {
+        ${MARKETING_CONTENT_STATUSES.map((status, index) => {
           const statusItems = contents.filter((item) => item.status === status);
           return `
             <section class="marketing-pipeline-column status-${marketingSlug(status)}">
-              <header><span>${escapeHtml(status)}</span><strong>${statusItems.length}</strong></header>
+              <header><span><small>${String(index + 1).padStart(2, "0")}</small>${escapeHtml(status)}</span><strong class="${statusItems.length ? "has-items" : ""}">${statusItems.length}</strong></header>
               <div>
                 ${statusItems.length ? statusItems.map(renderMarketingPipelineCard).join("") : `<p class="marketing-column-empty">Nenhum conteúdo</p>`}
               </div>
@@ -4709,56 +4727,65 @@ function renderMarketingProduction(items) {
 
 function renderMarketingPipelineCard(item) {
   const linked = item.clientId ? findLinkedClientRecord(item.clientId, item.clientSource) : null;
+  const stageIndex = MARKETING_CONTENT_STATUSES.indexOf(item.status);
+  const owner = ownerName(item.ownerId);
+  const itemDate = item.publishDate || item.productionDate;
+  const dateLabel = itemDate ? formatDate(itemDate).slice(0, 5) : "Sem data";
   return `
-    <article class="marketing-pipeline-card">
+    <article class="marketing-pipeline-card format-${marketingSlug(item.format || "Outro")}">
       <button class="marketing-card-open" type="button" data-open-marketing="${escapeAttr(item.id)}">
-        <span class="marketing-card-meta">${escapeHtml([marketingChannelLabel(item), item.format].filter(Boolean).join(" • ") || "Conteúdo")}</span>
+        <span class="marketing-card-meta">${escapeHtml([item.format || "Conteúdo", marketingChannelLabel(item)].filter(Boolean).join(" · "))}</span>
         <strong>${escapeHtml(item.title || "Conteúdo sem título")}</strong>
         ${linked ? `<small>${escapeHtml(linked.clientName)}</small>` : ""}
       </button>
       <div class="marketing-card-footer">
-        <span><i data-lucide="user-round"></i>${escapeHtml(ownerName(item.ownerId))}</span>
-        <span>${escapeHtml(item.publishDate ? formatDate(item.publishDate) : item.productionDate ? `Produção ${formatDate(item.productionDate)}` : "Sem data")}</span>
+        <span class="marketing-card-owner"><i>${escapeHtml((owner || "?").charAt(0).toUpperCase())}</i>${escapeHtml(owner)} · ${escapeHtml(dateLabel)}</span>
+        <span class="marketing-card-stage-actions">
+          ${stageIndex > 0 ? `<button type="button" data-marketing-stage-shift="-1" data-marketing-item="${escapeAttr(item.id)}" aria-label="Voltar para ${escapeAttr(MARKETING_CONTENT_STATUSES[stageIndex - 1])}" title="Voltar etapa"><i data-lucide="chevron-left"></i></button>` : ""}
+          ${stageIndex < MARKETING_CONTENT_STATUSES.length - 1 ? `<button class="next" type="button" data-marketing-stage-shift="1" data-marketing-item="${escapeAttr(item.id)}" aria-label="Avançar para ${escapeAttr(MARKETING_CONTENT_STATUSES[stageIndex + 1])}" title="Avançar etapa"><i data-lucide="chevron-right"></i></button>` : ""}
+        </span>
       </div>
-      <select data-marketing-status="${escapeAttr(item.id)}" aria-label="Alterar etapa de ${escapeAttr(item.title)}">
-        ${MARKETING_CONTENT_STATUSES.map((status) => `<option value="${escapeAttr(status)}" ${status === item.status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}
-      </select>
     </article>
   `;
 }
 
 function renderMarketingIdeas(items) {
-  const ideas = items.filter((item) => item.kind === "idea");
+  const ideas = items.filter((item) => item.kind === "idea" && (!activeMarketingIdeaObjective || item.objective === activeMarketingIdeaObjective));
   return `
     <section class="marketing-ideas-panel">
-      <header class="marketing-panel-header">
-        <div><p class="eyebrow">Banco de ideias</p><h3>Conteúdos para desenvolver</h3></div>
-        <button class="primary-button" type="button" data-new-marketing-idea><i data-lucide="plus"></i> Nova ideia</button>
+      <header class="marketing-ideas-heading">
+        <div><h3>Banco de ideias</h3><p>Temas para desenvolver. Transforme em conteúdo quando estiver pronto.</p></div>
+        <div class="marketing-idea-filters" role="group" aria-label="Filtrar ideias por objetivo">
+          ${[["", "Todas"], ...MARKETING_OBJECTIVES.map((objective) => [objective, objective])].map(([value, label]) => `
+            <button class="${activeMarketingIdeaObjective === value ? "active" : ""}" type="button" data-marketing-idea-objective="${escapeAttr(value)}" aria-pressed="${activeMarketingIdeaObjective === value}">${escapeHtml(label)}</button>
+          `).join("")}
+        </div>
       </header>
       <div class="marketing-ideas-list">
-        ${ideas.length ? ideas.map(renderMarketingIdeaItem).join("") : `<p class="empty-state">Nenhuma ideia encontrada. Registre uma ideia para não perder um bom tema.</p>`}
+        ${ideas.length ? ideas.map(renderMarketingIdeaItem).join("") : `<p class="empty-state">Nenhuma ideia neste filtro.</p>`}
       </div>
     </section>
   `;
 }
 
 function renderMarketingIdeaItem(item) {
+  const createdDate = item.createdAt?.slice(0, 10);
   return `
     <article class="marketing-idea-item">
-      <span class="marketing-idea-icon"><i data-lucide="lightbulb"></i></span>
       <div class="marketing-idea-copy">
         <div class="marketing-idea-meta">
+          ${item.objective ? `<span class="objective">${escapeHtml(item.objective)}</span>` : ""}
           ${item.pillar ? `<span>${escapeHtml(item.pillar)}</span>` : ""}
-          ${normalizeMarketingChannels(item).map((channel) => `<span>${escapeHtml(channel)}</span>`).join("")}
-          ${item.objective ? `<span>${escapeHtml(item.objective)}</span>` : ""}
         </div>
         <strong>${escapeHtml(item.title || "Ideia sem título")}</strong>
         ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
-        <small>Por ${escapeHtml(ownerName(item.createdBy))} • ${escapeHtml(formatDateTime(item.createdAt))}</small>
-      </div>
-      <div class="inline-actions">
-        <button class="small-button" type="button" data-open-marketing="${escapeAttr(item.id)}"><i data-lucide="pencil"></i> Editar</button>
-        <button class="primary-button small-button" type="button" data-convert-marketing-idea="${escapeAttr(item.id)}"><i data-lucide="arrow-right"></i> Transformar em conteúdo</button>
+        <div class="marketing-idea-footer">
+          <small>Por ${escapeHtml(ownerName(item.createdBy))}${createdDate ? ` · ${escapeHtml(formatDate(createdDate))}` : ""}</small>
+          <div class="inline-actions">
+            <button class="icon-button" type="button" data-open-marketing="${escapeAttr(item.id)}" aria-label="Editar ${escapeAttr(item.title || "ideia")}" title="Editar"><i data-lucide="pencil"></i></button>
+            <button class="primary-button small-button" type="button" data-convert-marketing-idea="${escapeAttr(item.id)}">Transformar em conteúdo <i data-lucide="arrow-right"></i></button>
+          </div>
+        </div>
       </div>
     </article>
   `;
@@ -4786,6 +4813,21 @@ function bindMarketingWorkspaceActions() {
   });
   el.marketingWorkspace.querySelectorAll("[data-marketing-status]").forEach((select) => {
     select.addEventListener("change", () => updateMarketingStatus(select.dataset.marketingStatus, select.value));
+  });
+  el.marketingWorkspace.querySelectorAll("[data-marketing-stage-shift]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = state.marketingItems.find((candidate) => candidate.id === button.dataset.marketingItem);
+      const currentIndex = MARKETING_CONTENT_STATUSES.indexOf(item?.status);
+      const nextIndex = currentIndex + Number(button.dataset.marketingStageShift);
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= MARKETING_CONTENT_STATUSES.length) return;
+      updateMarketingStatus(item.id, MARKETING_CONTENT_STATUSES[nextIndex]);
+    });
+  });
+  el.marketingWorkspace.querySelectorAll("[data-marketing-idea-objective]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeMarketingIdeaObjective = button.dataset.marketingIdeaObjective || "";
+      renderMarketing();
+    });
   });
   el.marketingWorkspace.querySelector("[data-new-marketing-content]")?.addEventListener("click", () => openMarketingDialog("", "content"));
   el.marketingWorkspace.querySelector("[data-new-marketing-idea]")?.addEventListener("click", () => openMarketingDialog("", "idea"));
@@ -4823,22 +4865,27 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
         kind,
         ownerId: currentUser.id,
         objective: "Informar",
+        channels: ["Instagram"],
         ...preset,
         createdBy: currentUser.id,
       });
   activeMarketingItemId = existing?.id || "";
   activeMarketingDraftKind = item.kind;
   el.marketingForm.classList.toggle("idea-mode", item.kind === "idea");
+  el.marketingDialog.classList.toggle("idea-dialog", item.kind === "idea");
+  el.marketingDialog.classList.toggle("content-dialog", item.kind !== "idea");
   el.marketingDialogTitle.textContent = item.kind === "idea" ? (existing ? "Editar ideia" : "Nova ideia") : (existing ? "Editar conteúdo" : "Novo conteúdo");
   el.marketingDialogSubtitle.textContent = item.kind === "idea" ? "Registre o tema agora e desenvolva quando estiver pronta." : "Planeje a produção, o roteiro e a publicação.";
   el.marketingTitleInput.value = item.title;
   el.marketingDescriptionInput.value = item.description;
   el.marketingPillarInput.value = item.pillar;
   el.marketingFormatInput.innerHTML = marketingSelectOptions(MARKETING_FORMATS, item.format, "Selecione");
+  renderMarketingFormatChoices(item.format);
   renderMarketingChannelPicker(item.channels);
   el.marketingOwnerInput.innerHTML = `<option value="">Sem responsável</option>${state.users.map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === item.ownerId ? "selected" : ""}>${escapeHtml(user.name)}</option>`).join("")}`;
   el.marketingContentStatusInput.innerHTML = MARKETING_CONTENT_STATUSES.map((status) => `<option value="${escapeAttr(status)}" ${status === item.status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("");
   el.marketingPriorityInput.innerHTML = taskPriorityValues().map((priority) => `<option value="${escapeAttr(priority)}" ${priority === item.priority ? "selected" : ""}>${escapeHtml(priority)}</option>`).join("");
+  renderMarketingPriorityChoices(item.priority);
   el.marketingClientInput.innerHTML = linkedClientOptions().map((option) => {
     const selected = item.clientId && linkedClientValue(item.clientSource, item.clientId) === option.value;
     return `<option value="${escapeAttr(option.value)}" ${selected ? "selected" : ""}>${escapeHtml(option.label)}</option>`;
@@ -4857,7 +4904,7 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   el.marketingProductionSection.hidden = item.kind === "idea";
   el.marketingContentDetails.hidden = item.kind === "idea";
   el.saveMarketingDraftButton.hidden = item.kind === "idea";
-  el.saveMarketingItemButton.innerHTML = `<i data-lucide="save"></i> ${item.kind === "idea" ? "Salvar ideia" : "Salvar conteúdo"}`;
+  el.saveMarketingItemButton.textContent = item.kind === "idea" ? "Salvar ideia" : "Salvar conteúdo";
   el.deleteMarketingItemButton.hidden = !existing || currentUser.role !== "admin";
   document.querySelectorAll('input[name="marketingObjective"]').forEach((input) => {
     input.checked = input.value === item.objective;
@@ -4871,8 +4918,9 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
 
 function renderMarketingChannelPicker(selectedChannels = []) {
   const selected = new Set(normalizeMarketingChannels({ channels: selectedChannels }));
-  el.marketingChannelInput.innerHTML = MARKETING_CHANNELS.map((channel) => `
-    <label>
+  const orderedChannels = [...MARKETING_DIALOG_CHANNELS, ...MARKETING_CHANNELS.filter((channel) => !MARKETING_DIALOG_CHANNELS.includes(channel))];
+  el.marketingChannelInput.innerHTML = orderedChannels.map((channel) => `
+    <label class="${MARKETING_DIALOG_CHANNELS.includes(channel) || selected.has(channel) ? "" : "secondary-channel"}">
       <input type="checkbox" value="${escapeAttr(channel)}" ${selected.has(channel) ? "checked" : ""} />
       <span>${escapeHtml(channel)}</span>
     </label>
@@ -4880,7 +4928,6 @@ function renderMarketingChannelPicker(selectedChannels = []) {
   el.marketingChannelInput.querySelectorAll('input[type="checkbox"]').forEach((input) => {
     input.addEventListener("change", updateMarketingChannelSummary);
   });
-  el.marketingChannelPicker.open = false;
   updateMarketingChannelSummary();
 }
 
@@ -4894,6 +4941,24 @@ function updateMarketingChannelSummary() {
   const channels = selectedMarketingChannels();
   el.marketingChannelSummary.textContent = channels.length ? channels.join(", ") : "Selecione";
   el.marketingChannelPicker.classList.toggle("has-selection", channels.length > 0);
+}
+
+function renderMarketingFormatChoices(selectedFormat = "") {
+  if (!el.marketingFormatChoices) return;
+  const orderedFormats = [...MARKETING_DIALOG_FORMATS, ...MARKETING_FORMATS.filter((format) => !MARKETING_DIALOG_FORMATS.includes(format))];
+  el.marketingFormatChoices.innerHTML = orderedFormats.map((format) => {
+    const active = format === selectedFormat;
+    const secondary = !MARKETING_DIALOG_FORMATS.includes(format) && !active;
+    return `<button class="${active ? "active" : ""} ${secondary ? "secondary-format" : ""}" type="button" data-marketing-format-choice="${escapeAttr(format)}" aria-pressed="${active}">${escapeHtml(format)}</button>`;
+  }).join("");
+}
+
+function renderMarketingPriorityChoices(selectedPriority = "Normal") {
+  if (!el.marketingPriorityChoices) return;
+  el.marketingPriorityChoices.innerHTML = ["Normal", "Importante"].map((priority) => {
+    const active = priority === selectedPriority;
+    return `<button class="${active ? "active" : ""}" type="button" data-marketing-priority-choice="${escapeAttr(priority)}" aria-pressed="${active}">${escapeHtml(priority)}</button>`;
+  }).join("");
 }
 
 function marketingSelectOptions(options, selected, placeholder) {
@@ -4911,7 +4976,7 @@ function setMarketingScriptMode(mode) {
 function renderMarketingDialogHistory(item, existing) {
   el.marketingHistorySection.hidden = !existing;
   if (!existing) {
-    el.marketingDialogHistorySummary.innerHTML = `<span>Novo registro</span>`;
+    el.marketingDialogHistorySummary.innerHTML = "";
     el.marketingHistoryList.innerHTML = "";
     return;
   }
