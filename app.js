@@ -342,9 +342,11 @@ const el = {
   loginError: document.getElementById("loginError"),
   loginStatus: document.getElementById("loginStatus"),
   repairAccessButton: document.getElementById("repairAccessButton"),
+  currentUserAvatar: document.getElementById("currentUserAvatar"),
   currentUserLabel: document.getElementById("currentUserLabel"),
   systemVersionLabel: document.getElementById("systemVersionLabel"),
   logoutButton: document.getElementById("logoutButton"),
+  privacyToolbar: document.getElementById("privacyToolbar"),
   privacyToggleButton: document.getElementById("privacyToggleButton"),
   privacyToggleLabel: document.getElementById("privacyToggleLabel"),
   clientsTopbar: document.getElementById("clientsTopbar"),
@@ -491,6 +493,8 @@ const el = {
   clientPagination: document.getElementById("clientPagination"),
   clientDialog: document.getElementById("clientDialog"),
   clientDialogTitle: document.getElementById("clientDialogTitle"),
+  clientDialogMeta: document.getElementById("clientDialogMeta"),
+  clientSummaryPending: document.getElementById("clientSummaryPending"),
   deleteClientButton: document.getElementById("deleteClientButton"),
   saveClientButton: document.getElementById("saveClientButton"),
   openStatusPicker: document.getElementById("openStatusPicker"),
@@ -1906,6 +1910,12 @@ function bindEvents() {
       resetClientPageAndRender();
     });
   });
+  el.metricsGrid?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-client-metric-filter]");
+    if (!button) return;
+    activeClientQuickFilter = button.dataset.clientMetricFilter || "active";
+    resetClientPageAndRender();
+  });
   el.saveClientButton.addEventListener("click", saveActiveClient);
   el.deleteClientButton.addEventListener("click", deleteActiveClient);
   el.openStatusPicker.addEventListener("click", () => {
@@ -2060,8 +2070,10 @@ function setPrivacyMode(enabled) {
 }
 
 function updateCurrentUserDisplay() {
-  el.currentUserLabel.textContent = `${currentUser.name} | ${currentUser.role === "admin" ? "Administrador" : "Usuário"}`;
-  if (el.systemVersionLabel) el.systemVersionLabel.textContent = `Versão ${APP_VERSION}`;
+  const roleLabel = currentUser.role === "admin" ? "Administrador" : "Usuário";
+  el.currentUserLabel.innerHTML = `<strong>${escapeHtml(currentUser.name)}</strong><small>${roleLabel}</small>`;
+  if (el.currentUserAvatar) el.currentUserAvatar.textContent = userInitials(currentUser.name || currentUser.email);
+  if (el.systemVersionLabel) el.systemVersionLabel.textContent = APP_VERSION;
 }
 
 function currentAppVersion() {
@@ -2136,16 +2148,23 @@ function renderClientFilterOptions() {
 }
 
 function renderMetrics() {
-  const openTasks = taskCenterItems().filter((item) => item.kind.includes("Tarefa") && item.urgency !== "done").length;
-  const deadlines = state.clients.flatMap((client) => client.deadlines || []).length;
+  const activeClients = state.clients.filter((client) => !isClientFinished(client));
   const finishedClients = state.clients.filter(isClientFinished).length;
-  el.metricsGrid.innerHTML = [
-    ["Clientes ativos", state.clients.length - finishedClients],
-    ["Tarefas abertas", openTasks],
-    ["Prazos registrados", deadlines],
-    ["Clientes finalizados", finishedClients],
-  ]
-    .map(([label, value]) => `<article class="metric"><span>${label}</span><strong>${value}</strong></article>`)
+  const stats = [
+    { label: "Ativos", value: activeClients.length, hint: "obras em andamento", filter: "active" },
+    { label: "Com tarefa", value: activeClients.filter((client) => clientOpenTasks(client).length).length, hint: "clientes com tarefa aberta", filter: "tasks" },
+    { label: "Com prazo", value: activeClients.filter((client) => (client.deadlines || []).length).length, hint: "clientes com prazo registrado", filter: "deadlines" },
+    { label: "Sem status", value: activeClients.filter((client) => !getClientStatuses(client).length).length, hint: "precisam de triagem", filter: "no-status" },
+    { label: "Finalizados", value: finishedClients, hint: "processos concluídos", filter: "finished" },
+  ];
+  el.metricsGrid.innerHTML = stats
+    .map((stat) => `
+      <button class="metric ${activeClientQuickFilter === stat.filter ? "active" : ""}" type="button" data-client-metric-filter="${stat.filter}" aria-pressed="${activeClientQuickFilter === stat.filter}">
+        <span>${escapeHtml(stat.label)}</span>
+        <strong>${stat.value}</strong>
+        <small>${escapeHtml(stat.hint)}</small>
+      </button>
+    `)
     .join("");
 }
 
@@ -2427,11 +2446,11 @@ function sortedDataRecordValues(records, getValues) {
 
 function renderDataSummary(data) {
   const totals = [
-    { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area", icon: "ruler" },
     { label: "Economia bruta", value: calculatedCurrency(data.grossEconomyTotal), hint: "INSS sem redução menos INSS com redução", tone: "economy", icon: "circle-dollar-sign" },
     { label: "Contratos fechados", value: data.withContractDate, hint: `${data.totalWorks - data.withContractDate} sem data de fechamento`, tone: "works", icon: "file-check-2" },
     { label: "Honorários totais", value: calculatedCurrency(data.totalFees), hint: "Soma dos honorários preenchidos", tone: "fees", icon: "user-round" },
     { label: "Ticket médio", value: calculatedCurrency(data.ticketAverage), hint: "Honorários por contrato fechado", tone: "ticket", icon: "crosshair" },
+    { label: "Metragem total", value: formatAreaTotal(data.totalArea), hint: "Somente obras filtradas", tone: "area", icon: "ruler" },
   ];
   return totals.map(renderDataTotal).join("");
 }
@@ -4166,36 +4185,42 @@ function renderMarketingSummary() {
       value: state.marketingItems.filter((item) => item.kind === "idea").length,
       icon: "lightbulb",
       type: "ideas",
+      hint: "para desenvolver",
     },
     {
       label: "Para produzir",
       value: monthItems.filter((item) => ["Planejado", "Roteiro"].includes(item.status)).length,
       icon: "notebook-pen",
       type: "planned",
+      hint: "planejamento e roteiro",
     },
     {
       label: "Em produção",
       value: monthItems.filter((item) => ["Gravação", "Edição", "Aprovação"].includes(item.status)).length,
       icon: "clapperboard",
       type: "production",
+      hint: "gravação ou aprovação",
     },
     {
       label: "Agendados",
       value: monthItems.filter((item) => item.status === "Agendado").length,
       icon: "calendar-clock",
       type: "scheduled",
+      hint: "prontos para sair",
     },
     {
       label: "Publicados",
       value: monthItems.filter((item) => item.status === "Publicado").length,
       icon: "circle-check-big",
       type: "published",
+      hint: "neste período",
     },
   ];
-  el.marketingSummary.innerHTML = stats.map((stat) => `
+  el.marketingSummary.innerHTML = stats.map((stat, index) => `
     <article class="marketing-summary-card ${stat.type}">
-      <span><i data-lucide="${stat.icon}"></i></span>
-      <div><small>${stat.label}</small><strong>${stat.value}</strong></div>
+      <div class="marketing-summary-label"><span>${String(index + 1).padStart(2, "0")}</span><small>${stat.label}</small></div>
+      <strong>${stat.value}</strong>
+      <p>${stat.hint}</p>
     </article>
   `).join("");
 }
@@ -6437,10 +6462,10 @@ function openLinkedClientRecord(clientId, source = "inss") {
 function renderTaskOverview(items) {
   const openItems = items.filter((item) => item.urgency !== "done");
   const stats = [
-    { label: "Atrasadas", value: openItems.filter((item) => item.urgency === "overdue").length, key: "overdue", icon: "triangle-alert", hint: "tarefas" },
-    { label: "Hoje", value: openItems.filter((item) => item.date === localDateKey()).length, key: "today", icon: "calendar-days", hint: "tarefas" },
-    { label: "Aguardando retorno", value: openItems.filter((item) => isWaitingReturnItem(item)).length, key: "waiting", icon: "hourglass", hint: "tarefas" },
-    { label: "Sem prazo", value: openItems.filter((item) => item.urgency === "no-date").length, key: "no-date", icon: "clock-3", hint: "tarefas" },
+    { label: "Atrasadas", value: openItems.filter((item) => item.urgency === "overdue").length, key: "overdue", icon: "triangle-alert", hint: "precisam de ação agora" },
+    { label: "Hoje", value: openItems.filter((item) => item.date === localDateKey()).length, key: "today", icon: "calendar-days", hint: "vencem hoje" },
+    { label: "Aguardando retorno", value: openItems.filter((item) => isWaitingReturnItem(item)).length, key: "waiting", icon: "hourglass", hint: "cliente ou terceiro" },
+    { label: "Sem prazo", value: openItems.filter((item) => item.urgency === "no-date").length, key: "no-date", icon: "clock-3", hint: "defina uma data" },
   ];
 
   el.taskOverview.innerHTML = stats
@@ -6776,8 +6801,9 @@ function resetClientPageAndRender() {
 }
 
 function renderClientQuickFilters() {
-  document.querySelectorAll("[data-client-quick-filter]").forEach((button) => {
-    const isActive = (button.dataset.clientQuickFilter || "active") === activeClientQuickFilter;
+  document.querySelectorAll("[data-client-quick-filter], [data-client-metric-filter]").forEach((button) => {
+    const filter = button.dataset.clientQuickFilter || button.dataset.clientMetricFilter || "active";
+    const isActive = filter === activeClientQuickFilter;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });
@@ -8653,7 +8679,7 @@ function renderCompactClientRow(client) {
         <small>${deadlines.length ? escapeHtml(deadlineOwners) : "Sem prazo"}</small>
       </span>
       <span class="compact-client-next">${escapeHtml(nextAction || "Sem próxima ação")}</span>
-      <span class="compact-open-pill">Abrir</span>
+      <span class="compact-open-pill" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
     </button>
   `;
 }
@@ -8783,6 +8809,7 @@ function openClient(client) {
   activeClient.area = formatFieldValue("area", activeClient.area || "");
   normalizeClientSelectValues(activeClient);
   el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
+  renderClientDialogMeta();
   renderUserSelects();
   fillClientFields();
   renderDestinationOptions();
@@ -8795,6 +8822,7 @@ function openClient(client) {
   renderHistory();
   renderWorkerMessages();
   renderFinanceMessages();
+  renderClientSummaryPending();
   syncReferralCommissionFields();
   renderInssReduction();
   switchTab("summaryTab");
@@ -8806,6 +8834,59 @@ function fillClientFields() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     input.value = activeClient[input.dataset.field] || "";
   });
+}
+
+function renderClientDialogMeta() {
+  if (!el.clientDialogMeta || !activeClient) return;
+  const details = [
+    destinationLabel(activeClient),
+    activeClient.state,
+    activeClient.area,
+    activeClient.cpf,
+    activeClient.contractClosedDate ? `Fechado em ${formatDate(activeClient.contractClosedDate)}` : "",
+  ].filter(Boolean);
+  el.clientDialogMeta.textContent = details.join(" · ");
+}
+
+function renderClientSummaryPending() {
+  if (!el.clientSummaryPending || !activeClient) return;
+  const tasks = clientOpenTasks(activeClient);
+  const deadlines = activeClient.deadlines || [];
+  const monthly = activeClient.monthly || [];
+  const paidGuides = monthly.filter((row) => row.guidePaid).length;
+  const nextTask = tasks
+    .filter((task) => task.dueDate)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
+  const nextDeadline = deadlines
+    .filter((deadline) => deadline.date)
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
+  const rows = [
+    {
+      icon: "list-checks",
+      label: "Tarefas pendentes",
+      hint: nextTask ? `Próxima vence em ${formatDate(nextTask.dueDate)}` : "Nenhuma tarefa com data",
+      value: tasks.length,
+    },
+    {
+      icon: "calendar-days",
+      label: "Prazos",
+      hint: nextDeadline ? `Próximo: ${nextDeadline.title || formatDate(nextDeadline.date)}` : "Nenhum prazo registrado",
+      value: deadlines.length,
+    },
+    {
+      icon: "chart-column",
+      label: "Guias pagas no controle mensal",
+      hint: monthly.length ? `${paidGuides} de ${monthly.length} competências` : "Sem competências cadastradas",
+      value: monthly.length ? `${paidGuides}/${monthly.length}` : "0",
+    },
+  ];
+  el.clientSummaryPending.innerHTML = rows.map((row) => `
+    <article>
+      <span><i data-lucide="${row.icon}"></i></span>
+      <div><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(row.hint)}</small></div>
+      <b>${escapeHtml(String(row.value))}</b>
+    </article>
+  `).join("");
 }
 
 function renderDestinationOptions() {
@@ -10589,6 +10670,7 @@ function switchSection(sectionId) {
   });
   el.clientsTopbar.hidden = sectionId !== "clientsSection";
   el.newClientButton.hidden = sectionId !== "clientsSection";
+  positionPrivacyToolbar(sectionId);
   if (sectionId === "tasksSection") {
     activeTaskCalendarMode = "day";
     activeTaskDate = new Date();
@@ -10618,6 +10700,21 @@ function switchSection(sectionId) {
   }
 }
 
+function positionPrivacyToolbar(sectionId) {
+  if (!el.privacyToolbar) return;
+  const header = sectionId === "clientsSection"
+    ? el.clientsTopbar
+    : document.querySelector(`#${sectionId} > .section-heading`);
+  if (!header) return;
+  let actions = header.querySelector(":scope > .inline-actions, :scope > .goals-header-actions");
+  if (!actions) {
+    actions = document.createElement("div");
+    actions.className = "inline-actions";
+    header.append(actions);
+  }
+  actions.prepend(el.privacyToolbar);
+}
+
 function markNewTaskActivitiesRead() {
   const activities = unreadNewTaskActivities();
   if (!activities.length) return;
@@ -10639,6 +10736,11 @@ function switchTab(tabId) {
   document.querySelectorAll(".tab-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === tabId);
   });
+  if (tabId === "summaryTab") {
+    renderClientDialogMeta();
+    renderClientSummaryPending();
+    renderInssReduction();
+  }
 }
 
 function createEmptyClient() {

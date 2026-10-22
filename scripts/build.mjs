@@ -26,6 +26,7 @@ const publicFiles = [
   "legacy-redirect.js",
   "login.html",
   "login.js",
+  "redesign.css",
   "styles.css",
 ];
 

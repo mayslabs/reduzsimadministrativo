@@ -3,15 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ReduzSim | Fluxo de trabalho</title>
+    <title>ReduzSim Gestão</title>
     <script src="./legacy-redirect.js?v=1"></script>
     <link rel="icon" type="image/png" sizes="512x512" href="./assets/favicon.png?v=14" />
     <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png?v=14" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=154" />
+    <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
+    <link rel="stylesheet" href="./redesign.css?v=155" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -37,13 +38,15 @@
     <main id="appView" class="app-shell" hidden>
       <aside class="sidebar">
         <div class="brand-block">
-          <img src="./assets/reduzsim-sidebar-logo.png?v=77" alt="ReduzSim" class="brand-logo" />
-          <span class="brand-tagline">GESTÃO</span>
+          <img src="./assets/reduzsim-sidebar-mark.png?v=155" alt="" class="brand-logo" />
+          <div class="brand-copy">
+            <strong>ReduzSim</strong>
+            <span class="brand-tagline">GESTÃO</span>
+          </div>
         </div>
         <nav class="side-nav" aria-label="Navegação principal">
           <span class="nav-group-label">Operação</span>
           <button class="nav-item active" data-section="clientsSection"><i data-lucide="building-2"></i> INSS de obras</button>
-          <button class="nav-item" data-section="regularizationSection"><i data-lucide="home"></i> Regularização de imóvel</button>
           <button class="nav-item tasks-nav-item" data-section="tasksSection">
             <i data-lucide="list-checks"></i>
             <span>Tarefas</span>
@@ -64,31 +67,37 @@
           <button class="nav-item" data-section="accountSection"><i data-lucide="circle-user-round"></i> Minha conta</button>
         </nav>
         <div class="sidebar-footer">
-          <span id="currentUserLabel"></span>
-          <span id="systemVersionLabel" class="system-version"></span>
-          <button id="logoutButton" class="ghost-button" type="button"><i data-lucide="log-out"></i> Sair</button>
+          <span id="currentUserAvatar" class="sidebar-user-avatar" aria-hidden="true">U</span>
+          <div class="sidebar-user-copy">
+            <span id="currentUserLabel"></span>
+            <span id="systemVersionLabel" class="system-version"></span>
+          </div>
+          <button id="logoutButton" class="ghost-button" type="button" aria-label="Sair" title="Sair"><i data-lucide="log-out"></i><span class="sr-only">Sair</span></button>
         </div>
       </aside>
 
       <section class="content-shell">
-        <div class="privacy-toolbar" aria-live="polite">
-          <button
-            id="privacyToggleButton"
-            class="privacy-toggle"
-            type="button"
-            aria-pressed="true"
-            title="Mostrar dados protegidos"
-          >
-            <i data-lucide="eye-off"></i>
-            <span id="privacyToggleLabel">Privacidade ativa</span>
-          </button>
-        </div>
-
         <header id="clientsTopbar" class="topbar">
           <div>
+            <p class="eyebrow">Operação</p>
             <h1 id="clientsPageTitle" class="clients-page-title">INSS de obras</h1>
+            <span class="heading-accent" aria-hidden="true"></span>
           </div>
-          <button id="newClientButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo cliente</button>
+          <div class="inline-actions topbar-actions">
+            <div id="privacyToolbar" class="privacy-toolbar" aria-live="polite">
+              <button
+                id="privacyToggleButton"
+                class="privacy-toggle"
+                type="button"
+                aria-pressed="true"
+                title="Mostrar dados protegidos"
+              >
+                <i data-lucide="eye-off"></i>
+                <span id="privacyToggleLabel">Privacidade ativa</span>
+              </button>
+            </div>
+            <button id="newClientButton" class="primary-button" type="button"><i data-lucide="plus"></i> Novo cliente</button>
+          </div>
         </header>
 
         <section id="clientsSection" class="app-section">
@@ -169,6 +178,7 @@
         <section id="tasksSection" class="app-section" hidden>
           <div class="section-heading">
             <div>
+              <p class="eyebrow">Operação</p>
               <h2>Tarefas</h2>
               <p class="section-subtitle">Rotina operacional da equipe, retornos e prioridades do dia.</p>
             </div>
@@ -222,6 +232,7 @@
         <section id="marketingSection" class="app-section" hidden>
           <div class="section-heading marketing-heading">
             <div>
+              <p class="eyebrow">Operação</p>
               <h2>Marketing</h2>
               <p class="section-subtitle">Planejamento, produção e calendário de conteúdo.</p>
             </div>
@@ -258,7 +269,9 @@
               <h2>Atualizações</h2>
               <p class="section-subtitle">Acompanhe mudanças importantes da equipe e dos clientes em um feed mais organizado.</p>
             </div>
-            <button id="markAllUpdatesReadButton" class="secondary-button" type="button"><i data-lucide="check-check"></i> Marcar todas como lidas</button>
+            <div class="inline-actions">
+              <button id="markAllUpdatesReadButton" class="primary-button" type="button"><i data-lucide="check-check"></i> Marcar todas como lidas</button>
+            </div>
           </div>
 
           <div id="updatesSummary" class="updates-summary" aria-live="polite"></div>
@@ -344,10 +357,13 @@
         <section id="dataSection" class="app-section" hidden>
           <div class="section-heading">
             <div>
+              <p class="eyebrow">Gestão</p>
               <h2>Relatórios</h2>
               <p class="section-subtitle">Indicadores financeiros, operacionais e comerciais da ReduzSim.</p>
             </div>
-            <button id="exportDataButton" class="primary-button data-export-button" type="button"><i data-lucide="download"></i> Exportar relatório</button>
+            <div class="inline-actions">
+              <button id="exportDataButton" class="primary-button data-export-button" type="button"><i data-lucide="download"></i> Exportar relatório</button>
+            </div>
           </div>
 
           <div class="toolbar data-toolbar">
@@ -423,6 +439,7 @@
         <section id="goalsSection" class="app-section" hidden>
           <div class="section-heading goals-heading">
             <div>
+              <p class="eyebrow">Gestão</p>
               <h2>Metas da empresa</h2>
               <p class="section-subtitle">Acompanhe o desempenho real de clientes pagos e o progresso das metas da empresa.</p>
             </div>
@@ -543,8 +560,11 @@
             <div>
               <p class="eyebrow">Acesso interno</p>
               <h2>Usuários</h2>
+              <p class="section-subtitle">Quem acessa o sistema e o que cada pessoa tem em mãos.</p>
             </div>
-            <button id="addUserButton" class="secondary-button" type="button"><i data-lucide="user-plus"></i> Criar usuário</button>
+            <div class="inline-actions">
+              <button id="addUserButton" class="secondary-button" type="button" hidden aria-hidden="true"><i data-lucide="user-plus"></i> Criar usuário</button>
+            </div>
           </div>
           <div id="userManager" class="manager-list"></div>
         </section>
@@ -554,6 +574,7 @@
             <div>
               <p class="eyebrow">Acesso pessoal</p>
               <h2>Minha conta</h2>
+              <p class="section-subtitle">Atualize sua senha e confira os dados do seu acesso.</p>
             </div>
           </div>
           <div class="account-panel">
@@ -579,6 +600,7 @@
           <div>
             <p class="eyebrow">Card do cliente</p>
             <h2 id="clientDialogTitle">Novo cliente</h2>
+            <p id="clientDialogMeta" class="client-dialog-meta"></p>
           </div>
           <button class="icon-button" value="close" aria-label="Fechar" type="submit"><i data-lucide="x"></i></button>
         </header>
@@ -597,29 +619,34 @@
 
         <section id="summaryTab" class="tab-panel active">
           <div class="summary-layout">
-            <div class="field-stack">
-              <label>Nome do cliente<input data-field="clientName" type="text" /></label>
-              <label>Próxima ação<textarea data-field="nextAction" rows="3"></textarea></label>
-            </div>
-            <div>
+            <div class="client-summary-main">
               <div class="mini-heading">
                 <h3>Status ativos</h3>
                 <button id="openStatusPicker" class="small-button" type="button"><i data-lucide="settings-2"></i> Gerenciar</button>
               </div>
               <div id="activeStatusList" class="chip-list"></div>
               <div id="statusPicker" class="status-picker" hidden></div>
-              <section class="reduction-summary">
-                <div class="mini-heading">
-                  <h3>Redução do INSS</h3>
-                </div>
-                <div id="inssReductionSummary" class="reduction-summary-grid"></div>
+              <label class="summary-next-action">Próxima ação<textarea data-field="nextAction" rows="3" placeholder="O que precisa acontecer agora?"></textarea></label>
+              <section class="client-summary-pending">
+                <h3>Pendências</h3>
+                <div id="clientSummaryPending" class="client-summary-pending-list"></div>
               </section>
             </div>
+            <section class="reduction-summary">
+              <div class="mini-heading">
+                <div>
+                  <p class="eyebrow">Redução do INSS</p>
+                  <h3>Economia estimada</h3>
+                </div>
+              </div>
+              <div id="inssReductionSummary" class="reduction-summary-grid"></div>
+            </section>
           </div>
         </section>
 
         <section id="clientTab" class="tab-panel">
           <div class="form-grid">
+            <label>Nome do cliente<input data-field="clientName" type="text" /></label>
             <label>Título da obra<input data-field="workTitle" type="text" placeholder="Ex.: Casa principal, Galpão, Reforma" /></label>
             <label>Data do fechamento (pagamento)<input data-field="contractClosedDate" type="date" /></label>
             <label>Tipo de documento
@@ -1213,7 +1240,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=154"></script>
+    <script src="./app.js?v=155"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
