@@ -4049,23 +4049,37 @@ function monthName(month) {
 }
 
 function billCategoryColor(category, index = 0) {
-  const colors = {
-    pessoal: "#074d40",
-    outros: "#009b77",
-    aluguel: "#2f7fb8",
-    "cartao de credito": "#d9534f",
-    bni: "#7b5cc4",
-    imposto: "#e08a1e",
-    condominio: "#5c6b7a",
-    energia: "#e5b700",
-    contabilidade: "#3ba6a0",
-    educacao: "#c2569b",
-    sistema: "#4f6bd8",
-    internet: "#8baa2e",
-    acipa: "#a0674b",
-  };
-  const fallback = ["#074d40", "#009b77", "#2f7fb8", "#d9534f", "#7b5cc4", "#e08a1e", "#5c6b7a", "#3ba6a0"];
-  return colors[normalize(category)] || fallback[index % fallback.length];
+  const themeTones = [
+    "#074d40",
+    "#0a5a49",
+    "#0d6752",
+    "#10745b",
+    "#138164",
+    "#008f70",
+    "#009b77",
+    "#19a482",
+    "#35ad8f",
+    "#52b69c",
+    "#6fbeaa",
+    "#8bc7b7",
+    "#a8d0c5",
+  ];
+  const categoryTone = {
+    pessoal: 0,
+    outros: 6,
+    aluguel: 1,
+    "cartao de credito": 7,
+    bni: 2,
+    imposto: 8,
+    condominio: 3,
+    energia: 9,
+    contabilidade: 4,
+    educacao: 10,
+    sistema: 5,
+    internet: 11,
+    acipa: 12,
+  }[normalize(category)];
+  return themeTones[Number.isInteger(categoryTone) ? categoryTone : index % themeTones.length];
 }
 
 function renderGoalsDashboard() {

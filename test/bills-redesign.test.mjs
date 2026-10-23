@@ -44,3 +44,16 @@ test("category spending panel uses bars and filters the account list", () => {
   assert.match(appJs, /class="bill-category-track"/);
   assert.match(redesignCss, /\.bills-layout\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 320px/);
 });
+
+test("category spending colors stay within the green theme palette", () => {
+  const colorFunction = appJs.match(/function billCategoryColor[\s\S]*?\n\}/)?.[0] || "";
+  const colors = colorFunction.match(/#[0-9a-f]{6}/gi) || [];
+
+  assert.equal(colors.length, 13);
+  assert.equal(new Set(colors).size, colors.length);
+  assert.match(colorFunction, /#074d40/);
+  assert.match(colorFunction, /#009b77/);
+  ["#2f7fb8", "#d9534f", "#7b5cc4", "#e08a1e", "#e5b700", "#c2569b", "#4f6bd8", "#a0674b"].forEach((color) => {
+    assert.doesNotMatch(colorFunction, new RegExp(color, "i"));
+  });
+});
