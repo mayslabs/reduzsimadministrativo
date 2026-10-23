@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=173/);
+  assert.match(indexHtml, /redesign\.css\?v=174/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,15 +57,16 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=173/);
+  assert.match(indexHtml, /app\.js\?v=174/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
-  for (const key of ["name", "state", "area", "tasks", "deadlines"]) {
+  for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
     assert.match(appJs, new RegExp(`clientSortHeader\\("${key}"`));
   }
   assert.match(appJs, /function setClientSort/);
-  assert.match(appJs, /\["area", "tasks", "deadlines"\]\.includes\(key\) \? "desc" : "asc"/);
+  assert.match(appJs, /\["area", "created", "tasks", "deadlines"\]\.includes\(key\) \? "desc" : "asc"/);
   assert.match(appJs, /activeClientSortDirection = activeClientSortDirection === "asc" \? "desc" : "asc"/);
+  assert.match(appJs, /class="compact-client-created">\$\{escapeHtml\(clientCreatedDate\(client\)\)\}/);
   assert.match(redesignCss, /\.compact-client-sort/);
 });
 

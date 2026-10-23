@@ -294,7 +294,7 @@ let currentUser = null;
 let activeClient = null;
 let activeRegularization = null;
 let activeClientQuickFilter = "active";
-let activeClientSortKey = "recent";
+let activeClientSortKey = "created";
 let activeClientSortDirection = "desc";
 let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
@@ -9185,6 +9185,7 @@ function sortClients(clients) {
     if (activeClientSortKey === "name") comparison = compareClientText(a.clientName, b.clientName, direction);
     else if (activeClientSortKey === "state") comparison = compareClientText(a.state, b.state, direction);
     else if (activeClientSortKey === "area") comparison = (areaAmount(a.area) - areaAmount(b.area)) * direction;
+    else if (activeClientSortKey === "created") comparison = (clientCreatedTime(a) - clientCreatedTime(b)) * direction;
     else if (activeClientSortKey === "tasks") comparison = (clientOpenTasks(a).length - clientOpenTasks(b).length) * direction;
     else if (activeClientSortKey === "deadlines") comparison = ((a.deadlines || []).length - (b.deadlines || []).length) * direction;
     else comparison = (clientCreatedTime(a) - clientCreatedTime(b)) * direction;
@@ -9201,7 +9202,13 @@ function compareClientText(leftValue, rightValue, direction) {
 }
 
 function clientCreatedTime(client) {
-  return new Date(client.createdAt || client.updatedAt || 0).getTime();
+  const time = new Date(client.createdAt || client.updatedAt || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function clientCreatedDate(client) {
+  const time = clientCreatedTime(client);
+  return time ? new Date(time).toLocaleDateString("pt-BR") : "—";
 }
 
 function clientOpenTasks(client = {}) {
@@ -9216,6 +9223,7 @@ function renderCompactClients(clients) {
           ${clientSortHeader("name", "Cliente")}
           ${clientSortHeader("state", "UF")}
           ${clientSortHeader("area", "Área")}
+          ${clientSortHeader("created", "Cadastro")}
           <span>Status</span>
           ${clientSortHeader("tasks", "Tarefas")}
           ${clientSortHeader("deadlines", "Prazos")}
@@ -9255,7 +9263,7 @@ function clientSortHeader(key, label) {
 }
 
 function setClientSort(key) {
-  const defaultDirection = ["area", "tasks", "deadlines"].includes(key) ? "desc" : "asc";
+  const defaultDirection = ["area", "created", "tasks", "deadlines"].includes(key) ? "desc" : "asc";
   if (activeClientSortKey === key) {
     activeClientSortDirection = activeClientSortDirection === "asc" ? "desc" : "asc";
   } else {
@@ -9282,6 +9290,7 @@ function renderCompactClientRow(client) {
       </span>
       <span class="compact-client-state">${escapeHtml(client.state || "--")}</span>
       <span class="compact-client-area">${escapeHtml(compactClientArea(client.area))}</span>
+      <span class="compact-client-created">${escapeHtml(clientCreatedDate(client))}</span>
       <span class="compact-client-status">${compactStatusChips(statuses)}</span>
       ${
         openTasks.length

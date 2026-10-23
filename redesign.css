@@ -520,9 +520,9 @@ textarea:focus {
 
 .compact-client-head,
 .compact-client-row {
-  min-width: 1120px;
-  grid-template-columns: minmax(250px, 2.2fr) 52px 112px minmax(200px, 1.4fr) 140px 84px minmax(220px, 1.8fr) 52px;
-  gap: 16px;
+  min-width: 1080px;
+  grid-template-columns: minmax(210px, 2fr) 42px 96px 94px minmax(160px, 1.3fr) 112px 66px minmax(170px, 1.5fr) 40px;
+  gap: 12px;
 }
 
 .compact-client-head {
@@ -614,6 +614,13 @@ textarea:focus {
   font-variant-numeric: tabular-nums;
   font-weight: 400;
   text-align: right;
+}
+
+.compact-client-created {
+  color: #5c5c5c;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .compact-client-status .chip {
@@ -4266,7 +4273,8 @@ body.privacy-mode :is(
   }
 
   .compact-client-state,
-  .compact-client-area {
+  .compact-client-area,
+  .compact-client-created {
     display: grid;
     gap: 2px;
     text-align: left;
@@ -4274,6 +4282,7 @@ body.privacy-mode :is(
 
   .compact-client-state::before,
   .compact-client-area::before,
+  .compact-client-created::before,
   .compact-client-next::before {
     color: #7a7a7a;
     font-size: 9.5px;
@@ -4288,6 +4297,10 @@ body.privacy-mode :is(
 
   .compact-client-area::before {
     content: "Área";
+  }
+
+  .compact-client-created::before {
+    content: "Cadastro";
   }
 
   .compact-client-status,
