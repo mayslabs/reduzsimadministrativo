@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=171/);
+  assert.match(indexHtml, /redesign\.css\?v=172/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -46,8 +46,19 @@ test("home client list renders every filtered client without pagination", () => 
   assert.match(appJs, /renderCompactClients\(clients\)/);
 });
 
+test("home client labels use the new palette without a status dropdown", () => {
+  assert.doesNotMatch(indexHtml, /id="statusFilter"/);
+  assert.doesNotMatch(appJs, /renderStatusFilter|el\.statusFilter|function chip\(status\)/);
+  assert.match(appJs, /return needsAction \? "strong" : name\.includes\("aguardando"\) \? "neutral" : "soft"/);
+  assert.match(appJs, /class="chip compact-status-chip tone-\$\{clientStatusTone\(status\.name\)\}"/);
+  assert.match(redesignCss, /compact-status-chip\.tone-strong/);
+  assert.match(redesignCss, /compact-status-chip\.tone-soft/);
+  assert.match(redesignCss, /compact-status-chip\.tone-neutral/);
+  assert.doesNotMatch(redesignCss, /compact-status-chip\.tone-complete/);
+});
+
 test("home client cards follow the supplied four-column composition", () => {
-  assert.match(indexHtml, /app\.js\?v=171/);
+  assert.match(indexHtml, /app\.js\?v=172/);
   assert.match(appJs, /class="client-card-header"/);
   assert.match(appJs, /class="client-card-area"/);
   assert.match(appJs, /client-card-task-chip/);

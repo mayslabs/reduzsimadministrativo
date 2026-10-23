@@ -504,11 +504,6 @@ textarea:focus {
   flex: 1 1 320px;
 }
 
-#clientsSection > .toolbar #statusFilter {
-  flex: 0 0 235px;
-  width: 235px;
-}
-
 #clientsSection > .toolbar #clientSort {
   flex: 0 0 155px;
   width: 155px;
@@ -612,44 +607,38 @@ textarea:focus {
   flex: 0 0 auto;
 }
 
-.compact-client-status .compact-status-chip.tone-strong {
+.compact-status-chip.tone-strong {
   border-color: var(--green-dark);
   color: #ffffff;
   background: var(--green-dark);
 }
 
-.compact-client-status .compact-status-chip.tone-strong > span {
+.compact-status-chip.tone-strong > span {
   background: var(--green);
 }
 
-.compact-client-status .compact-status-chip.tone-soft {
+.compact-status-chip.tone-soft {
   border-color: rgba(0, 155, 119, 0.1);
   color: var(--green-dark);
   background: rgba(0, 155, 119, 0.1);
 }
 
-.compact-client-status .compact-status-chip.tone-soft > span {
+.compact-status-chip.tone-soft > span {
   background: var(--green);
 }
 
-.compact-client-status .compact-status-chip.tone-neutral {
+.compact-status-chip.tone-neutral {
   border-color: var(--line);
   color: #5c5c5c;
   background: #ffffff;
 }
 
-.compact-client-status .compact-status-chip.tone-neutral > span {
+.compact-status-chip.tone-neutral > span {
   background: #8a8a8a;
 }
 
-.compact-client-status .compact-status-chip.tone-complete {
-  border-color: var(--green);
-  color: #ffffff;
-  background: var(--green);
-}
-
-.compact-client-status .compact-status-chip.tone-complete > span {
-  background: #ffffff;
+.compact-status-chip:is(.tone-soft, .tone-neutral) button {
+  color: currentColor;
 }
 
 .compact-client-count {

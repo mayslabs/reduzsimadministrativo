@@ -482,7 +482,6 @@ const el = {
   regularizationManagerTitle: document.getElementById("regularizationManagerTitle"),
   regularizationManagerBody: document.getElementById("regularizationManagerBody"),
   addRegularizationManagerItem: document.getElementById("addRegularizationManagerItem"),
-  statusFilter: document.getElementById("statusFilter"),
   ownerFilter: document.getElementById("ownerFilter"),
   stateFilter: document.getElementById("stateFilter"),
   clientSort: document.getElementById("clientSort"),
@@ -1854,7 +1853,6 @@ function bindEvents() {
     const cpfInput = el.regularizationDialog.querySelector('[data-regularization-field="cpf"]');
     cpfInput.value = formatDocumentNumber(cpfInput.value, event.target.value);
   });
-  el.statusFilter.addEventListener("change", renderClients);
   el.clientSort.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
@@ -2135,7 +2133,6 @@ function configureNavigationForRole() {
 }
 
 function renderAll() {
-  renderStatusFilter();
   renderMetrics();
   renderClients();
   renderRegularizationClients();
@@ -2151,14 +2148,6 @@ function renderAll() {
   renderUserManager();
   renderAccount();
   refreshIcons();
-}
-
-function renderStatusFilter() {
-  const selected = el.statusFilter.value;
-  el.statusFilter.innerHTML = `<option value="">Todos os status</option>${state.statuses
-    .map((status) => `<option value="${status.id}">${escapeHtml(status.name)}</option>`)
-    .join("")}`;
-  el.statusFilter.value = selected;
 }
 
 function renderClientFilterOptions() {
@@ -9179,7 +9168,6 @@ function nextDeadlineLabel(client = {}) {
 
 function filteredClients() {
   const query = normalize(el.searchInput.value);
-  const statusId = el.statusFilter.value;
   const clients = state.clients.filter((client) => {
     const haystack = normalize([
       client.clientName,
@@ -9193,8 +9181,7 @@ function filteredClients() {
       client.folderPath,
     ].join(" "));
     const matchesQuery = !query || haystack.includes(query);
-    const matchesStatus = !statusId || (client.statusIds || []).includes(statusId);
-    return matchesQuery && matchesStatus && clientMatchesQuickFilter(client);
+    return matchesQuery && clientMatchesQuickFilter(client);
   });
   return sortClients(clients, el.clientSort.value);
 }
@@ -9331,18 +9318,18 @@ function compactStatusChips(statuses) {
   return `${visible}${remaining > 0 ? `<span class="chip neutral compact-overflow">+${remaining}</span>` : ""}`;
 }
 
+function clientStatusTone(value) {
+  const name = normalize(value);
+  const needsAction = name.includes("pendente")
+    || name.includes("pendencia")
+    || name.includes("para assinatura")
+    || name.includes("aguardando pagamento")
+    || ["cnd emitida", "finalizado"].includes(name);
+  return needsAction ? "strong" : name.includes("aguardando") ? "neutral" : "soft";
+}
+
 function compactStatusChip(status) {
-  const name = normalize(status.name);
-  const tone = name === "recibos para assinatura"
-    ? "strong"
-    : name === "dados dos trabalhadores"
-      ? "soft"
-      : name === "aguardando engenheiro"
-        ? "neutral"
-        : ["cnd emitida", "finalizado"].includes(name)
-          ? "complete"
-          : "";
-  if (!tone) return chip(status);
+  const tone = clientStatusTone(status.name);
   return `<span class="chip compact-status-chip tone-${tone}"><span aria-hidden="true"></span>${escapeHtml(status.name)}</span>`;
 }
 
@@ -9731,7 +9718,8 @@ function renderActiveStatuses() {
     ? statuses
         .map(
           (status) => `
-            <span class="chip" style="background:${status.color}">
+            <span class="chip compact-status-chip tone-${clientStatusTone(status.name)}">
+              <span aria-hidden="true"></span>
               ${escapeHtml(status.name)}
               <button type="button" aria-label="Remover status" data-remove-status="${status.id}">x</button>
             </span>
@@ -9796,7 +9784,6 @@ function renderStatusPicker() {
       input.addEventListener("input", () => {
         status[input.dataset.statusEditorField] = input.value;
         saveState();
-        renderStatusFilter();
         renderClients();
         renderActiveStatuses();
       });
@@ -9810,7 +9797,6 @@ function renderStatusPicker() {
         client.statusIds = (client.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
       });
       activeClient.statusIds = (activeClient.statusIds || []).filter((statusId) => statusId !== button.dataset.removeGlobalStatus);
-      renderStatusFilter();
       renderClients();
       renderActiveStatuses();
       renderStatusPicker();
@@ -9826,7 +9812,6 @@ function renderStatusPicker() {
     const status = { id: id(), name, color: colorInput.value || "#009f7f" };
     state.statuses.push(status);
     activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), status.id])];
-    renderStatusFilter();
     renderClients();
     renderActiveStatuses();
     renderStatusPicker();
@@ -10703,7 +10688,6 @@ function renderStatusManager() {
       input.addEventListener("input", () => {
         status[input.dataset.statusManagerField] = input.value;
         saveState();
-        renderStatusFilter();
         renderClients();
       });
     });
@@ -11565,10 +11549,6 @@ function getClientStatuses(client) {
 
 function isClientFinished(client) {
   return getClientStatuses(client).some((status) => normalize(status.name) === "finalizado");
-}
-
-function chip(status) {
-  return `<span class="chip" style="background:${status.color}">${escapeHtml(status.name)}</span>`;
 }
 
 function ownerName(userId) {
