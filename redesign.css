@@ -3648,6 +3648,67 @@ body.privacy-mode #dataSection :is(
   padding: 24px 28px;
 }
 
+#clientDialog .destination-field {
+  align-content: start;
+  gap: 6px 24px;
+  padding: 8px 14px 12px;
+}
+
+#clientDialog .destination-field label {
+  min-height: 24px;
+  gap: 8px;
+}
+
+#clientDialog .destination-field input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--green);
+}
+
+.client-work-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.client-work-section {
+  min-width: 0;
+}
+
+.client-work-section + .client-work-section {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.client-work-section .task-message {
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  #clientDialog .destination-field {
+    grid-template-columns: 1fr;
+  }
+
+  #clientDialog .destination-field legend {
+    grid-column: 1;
+  }
+
+  .client-work-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .client-work-section + .client-work-section {
+    padding: 20px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
 .summary-layout {
   grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr);
   gap: 24px;

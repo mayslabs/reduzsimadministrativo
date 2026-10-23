@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=175" />
+    <link rel="stylesheet" href="./redesign.css?v=176" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -598,11 +598,9 @@
           <button class="tab-button" type="button" data-tab="clientTab">Cliente e obra</button>
           <button class="tab-button" type="button" data-tab="monthlyTab">Mensal</button>
           <button class="tab-button" type="button" data-tab="tasksTab">Tarefas</button>
-          <button class="tab-button" type="button" data-tab="deadlinesTab">Prazos</button>
           <button class="tab-button" type="button" data-tab="notesTab">Anotações</button>
-          <button class="tab-button" type="button" data-tab="historyTab">Histórico</button>
           <button class="tab-button" type="button" data-tab="financeTab">Financeiro</button>
-          <button class="tab-button" type="button" data-tab="workersTab">Trabalhadores</button>
+          <button class="tab-button" type="button" data-tab="historyTab">Histórico</button>
         </div>
 
         <section id="summaryTab" class="tab-panel active">
@@ -744,19 +742,22 @@
         </section>
 
         <section id="tasksTab" class="tab-panel">
-          <div class="mini-heading">
-            <h3>Tarefas</h3>
-            <button id="addTaskButton" class="small-button" type="button"><i data-lucide="plus"></i> Nova tarefa</button>
+          <div class="client-work-grid">
+            <section class="client-work-section">
+              <div class="mini-heading">
+                <h3>Tarefas</h3>
+                <button id="addTaskButton" class="small-button" type="button"><i data-lucide="plus"></i> Nova tarefa</button>
+              </div>
+              <div id="tasksList" class="item-list"></div>
+            </section>
+            <section class="client-work-section">
+              <div class="mini-heading">
+                <h3>Prazos</h3>
+                <button id="addDeadlineButton" class="small-button" type="button"><i data-lucide="plus"></i> Novo prazo</button>
+              </div>
+              <div id="deadlinesList" class="item-list"></div>
+            </section>
           </div>
-          <div id="tasksList" class="item-list"></div>
-        </section>
-
-        <section id="deadlinesTab" class="tab-panel">
-          <div class="mini-heading">
-            <h3>Prazos</h3>
-            <button id="addDeadlineButton" class="small-button" type="button"><i data-lucide="plus"></i> Novo prazo</button>
-          </div>
-          <div id="deadlinesList" class="item-list"></div>
         </section>
 
         <section id="notesTab" class="tab-panel">
@@ -765,14 +766,6 @@
             <button id="addNoteButton" class="secondary-button" type="button"><i data-lucide="send"></i> Salvar anotação</button>
           </div>
           <div id="notesList" class="timeline-list"></div>
-        </section>
-
-        <section id="historyTab" class="tab-panel">
-          <div id="historyAdminControls" class="note-composer">
-            <textarea id="newHistoryText" rows="3" placeholder="Registrar complemento interno no histórico"></textarea>
-            <button id="addHistoryButton" class="secondary-button" type="button"><i data-lucide="file-clock"></i> Registrar no histórico</button>
-          </div>
-          <div id="historyList" class="timeline-list"></div>
         </section>
 
         <section id="financeTab" class="tab-panel">
@@ -868,12 +861,12 @@
           <div id="financeMessagesList" class="timeline-list"></div>
         </section>
 
-        <section id="workersTab" class="tab-panel">
-          <div class="note-composer">
-            <textarea id="newWorkerMessageText" rows="3" placeholder="Registrar trabalhador, remuneração, período trabalhado ou observação"></textarea>
-            <button id="addWorkerMessageButton" class="secondary-button" type="button"><i data-lucide="send"></i> Enviar mensagem</button>
+        <section id="historyTab" class="tab-panel">
+          <div id="historyAdminControls" class="note-composer">
+            <textarea id="newHistoryText" rows="3" placeholder="Registrar complemento interno no histórico"></textarea>
+            <button id="addHistoryButton" class="secondary-button" type="button"><i data-lucide="file-clock"></i> Registrar no histórico</button>
           </div>
-          <div id="workerMessagesList" class="timeline-list"></div>
+          <div id="historyList" class="timeline-list"></div>
         </section>
 
         <footer class="dialog-footer">
@@ -1241,7 +1234,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=175"></script>
+    <script src="./app.js?v=176"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

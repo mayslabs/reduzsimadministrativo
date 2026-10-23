@@ -523,9 +523,6 @@ const el = {
   newHistoryText: document.getElementById("newHistoryText"),
   addHistoryButton: document.getElementById("addHistoryButton"),
   historyList: document.getElementById("historyList"),
-  newWorkerMessageText: document.getElementById("newWorkerMessageText"),
-  addWorkerMessageButton: document.getElementById("addWorkerMessageButton"),
-  workerMessagesList: document.getElementById("workerMessagesList"),
   newFinanceMessageText: document.getElementById("newFinanceMessageText"),
   addFinanceMessageButton: document.getElementById("addFinanceMessageButton"),
   financeMessagesList: document.getElementById("financeMessagesList"),
@@ -1952,7 +1949,6 @@ function bindEvents() {
     openClientDeadlineDialog();
   });
   el.addNoteButton.addEventListener("click", addNote);
-  el.addWorkerMessageButton.addEventListener("click", addWorkerMessage);
   el.addFinanceMessageButton.addEventListener("click", addFinanceMessage);
   el.addHistoryButton.addEventListener("click", addManualHistory);
   el.addStatusButton.addEventListener("click", openStatusDialog);
@@ -9370,7 +9366,7 @@ function handleClientQuickAction(clientId, action) {
   }
   if (action === "deadline") {
     openClient(cloneData(client));
-    switchTab("deadlinesTab");
+    switchTab("tasksTab");
     openClientDeadlineDialog();
     return;
   }
@@ -9472,7 +9468,6 @@ function openClient(client) {
   renderDeadlines();
   renderNotes();
   renderHistory();
-  renderWorkerMessages();
   renderFinanceMessages();
   renderClientSummaryPending();
   syncReferralCommissionFields();
@@ -10002,59 +9997,6 @@ function renderNotes() {
   refreshIcons();
 }
 
-function renderWorkerMessages() {
-  const messages = Array.isArray(activeClient.workerMessages) ? activeClient.workerMessages : [];
-  el.workerMessagesList.innerHTML = messages.length
-    ? [...messages]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .map(
-          (message) => `
-            <article class="note-message" data-worker-message="${message.id}">
-              <p class="note-text">${escapeHtml(message.text || "")}</p>
-              <textarea class="note-edit-field" data-worker-message-field="text" hidden>${escapeHtml(message.text || "")}</textarea>
-              <div class="note-footer">
-                <span>${escapeHtml(ownerName(message.userId))} | ${formatDateTime(message.createdAt)}${message.updatedAt ? " | editada" : ""}</span>
-                <button type="button" data-edit-worker-message="${message.id}">Editar</button>
-                <button type="button" data-save-worker-message="${message.id}" hidden>Salvar</button>
-                <button type="button" data-remove-worker-message="${message.id}" aria-label="Remover mensagem">×</button>
-              </div>
-            </article>
-          `
-        )
-        .join("")
-    : `<p class="empty-state">Nenhuma mensagem registrada.</p>`;
-
-  document.querySelectorAll("[data-edit-worker-message]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const wrapper = button.closest("[data-worker-message]");
-      wrapper.querySelector(".note-text").hidden = true;
-      wrapper.querySelector("[data-worker-message-field]").hidden = false;
-      button.hidden = true;
-      wrapper.querySelector("[data-save-worker-message]").hidden = false;
-    });
-  });
-
-  document.querySelectorAll("[data-save-worker-message]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const message = activeClient.workerMessages.find((item) => item.id === button.dataset.saveWorkerMessage);
-      const box = document.querySelector(`[data-worker-message="${message.id}"] [data-worker-message-field="text"]`);
-      message.text = box.value.trim();
-      message.updatedAt = new Date().toISOString();
-      renderWorkerMessages();
-      await persistActiveClient();
-    });
-  });
-
-  document.querySelectorAll("[data-remove-worker-message]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      activeClient.workerMessages = activeClient.workerMessages.filter((message) => message.id !== button.dataset.removeWorkerMessage);
-      renderWorkerMessages();
-      await persistActiveClient();
-    });
-  });
-  refreshIcons();
-}
-
 function renderFinanceMessages() {
   const messages = Array.isArray(activeClient.financeMessages) ? activeClient.financeMessages : [];
   el.financeMessagesList.innerHTML = messages.length
@@ -10270,22 +10212,6 @@ async function addNote() {
   await persistActiveClient();
 }
 
-async function addWorkerMessage() {
-  const text = el.newWorkerMessageText.value.trim();
-  if (!text) return;
-  activeClient.workerMessages = Array.isArray(activeClient.workerMessages) ? activeClient.workerMessages : [];
-  activeClient.workerMessages.unshift({
-    id: id(),
-    text,
-    userId: currentUser.id,
-    createdAt: new Date().toISOString(),
-    updatedAt: null,
-  });
-  el.newWorkerMessageText.value = "";
-  renderWorkerMessages();
-  await persistActiveClient();
-}
-
 async function addFinanceMessage() {
   const text = el.newFinanceMessageText.value.trim();
   if (!text) return;
@@ -10385,7 +10311,6 @@ async function persistActiveClient(options = {}) {
     renderActiveStatuses();
     renderStatusPicker();
     renderNotes();
-    renderWorkerMessages();
     renderFinanceMessages();
     renderHistory();
   }
