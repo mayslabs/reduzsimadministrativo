@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=172/);
+  assert.match(indexHtml, /redesign\.css\?v=173/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -31,7 +31,7 @@ test("client metrics act as the new quick filters", () => {
 });
 
 test("home client list follows the supplied compact table behavior", () => {
-  assert.match(indexHtml, /layout-grid"><\/i> Cartões/);
+  assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.match(appJs, /Definir próxima ação/);
   assert.match(appJs, /compact-client-empty/);
   assert.match(appJs, /function compactClientDisplayName/);
@@ -42,7 +42,6 @@ test("home client list renders every filtered client without pagination", () => 
   assert.doesNotMatch(indexHtml, /id="clientPagination"/);
   assert.doesNotMatch(appJs, /CLIENTS_PER_PAGE|activeClientPage|renderClientPagination|clientPaginationPages/);
   assert.match(appJs, /const clients = filteredClients\(\);/);
-  assert.match(appJs, /clients\.map\(\(client\) => renderClientCard\(client\)\)/);
   assert.match(appJs, /renderCompactClients\(clients\)/);
 });
 
@@ -57,14 +56,17 @@ test("home client labels use the new palette without a status dropdown", () => {
   assert.doesNotMatch(redesignCss, /compact-status-chip\.tone-complete/);
 });
 
-test("home client cards follow the supplied four-column composition", () => {
-  assert.match(indexHtml, /app\.js\?v=172/);
-  assert.match(appJs, /class="client-card-header"/);
-  assert.match(appJs, /class="client-card-area"/);
-  assert.match(appJs, /client-card-task-chip/);
-  assert.match(appJs, /client-card-next-label">PRÓXIMA AÇÃO/);
-  assert.match(redesignCss, /repeat\(auto-fill, minmax\(280px, 1fr\)\)/);
-  assert.match(redesignCss, /border-top:\s*3px solid var\(--green\)/);
+test("client table headers sort records and card mode is removed", () => {
+  assert.match(indexHtml, /app\.js\?v=173/);
+  assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
+  assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
+  for (const key of ["name", "state", "area", "tasks", "deadlines"]) {
+    assert.match(appJs, new RegExp(`clientSortHeader\\("${key}"`));
+  }
+  assert.match(appJs, /function setClientSort/);
+  assert.match(appJs, /\["area", "tasks", "deadlines"\]\.includes\(key\) \? "desc" : "asc"/);
+  assert.match(appJs, /activeClientSortDirection = activeClientSortDirection === "asc" \? "desc" : "asc"/);
+  assert.match(redesignCss, /\.compact-client-sort/);
 });
 
 test("client summary exposes pending work in the redesigned dialog", () => {

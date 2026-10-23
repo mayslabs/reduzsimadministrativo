@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=155" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=172" />
+    <link rel="stylesheet" href="./redesign.css?v=173" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -108,18 +108,6 @@
               <i data-lucide="search"></i>
               <input id="searchInput" type="search" placeholder="Buscar cliente, CPF, obra ou responsável" />
             </label>
-            <select id="clientSort" aria-label="Ordenar clientes">
-              <option value="recent" selected>Mais recentes</option>
-              <option value="name">Nome (A-Z)</option>
-              <option value="area">Maior área</option>
-              <option value="">Ordem atual</option>
-              <option value="active">Obras ativas</option>
-              <option value="finished">Obras finalizadas</option>
-            </select>
-            <div class="segmented-control" role="group" aria-label="Modo de visualização">
-              <button id="compactModeButton" class="active" type="button"><i data-lucide="rows-3"></i> Lista</button>
-              <button id="listModeButton" type="button"><i data-lucide="layout-grid"></i> Cartões</button>
-            </div>
           </div>
           <div class="client-quick-filters" role="group" aria-label="Filtros rápidos de clientes">
             <button class="active" type="button" data-client-quick-filter="active">Ativos</button>
@@ -128,8 +116,7 @@
             <button type="button" data-client-quick-filter="no-status">Sem status</button>
             <button type="button" data-client-quick-filter="finished">Finalizados</button>
           </div>
-          <div id="listView" class="client-grid"></div>
-          <div id="compactView" class="compact-client-list" hidden></div>
+          <div id="compactView" class="compact-client-list"></div>
         </section>
 
         <section id="regularizationSection" class="app-section" hidden>
@@ -1254,7 +1241,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=172"></script>
+    <script src="./app.js?v=173"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

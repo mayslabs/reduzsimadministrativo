@@ -293,8 +293,9 @@ state = loadState();
 let currentUser = null;
 let activeClient = null;
 let activeRegularization = null;
-let activeViewMode = "compact";
 let activeClientQuickFilter = "active";
+let activeClientSortKey = "recent";
+let activeClientSortDirection = "desc";
 let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
@@ -484,7 +485,6 @@ const el = {
   addRegularizationManagerItem: document.getElementById("addRegularizationManagerItem"),
   ownerFilter: document.getElementById("ownerFilter"),
   stateFilter: document.getElementById("stateFilter"),
-  clientSort: document.getElementById("clientSort"),
   moreFiltersButton: document.getElementById("moreFiltersButton"),
   advancedClientFilters: document.getElementById("advancedClientFilters"),
   workStateFilter: document.getElementById("workStateFilter"),
@@ -493,9 +493,6 @@ const el = {
   financeFilter: document.getElementById("financeFilter"),
   monthlyPendingFilter: document.getElementById("monthlyPendingFilter"),
   nextActionFilter: document.getElementById("nextActionFilter"),
-  listModeButton: document.getElementById("listModeButton"),
-  compactModeButton: document.getElementById("compactModeButton"),
-  listView: document.getElementById("listView"),
   compactView: document.getElementById("compactView"),
   clientDialog: document.getElementById("clientDialog"),
   clientDialogTitle: document.getElementById("clientDialogTitle"),
@@ -1853,7 +1850,6 @@ function bindEvents() {
     const cpfInput = el.regularizationDialog.querySelector('[data-regularization-field="cpf"]');
     cpfInput.value = formatDocumentNumber(cpfInput.value, event.target.value);
   });
-  el.clientSort.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskClientFilter.addEventListener("change", renderTaskCenter);
@@ -1927,8 +1923,6 @@ function bindEvents() {
       renderBillsDashboard();
     });
   });
-  el.listModeButton.addEventListener("click", () => setViewMode("list"));
-  el.compactModeButton.addEventListener("click", () => setViewMode("compact"));
   document.querySelectorAll("[data-client-quick-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       activeClientQuickFilter = button.dataset.clientQuickFilter || "active";
@@ -7406,17 +7400,7 @@ function destinationLabel(client = {}) {
 
 function renderClients() {
   const clients = filteredClients();
-
-  el.listView.hidden = activeViewMode !== "list";
-  el.compactView.hidden = activeViewMode !== "compact";
-
-  if (activeViewMode === "list") {
-    el.listView.innerHTML = clients.length
-      ? clients.map((client) => renderClientCard(client)).join("")
-      : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
-  } else {
-    renderCompactClients(clients);
-  }
+  renderCompactClients(clients);
 
   renderClientQuickFilters();
   document.querySelectorAll("[data-open-client]").forEach((card) => {
@@ -9183,7 +9167,7 @@ function filteredClients() {
     const matchesQuery = !query || haystack.includes(query);
     return matchesQuery && clientMatchesQuickFilter(client);
   });
-  return sortClients(clients, el.clientSort.value);
+  return sortClients(clients);
 }
 
 function clientMatchesQuickFilter(client) {
@@ -9194,23 +9178,26 @@ function clientMatchesQuickFilter(client) {
   return !isClientFinished(client);
 }
 
-function sortClients(clients, sortMode) {
-  if (sortMode === "recent") {
-    return clients.sort((a, b) => clientCreatedTime(b) - clientCreatedTime(a));
-  }
-  if (sortMode === "name") {
-    return clients.sort((a, b) => String(a.clientName || "").localeCompare(String(b.clientName || ""), "pt-BR"));
-  }
-  if (sortMode === "area") {
-    return clients.sort((a, b) => areaAmount(b.area) - areaAmount(a.area));
-  }
-  if (sortMode === "active") {
-    return clients.sort((a, b) => Number(isClientFinished(a)) - Number(isClientFinished(b)) || clientCreatedTime(b) - clientCreatedTime(a));
-  }
-  if (sortMode === "finished") {
-    return clients.sort((a, b) => Number(isClientFinished(b)) - Number(isClientFinished(a)) || clientCreatedTime(b) - clientCreatedTime(a));
-  }
-  return clients;
+function sortClients(clients) {
+  const direction = activeClientSortDirection === "asc" ? 1 : -1;
+  return clients.sort((a, b) => {
+    let comparison = 0;
+    if (activeClientSortKey === "name") comparison = compareClientText(a.clientName, b.clientName, direction);
+    else if (activeClientSortKey === "state") comparison = compareClientText(a.state, b.state, direction);
+    else if (activeClientSortKey === "area") comparison = (areaAmount(a.area) - areaAmount(b.area)) * direction;
+    else if (activeClientSortKey === "tasks") comparison = (clientOpenTasks(a).length - clientOpenTasks(b).length) * direction;
+    else if (activeClientSortKey === "deadlines") comparison = ((a.deadlines || []).length - (b.deadlines || []).length) * direction;
+    else comparison = (clientCreatedTime(a) - clientCreatedTime(b)) * direction;
+    return comparison || compareClientText(a.clientName, b.clientName, 1);
+  });
+}
+
+function compareClientText(leftValue, rightValue, direction) {
+  const left = String(leftValue || "").trim();
+  const right = String(rightValue || "").trim();
+  if (!left && right) return 1;
+  if (left && !right) return -1;
+  return left.localeCompare(right, "pt-BR", { sensitivity: "base" }) * direction;
 }
 
 function clientCreatedTime(client) {
@@ -9221,55 +9208,17 @@ function clientOpenTasks(client = {}) {
   return (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
 }
 
-function renderClientCard(client) {
-  const clientStatuses = getClientStatuses(client);
-  const completionClass = isClientFinished(client) ? "finished" : "active-work";
-  const openTasks = clientOpenTasks(client);
-  const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
-  const nextAction = String(client.nextAction || "").trim();
-  return `
-    <button class="client-card ${completionClass}" type="button" data-open-client="${client.id}">
-      <header class="client-card-header">
-        <div class="client-card-identity">
-          <h3>${escapeHtml(compactClientDisplayName(client.clientName || "Cliente sem nome"))}</h3>
-          <p>${escapeHtml(destinationLabel(client))}${client.state ? ` · ${escapeHtml(client.state)}` : ""}</p>
-        </div>
-        <strong class="client-card-area">${escapeHtml(compactClientArea(client.area))}</strong>
-      </header>
-      <div class="client-card-badges">
-        ${
-          clientStatuses.length
-            ? `<span class="compact-client-status client-card-status">${compactStatusChips(clientStatuses)}</span>`
-            : `<span class="client-card-no-status">Sem status</span>`
-        }
-        ${
-          openTasks.length
-            ? `<span class="client-card-task-chip">${openTasks.length} ${openTasks.length === 1 ? "tarefa" : "tarefas"} · ${escapeHtml(taskOwners)}</span>`
-            : ""
-        }
-      </div>
-      <span class="client-card-divider" aria-hidden="true"></span>
-      <span class="client-card-next">
-        <span class="client-card-next-label">PRÓXIMA AÇÃO</span>
-        <span class="client-card-next-value ${nextAction ? "" : "is-empty"}">
-          ${nextAction ? escapeHtml(nextAction) : `<i data-lucide="plus"></i> Definir próxima ação`}
-        </span>
-      </span>
-    </button>
-  `;
-}
-
 function renderCompactClients(clients) {
   el.compactView.innerHTML = clients.length
     ? `
       <div class="compact-client-table">
         <div class="compact-client-head">
-          <span>Cliente</span>
-          <span>UF</span>
-          <span>Área</span>
+          ${clientSortHeader("name", "Cliente")}
+          ${clientSortHeader("state", "UF")}
+          ${clientSortHeader("area", "Área")}
           <span>Status</span>
-          <span>Tarefas</span>
-          <span>Prazos</span>
+          ${clientSortHeader("tasks", "Tarefas")}
+          ${clientSortHeader("deadlines", "Prazos")}
           <span>Próxima ação</span>
           <span></span>
         </div>
@@ -9277,6 +9226,43 @@ function renderCompactClients(clients) {
       </div>
     `
     : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
+
+  el.compactView.querySelectorAll("[data-client-sort-key]").forEach((button) => {
+    button.addEventListener("click", () => setClientSort(button.dataset.clientSortKey));
+  });
+}
+
+function clientSortHeader(key, label) {
+  const isActive = activeClientSortKey === key;
+  const icon = isActive
+    ? activeClientSortDirection === "asc" ? "arrow-up" : "arrow-down"
+    : "arrow-up-down";
+  const directionLabel = isActive
+    ? activeClientSortDirection === "asc" ? "crescente" : "decrescente"
+    : "não ordenado";
+  return `
+    <button
+      class="compact-client-sort ${isActive ? "active" : ""}"
+      type="button"
+      data-client-sort-key="${key}"
+      aria-label="Ordenar ${escapeAttr(label)}. Estado: ${directionLabel}."
+      title="Ordenar por ${escapeAttr(label)}"
+    >
+      <span>${escapeHtml(label)}</span>
+      <i data-lucide="${icon}"></i>
+    </button>
+  `;
+}
+
+function setClientSort(key) {
+  const defaultDirection = ["area", "tasks", "deadlines"].includes(key) ? "desc" : "asc";
+  if (activeClientSortKey === key) {
+    activeClientSortDirection = activeClientSortDirection === "asc" ? "desc" : "asc";
+  } else {
+    activeClientSortKey = key;
+    activeClientSortDirection = defaultDirection;
+  }
+  renderClients();
 }
 
 function renderCompactClientRow(client) {
@@ -9431,13 +9417,6 @@ function ensureStatusByName(name, color = "#009f7f") {
   const status = { id: id(), name, color };
   state.statuses.push(status);
   return status;
-}
-
-function setViewMode(mode) {
-  activeViewMode = mode;
-  el.listModeButton.classList.toggle("active", mode === "list");
-  el.compactModeButton.classList.toggle("active", mode === "compact");
-  renderClients();
 }
 
 function setTaskCalendarMode(mode) {

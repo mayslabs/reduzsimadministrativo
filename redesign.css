@@ -504,15 +504,6 @@ textarea:focus {
   flex: 1 1 320px;
 }
 
-#clientsSection > .toolbar #clientSort {
-  flex: 0 0 155px;
-  width: 155px;
-}
-
-#clientsSection > .toolbar .segmented-control {
-  flex: 0 0 auto;
-}
-
 .client-quick-filters {
   display: none;
 }
@@ -543,6 +534,44 @@ textarea:focus {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
+}
+
+.compact-client-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.compact-client-sort svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  color: #8a8a8a;
+  stroke-width: 1.8;
+}
+
+.compact-client-sort:hover,
+.compact-client-sort.active {
+  color: var(--green-dark);
+}
+
+.compact-client-sort.active svg {
+  color: var(--green);
+}
+
+.compact-client-head > .compact-client-sort:nth-child(3) {
+  width: 100%;
+  justify-content: flex-end;
 }
 
 .compact-client-row,
