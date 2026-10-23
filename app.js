@@ -9221,9 +9221,9 @@ function renderCompactClients(clients) {
       <div class="compact-client-table">
         <div class="compact-client-head">
           ${clientSortHeader("name", "Cliente")}
+          ${clientSortHeader("created", "Cadastro")}
           ${clientSortHeader("state", "UF")}
           ${clientSortHeader("area", "Área")}
-          ${clientSortHeader("created", "Cadastro")}
           <span>Status</span>
           ${clientSortHeader("tasks", "Tarefas")}
           ${clientSortHeader("deadlines", "Prazos")}
@@ -9288,9 +9288,9 @@ function renderCompactClientRow(client) {
         <small>${escapeHtml(workLine)}</small>
         ${client.linkedRegularizationId ? `<small class="service-link-badge"><i data-lucide="link-2"></i> Também em Regularização</small>` : ""}
       </span>
+      <span class="compact-client-created">${escapeHtml(clientCreatedDate(client))}</span>
       <span class="compact-client-state">${escapeHtml(client.state || "--")}</span>
       <span class="compact-client-area">${escapeHtml(compactClientArea(client.area))}</span>
-      <span class="compact-client-created">${escapeHtml(clientCreatedDate(client))}</span>
       <span class="compact-client-status">${compactStatusChips(statuses)}</span>
       ${
         openTasks.length

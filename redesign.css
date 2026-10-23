@@ -521,8 +521,8 @@ textarea:focus {
 .compact-client-head,
 .compact-client-row {
   min-width: 1080px;
-  grid-template-columns: minmax(210px, 2fr) 42px 96px 94px minmax(160px, 1.3fr) 112px 66px minmax(170px, 1.5fr) 40px;
-  gap: 12px;
+  grid-template-columns: minmax(190px, 2.4fr) 100px 42px 96px minmax(150px, 1.5fr) 104px 64px minmax(170px, 1.7fr) 36px;
+  gap: clamp(12px, 1vw, 16px);
 }
 
 .compact-client-head {
@@ -569,7 +569,7 @@ textarea:focus {
   color: var(--green);
 }
 
-.compact-client-head > .compact-client-sort:nth-child(3) {
+.compact-client-head > .compact-client-sort:nth-child(4) {
   width: 100%;
   justify-content: flex-end;
 }
@@ -4301,6 +4301,10 @@ body.privacy-mode :is(
 
   .compact-client-created::before {
     content: "Cadastro";
+  }
+
+  .compact-client-created {
+    grid-column: 1 / -1;
   }
 
   .compact-client-status,
