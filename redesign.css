@@ -750,16 +750,6 @@ textarea:focus {
   height: 16px;
 }
 
-.client-pagination {
-  margin-top: 20px;
-  color: #5c5c5c;
-  font-weight: 400;
-}
-
-.client-page-button.active {
-  background: var(--green-dark);
-}
-
 .client-grid {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;

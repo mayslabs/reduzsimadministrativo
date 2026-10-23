@@ -4148,58 +4148,6 @@ button.updates-important-item:hover {
   font-weight: 850;
 }
 
-.client-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.client-page-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.client-page-button,
-.client-page-gap {
-  align-items: center;
-  display: inline-flex;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.client-page-button {
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--charcoal);
-}
-
-.client-page-button.active {
-  border-color: transparent;
-  background: var(--green);
-  color: #fff;
-}
-
-.client-page-controls .icon-button {
-  width: 32px;
-  height: 32px;
-  min-height: 32px;
-}
-
-.client-page-controls button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
 .chip button {
   border: 0;
   background: rgba(255, 255, 255, 0.22);

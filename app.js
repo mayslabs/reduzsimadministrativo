@@ -22,7 +22,6 @@ const DEFAULT_GOAL_SETTINGS = {
 const BILL_YEAR = "2026";
 const DEFAULT_BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
 const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
-const CLIENTS_PER_PAGE = 20;
 const MARKETING_CHANNELS = ["Instagram", "Facebook", "LinkedIn", "Site", "YouTube", "TikTok", "Outro"];
 const MARKETING_FORMATS = ["Reels", "Carrossel", "Post", "Stories", "Vídeo", "Artigo", "Outro"];
 const MARKETING_OBJECTIVES = ["Educar", "Vender", "Informar", "Autoridade"];
@@ -296,7 +295,6 @@ let activeClient = null;
 let activeRegularization = null;
 let activeViewMode = "compact";
 let activeClientQuickFilter = "active";
-let activeClientPage = 1;
 let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
@@ -500,7 +498,6 @@ const el = {
   compactModeButton: document.getElementById("compactModeButton"),
   listView: document.getElementById("listView"),
   compactView: document.getElementById("compactView"),
-  clientPagination: document.getElementById("clientPagination"),
   clientDialog: document.getElementById("clientDialog"),
   clientDialogTitle: document.getElementById("clientDialogTitle"),
   clientDialogMeta: document.getElementById("clientDialogMeta"),
@@ -1802,7 +1799,7 @@ function bindEvents() {
   el.taskDayModeButton.addEventListener("click", () => setTaskCalendarMode("day"));
   el.taskWeekModeButton.addEventListener("click", () => setTaskCalendarMode("week"));
   el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
-  el.searchInput.addEventListener("input", resetClientPageAndRender);
+  el.searchInput.addEventListener("input", renderClients);
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
   el.regularizationStatusFilter.addEventListener("change", renderRegularizationClients);
   el.regularizationSort.addEventListener("change", renderRegularizationClients);
@@ -1857,8 +1854,8 @@ function bindEvents() {
     const cpfInput = el.regularizationDialog.querySelector('[data-regularization-field="cpf"]');
     cpfInput.value = formatDocumentNumber(cpfInput.value, event.target.value);
   });
-  el.statusFilter.addEventListener("change", resetClientPageAndRender);
-  el.clientSort.addEventListener("change", resetClientPageAndRender);
+  el.statusFilter.addEventListener("change", renderClients);
+  el.clientSort.addEventListener("change", renderClients);
   el.taskSearchInput.addEventListener("input", renderTaskCenter);
   el.taskOwnerFilter.addEventListener("change", renderTaskCenter);
   el.taskClientFilter.addEventListener("change", renderTaskCenter);
@@ -1937,14 +1934,14 @@ function bindEvents() {
   document.querySelectorAll("[data-client-quick-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       activeClientQuickFilter = button.dataset.clientQuickFilter || "active";
-      resetClientPageAndRender();
+      renderClients();
     });
   });
   el.metricsGrid?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-client-metric-filter]");
     if (!button) return;
     activeClientQuickFilter = button.dataset.clientMetricFilter || "active";
-    resetClientPageAndRender();
+    renderClients();
   });
   el.saveClientButton.addEventListener("click", saveActiveClient);
   el.deleteClientButton.addEventListener("click", deleteActiveClient);
@@ -7420,34 +7417,23 @@ function destinationLabel(client = {}) {
 
 function renderClients() {
   const clients = filteredClients();
-  const pageCount = Math.max(1, Math.ceil(clients.length / CLIENTS_PER_PAGE));
-  if (activeClientPage > pageCount) activeClientPage = pageCount;
-  if (activeClientPage < 1) activeClientPage = 1;
-  const startIndex = (activeClientPage - 1) * CLIENTS_PER_PAGE;
-  const visibleClients = clients.slice(startIndex, startIndex + CLIENTS_PER_PAGE);
 
   el.listView.hidden = activeViewMode !== "list";
   el.compactView.hidden = activeViewMode !== "compact";
 
   if (activeViewMode === "list") {
-    el.listView.innerHTML = visibleClients.length
-      ? visibleClients.map((client) => renderClientCard(client)).join("")
+    el.listView.innerHTML = clients.length
+      ? clients.map((client) => renderClientCard(client)).join("")
       : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
   } else {
-    renderCompactClients(visibleClients);
+    renderCompactClients(clients);
   }
 
   renderClientQuickFilters();
-  renderClientPagination(clients.length, startIndex, visibleClients.length, pageCount);
   document.querySelectorAll("[data-open-client]").forEach((card) => {
     card.addEventListener("click", () => openClientById(card.dataset.openClient));
   });
   refreshIcons();
-}
-
-function resetClientPageAndRender() {
-  activeClientPage = 1;
-  renderClients();
 }
 
 function renderClientQuickFilters() {
@@ -7456,53 +7442,6 @@ function renderClientQuickFilters() {
     const isActive = filter === activeClientQuickFilter;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
-  });
-}
-
-function renderClientPagination(total, startIndex, visibleCount, pageCount) {
-  if (!el.clientPagination) return;
-  if (!total) {
-    el.clientPagination.innerHTML = "";
-    return;
-  }
-  const first = startIndex + 1;
-  const last = startIndex + visibleCount;
-  const pages = clientPaginationPages(pageCount);
-  el.clientPagination.innerHTML = `
-    <span>Mostrando ${first}-${last} de ${total} cliente${total === 1 ? "" : "s"}</span>
-    ${
-      pageCount > 1
-        ? `<div class="client-page-controls">
-            <button class="icon-button" type="button" data-client-page="${activeClientPage - 1}" ${activeClientPage === 1 ? "disabled" : ""} aria-label="Página anterior"><i data-lucide="chevron-left"></i></button>
-            ${pages
-              .map((page) =>
-                page === "gap"
-                  ? `<span class="client-page-gap">...</span>`
-                  : `<button class="client-page-button ${page === activeClientPage ? "active" : ""}" type="button" data-client-page="${page}">${page}</button>`
-              )
-              .join("")}
-            <button class="icon-button" type="button" data-client-page="${activeClientPage + 1}" ${activeClientPage === pageCount ? "disabled" : ""} aria-label="Próxima página"><i data-lucide="chevron-right"></i></button>
-          </div>`
-        : ""
-    }
-  `;
-  el.clientPagination.querySelectorAll("[data-client-page]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const nextPage = Number(button.dataset.clientPage);
-      if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage > pageCount || nextPage === activeClientPage) return;
-      activeClientPage = nextPage;
-      renderClients();
-    });
-  });
-}
-
-function clientPaginationPages(pageCount) {
-  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
-  const pages = new Set([1, pageCount, activeClientPage - 1, activeClientPage, activeClientPage + 1]);
-  const ordered = [...pages].filter((page) => page >= 1 && page <= pageCount).sort((a, b) => a - b);
-  return ordered.flatMap((page, index) => {
-    const previous = ordered[index - 1];
-    return previous && page - previous > 1 ? ["gap", page] : [page];
   });
 }
 

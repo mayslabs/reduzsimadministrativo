@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=170/);
+  assert.match(indexHtml, /redesign\.css\?v=171/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -38,8 +38,16 @@ test("home client list follows the supplied compact table behavior", () => {
   assert.match(appJs, /function compactClientArea/);
 });
 
+test("home client list renders every filtered client without pagination", () => {
+  assert.doesNotMatch(indexHtml, /id="clientPagination"/);
+  assert.doesNotMatch(appJs, /CLIENTS_PER_PAGE|activeClientPage|renderClientPagination|clientPaginationPages/);
+  assert.match(appJs, /const clients = filteredClients\(\);/);
+  assert.match(appJs, /clients\.map\(\(client\) => renderClientCard\(client\)\)/);
+  assert.match(appJs, /renderCompactClients\(clients\)/);
+});
+
 test("home client cards follow the supplied four-column composition", () => {
-  assert.match(indexHtml, /app\.js\?v=170/);
+  assert.match(indexHtml, /app\.js\?v=171/);
   assert.match(appJs, /class="client-card-header"/);
   assert.match(appJs, /class="client-card-area"/);
   assert.match(appJs, /client-card-task-chip/);
