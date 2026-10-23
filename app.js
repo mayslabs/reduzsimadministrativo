@@ -322,6 +322,7 @@ let advancedClientFiltersOpen = false;
 let visibleHistoryCount = 20;
 let activeSyncIssue = null;
 let privacyModeEnabled = false;
+let privacyVisualSeed = 0;
 const expandedUpdateIds = new Set();
 const collapsedUpdateDays = new Set();
 const expandedPastUpdateDays = new Set();
@@ -2069,19 +2070,70 @@ function showApp() {
 }
 
 function setPrivacyMode(enabled) {
-  privacyModeEnabled = Boolean(enabled);
+  const nextPrivacyMode = Boolean(enabled);
+  const privacyModeChanged = nextPrivacyMode !== privacyModeEnabled;
+  privacyModeEnabled = nextPrivacyMode;
+  if (privacyModeEnabled && privacyModeChanged) privacyVisualSeed = createPrivacyVisualSeed();
+  if (!privacyModeEnabled) privacyVisualSeed = 0;
   document.body.classList.toggle("privacy-mode", privacyModeEnabled);
   el.appView?.classList.toggle("privacy-mode", privacyModeEnabled);
-  if (!el.privacyToggleButton) return;
 
-  const label = privacyModeEnabled ? "Privacidade ativa" : "Dados visíveis";
-  const action = privacyModeEnabled ? "Mostrar dados protegidos" : "Ocultar dados para apresentação";
-  el.privacyToggleButton.setAttribute("aria-pressed", String(privacyModeEnabled));
-  el.privacyToggleButton.setAttribute("aria-label", action);
-  el.privacyToggleButton.title = action;
-  el.privacyToggleButton.innerHTML = `<i data-lucide="${privacyModeEnabled ? "eye-off" : "eye"}"></i><span id="privacyToggleLabel">${label}</span>`;
-  el.privacyToggleLabel = document.getElementById("privacyToggleLabel");
+  if (el.privacyToggleButton) {
+    const label = privacyModeEnabled ? "Privacidade ativa" : "Dados visíveis";
+    const action = privacyModeEnabled ? "Mostrar dados protegidos" : "Ocultar dados para apresentação";
+    el.privacyToggleButton.setAttribute("aria-pressed", String(privacyModeEnabled));
+    el.privacyToggleButton.setAttribute("aria-label", action);
+    el.privacyToggleButton.title = action;
+    el.privacyToggleButton.innerHTML = `<i data-lucide="${privacyModeEnabled ? "eye-off" : "eye"}"></i><span id="privacyToggleLabel">${label}</span>`;
+    el.privacyToggleLabel = document.getElementById("privacyToggleLabel");
+  }
+
+  if (privacyModeChanged && currentUser) renderPrivacySensitiveViews();
   refreshIcons();
+}
+
+function createPrivacyVisualSeed() {
+  if (window.crypto?.getRandomValues) {
+    const values = new Uint32Array(1);
+    window.crypto.getRandomValues(values);
+    return values[0] || 1;
+  }
+  return Math.max(1, Math.floor(Math.random() * 0xffffffff));
+}
+
+function privacyVisualUnit(key) {
+  let hash = (privacyVisualSeed || 1) >>> 0;
+  String(key || "visual").split("").forEach((character) => {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  });
+  hash += hash << 13;
+  hash ^= hash >>> 7;
+  hash += hash << 3;
+  hash ^= hash >>> 17;
+  hash += hash << 5;
+  return (hash >>> 0) / 0xffffffff;
+}
+
+function privacyVisualNumber(key, minimum, maximum) {
+  const min = Number(minimum) || 0;
+  const max = Math.max(min, Number(maximum) || min);
+  return min + (max - min) * privacyVisualUnit(key);
+}
+
+function privacyVisualInteger(key, minimum, maximum) {
+  return Math.round(privacyVisualNumber(key, minimum, maximum));
+}
+
+function privacyVisualPercent(key, minimum = 12, maximum = 92) {
+  return privacyVisualNumber(key, minimum, maximum);
+}
+
+function renderPrivacySensitiveViews() {
+  renderTaskCenter();
+  renderUpdates();
+  renderDataDashboard();
+  renderGoalsDashboard();
 }
 
 function updateCurrentUserDisplay() {
@@ -2780,8 +2832,33 @@ function dataQualityClients(key, clients = filteredDataClients()) {
   });
 }
 
+function privacyMonthlyCountRows(rows, series) {
+  if (!privacyModeEnabled) return rows;
+  const currentYear = String(new Date().getFullYear());
+  const randomized = rows.map((row) => {
+    const future = dataReportYear() === currentYear && row.key > currentMonthKey();
+    const count = future ? 0 : privacyVisualInteger(`${series}:${row.key}:count`, 1, 9);
+    return { ...row, count, total: count, value: count };
+  });
+  const max = Math.max(...randomized.map((row) => row.count), 1);
+  return randomized.map((row) => ({
+    ...row,
+    percent: row.count ? Math.max(8, Math.round((row.count / max) * 100)) : 0,
+  }));
+}
+
+function privacyMonthlyAmountRows(rows, series) {
+  if (!privacyModeEnabled) return rows;
+  const currentYear = String(new Date().getFullYear());
+  return rows.map((row) => {
+    const future = dataReportYear() === currentYear && row.key > currentMonthKey();
+    const total = future ? 0 : privacyVisualInteger(`${series}:${row.key}:amount`, 6, 34) * 1000;
+    return { ...row, total, value: total };
+  });
+}
+
 function reportMonthlyContractsPanel(data) {
-  const rows = data.monthlyContracts;
+  const rows = privacyMonthlyCountRows(data.monthlyContracts, "data-contracts");
   const total = rows.reduce((sum, row) => sum + row.count, 0);
   const contractLabel = total === 1 ? "contrato" : "contratos";
   return `
@@ -2813,7 +2890,8 @@ function reportMonthBar(row) {
 }
 
 function reportMonthlyFeesPanel(data) {
-  const total = data.monthlyFees.reduce((sum, row) => sum + row.total, 0);
+  const rows = privacyMonthlyAmountRows(data.monthlyFees, "data-fees");
+  const total = rows.reduce((sum, row) => sum + row.total, 0);
   return `
     <article class="data-panel report-panel report-panel-wide">
       <header class="report-panel-header">
@@ -2823,7 +2901,7 @@ function reportMonthlyFeesPanel(data) {
         </div>
         <span>${dataReportYear()} · ${escapeHtml(formatCompactCurrency(total))}</span>
       </header>
-      ${reportLineChart(data.monthlyFees)}
+      ${reportLineChart(rows)}
     </article>
   `;
 }
@@ -2907,10 +2985,13 @@ function reportHorizontalPanel(groupLabel, title, rows, group, total, options = 
 }
 
 function reportHorizontalRow(row, group, total, index) {
+  const visualPercent = privacyModeEnabled
+    ? privacyVisualPercent(`data-horizontal:${group}:${row.label}`, 18, 94)
+    : row.percent;
   return `
     <button class="report-horizontal-row" type="button" data-data-group="${escapeAttr(group)}" data-data-label="${escapeAttr(row.label)}" style="--row-color:${escapeAttr(reportChartColor(index))}">
       <span>${escapeHtml(row.label)}</span>
-      <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+      <i aria-hidden="true"><b style="width:${visualPercent}%"></b></i>
       <strong>${escapeHtml(reportCountShare(row.count, total))}</strong>
     </button>
   `;
@@ -2929,12 +3010,17 @@ function reportDestinationPanel(rows, total) {
       <div class="report-destination-list">
         ${
           visibleRows.length
-            ? visibleRows.map((row) => `
+            ? visibleRows.map((row) => {
+              const visualPercent = privacyModeEnabled
+                ? privacyVisualPercent(`data-destination:${row.label}`, 18, 94)
+                : row.percent;
+              return `
                 <button class="report-destination-row" type="button" data-data-group="byDestination" data-data-label="${escapeAttr(row.label)}">
                   <span><b>${escapeHtml(row.label)}</b><strong>${escapeHtml(reportCountShare(row.count, total))}</strong></span>
-                  <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+                  <i aria-hidden="true"><b style="width:${visualPercent}%"></b></i>
                 </button>
-              `).join("")
+              `;
+            }).join("")
             : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
         }
       </div>
@@ -2943,10 +3029,15 @@ function reportDestinationPanel(rows, total) {
 }
 
 function reportClientProfilePanel(data) {
-  const total = data.documentTypeTotal;
+  const total = privacyModeEnabled
+    ? privacyVisualInteger("data-profile:total", 18, 48)
+    : data.documentTypeTotal;
+  const privatePfPercent = privacyModeEnabled
+    ? privacyVisualInteger("data-profile:pf-percent", 36, 68)
+    : null;
   const profiles = [
-    { label: "Pessoa física", shortLabel: "PF", count: data.pfCount, tone: "pf" },
-    { label: "Pessoa jurídica", shortLabel: "PJ", count: data.pjCount, tone: "pj" },
+    { label: "Pessoa física", shortLabel: "PF", count: privacyModeEnabled ? Math.round(total * privatePfPercent / 100) : data.pfCount, tone: "pf" },
+    { label: "Pessoa jurídica", shortLabel: "PJ", count: privacyModeEnabled ? total - Math.round(total * privatePfPercent / 100) : data.pjCount, tone: "pj" },
   ].map((profile) => ({
     ...profile,
     percent: total ? (profile.count / total) * 100 : 0,
@@ -2989,8 +3080,14 @@ function reportClientProfilePanel(data) {
 }
 
 function reportDonutPanel(groupLabel, title, rows, group, total, options = {}) {
-  const visibleRows = rows.slice(0, 6);
+  const visibleRows = rows.slice(0, 6).map((row) => ({
+    ...row,
+    count: privacyModeEnabled
+      ? privacyVisualInteger(`data-donut:${group}:${row.label}`, 2, 14)
+      : row.count,
+  }));
   const chartTotal = visibleRows.reduce((sum, row) => sum + row.count, 0);
+  const visualTotal = privacyModeEnabled ? chartTotal : total;
   return `
     <article class="data-panel report-panel">
       <header class="report-panel-header">
@@ -3004,13 +3101,13 @@ function reportDonutPanel(groupLabel, title, rows, group, total, options = {}) {
         <div class="report-donut" style="--report-donut:${escapeAttr(reportConicGradient(visibleRows))}">
           <div class="report-donut-center">
             <span>Total</span>
-            <strong>${total}</strong>
+            <strong>${visualTotal}</strong>
           </div>
         </div>
         <div class="report-legend">
           ${
             visibleRows.length
-              ? visibleRows.map((row, index) => reportLegendRow(row, group, chartTotal || total, index)).join("")
+              ? visibleRows.map((row, index) => reportLegendRow(row, group, chartTotal || visualTotal, index)).join("")
               : `<p class="empty-state compact">Nenhum dado cadastrado.</p>`
           }
         </div>
@@ -3068,18 +3165,21 @@ function dataAveragePanel(title, rows, layout) {
 }
 
 function dataAverageRow(row, layout = "origin") {
+  const visualPercent = privacyModeEnabled
+    ? privacyVisualPercent(`data-ticket:${layout}:${row.label}`, 18, 94)
+    : row.percent;
   if (layout === "destination") {
     return `
       <div class="ticket-average-row ticket-average-stacked">
         <span><b>${escapeHtml(row.label)}</b><strong>${escapeHtml(calculatedCurrency(row.average))}</strong></span>
-        <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+        <i aria-hidden="true"><b style="width:${visualPercent}%"></b></i>
       </div>
     `;
   }
   return `
     <div class="ticket-average-row">
       <span>${escapeHtml(row.label)}</span>
-      <i aria-hidden="true"><b style="width:${row.percent}%"></b></i>
+      <i aria-hidden="true"><b style="width:${visualPercent}%"></b></i>
       <strong>${escapeHtml(calculatedCurrency(row.average))}</strong>
     </div>
   `;
@@ -4046,30 +4146,49 @@ function goalWholeCurrency(value) {
   });
 }
 
+function privacyGoalProgress(variant, minimum = 28, maximum = 86) {
+  const period = variant === "monthly" ? activeGoalsMonth : activeGoalsYear;
+  return privacyVisualInteger(`goals:${variant}:${period}:progress`, minimum, maximum);
+}
+
 function renderGoalThresholdRail(total, floor, target, stretch, variant = "monthly", pace = null) {
   const scale = Math.max(Number(stretch) || 0, 1);
-  const fill = Math.min(100, goalPercent(total, scale));
+  const fill = privacyModeEnabled
+    ? privacyGoalProgress(variant)
+    : Math.min(100, goalPercent(total, scale));
+  const privateFloorPosition = privacyVisualPercent(`goals:${variant}:${activeGoalsYear}:floor-position`, 42, 56);
+  const privateTargetPosition = privacyVisualPercent(`goals:${variant}:${activeGoalsYear}:target-position`, 68, 82);
   const tiers = [
     { label: "Piso", amount: floor },
     { label: "Meta", amount: target },
     { label: "Supermeta", amount: stretch },
-  ].map((tier) => ({
-    ...tier,
-    position: Math.min(100, goalPercent(tier.amount, scale)),
-    reached: total >= tier.amount,
-  }));
+  ].map((tier, index) => {
+    const position = privacyModeEnabled
+      ? [privateFloorPosition, privateTargetPosition, 100][index]
+      : Math.min(100, goalPercent(tier.amount, scale));
+    return {
+      ...tier,
+      position,
+      reached: privacyModeEnabled ? fill >= position : total >= tier.amount,
+    };
+  });
   const floorSegment = tiers[0].position;
   const targetSegment = Math.max(0, tiers[1].position - tiers[0].position);
   const stretchSegment = Math.max(0, 100 - tiers[1].position);
+  const pacePosition = pace === null
+    ? null
+    : privacyModeEnabled
+      ? privacyVisualPercent(`goals:${variant}:${activeGoalsYear}:pace`, 30, 84)
+      : Math.min(100, goalPercent(pace, scale));
   return `
     <div class="goal-threshold-rail ${variant}">
       <div class="goal-threshold-track" style="--goal-threshold-fill:${fill}%">
         <span class="goal-threshold-fill"></span>
-        ${pace === null ? "" : `<i class="goal-pace-marker" style="left:${Math.min(100, goalPercent(pace, scale))}%" title="Ritmo esperado para a meta"></i>`}
+        ${pacePosition === null ? "" : `<i class="goal-pace-marker" style="left:${pacePosition}%" title="${privacyModeEnabled ? "Posição ilustrativa no modo de privacidade" : "Ritmo esperado para a meta"}"></i>`}
         ${tiers
           .map(
             (tier) => `
-              <i class="goal-threshold-marker ${tier.reached ? "reached" : ""}" style="left:${tier.position}%" title="${escapeAttr(`${tier.label}: ${goalWholeCurrency(tier.amount)}. ${tier.reached ? "Alcançado" : `Faltam ${goalWholeCurrency(Math.max(tier.amount - total, 0))}`}`)}"></i>
+              <i class="goal-threshold-marker ${tier.reached ? "reached" : ""}" style="left:${tier.position}%" title="${escapeAttr(privacyModeEnabled ? "Posição ilustrativa no modo de privacidade" : `${tier.label}: ${goalWholeCurrency(tier.amount)}. ${tier.reached ? "Alcançado" : `Faltam ${goalWholeCurrency(Math.max(tier.amount - total, 0))}`}`)}"></i>
             `
           )
           .join("")}
@@ -4094,7 +4213,9 @@ function renderGoalThresholdRail(total, floor, target, stretch, variant = "month
 function renderGoalsOverview(data, month, settings) {
   const monthTotal = month?.total || 0;
   const monthContracts = month?.contracts || [];
-  const targetPercent = Math.min(100, Math.round(goalPercent(monthTotal, settings.target)));
+  const targetPercent = privacyModeEnabled
+    ? privacyGoalProgress("monthly")
+    : Math.min(100, Math.round(goalPercent(monthTotal, settings.target)));
   const remainingTarget = Math.max(settings.target - monthTotal, 0);
   const monthTicket = monthContracts.length ? monthTotal / monthContracts.length : 0;
   const feedback = monthTotal >= settings.stretch
@@ -4193,16 +4314,29 @@ function renderGoalsMonthlyPerformance(data, settings) {
   const maxTotal = Math.max(settings.stretch, ...data.months.map((month) => month.total), 1) * 1.08;
   const now = new Date();
   const numericYear = Number(activeGoalsYear);
-  const targetPosition = Math.min(100, goalPercent(settings.target, maxTotal));
-  const floorPosition = Math.min(100, goalPercent(settings.floor, maxTotal));
+  const targetPosition = privacyModeEnabled
+    ? privacyVisualPercent(`goals:performance:${activeGoalsYear}:target`, 62, 74)
+    : Math.min(100, goalPercent(settings.target, maxTotal));
+  const floorPosition = privacyModeEnabled
+    ? privacyVisualPercent(`goals:performance:${activeGoalsYear}:floor`, 34, 48)
+    : Math.min(100, goalPercent(settings.floor, maxTotal));
   const bars = data.months.map((month, index) => {
     const future = numericYear > now.getFullYear() || (numericYear === now.getFullYear() && index > now.getMonth());
-    const tone = future ? "future" : month.total >= settings.target ? "met" : month.total >= settings.floor ? "floor" : "below";
+    const height = privacyModeEnabled && !future
+      ? privacyVisualPercent(`goals:performance:${month.key}:height`, 12, 92)
+      : month.total
+        ? Math.max(2, Math.min(100, goalPercent(month.total, maxTotal)))
+        : 0;
+    const tone = future
+      ? "future"
+      : privacyModeEnabled
+        ? height >= targetPosition ? "met" : height >= floorPosition ? "floor" : "below"
+        : month.total >= settings.target ? "met" : month.total >= settings.floor ? "floor" : "below";
     return {
       ...month,
       future,
       tone,
-      height: month.total ? Math.max(2, Math.min(100, goalPercent(month.total, maxTotal))) : 0,
+      height,
     };
   });
   return `
@@ -4225,7 +4359,7 @@ function renderGoalsMonthlyPerformance(data, settings) {
           ${bars
             .map(
               (month) => `
-                <button class="goal-month-bar-button ${month.key === activeGoalsMonth ? "active" : ""} ${month.tone}" type="button" data-goal-month="${month.key}" aria-label="${escapeHtml(`${month.label}: ${calculatedCurrency(month.total)}`)}">
+                <button class="goal-month-bar-button ${month.key === activeGoalsMonth ? "active" : ""} ${month.tone}" type="button" data-goal-month="${month.key}" aria-label="${escapeHtml(privacyModeEnabled ? `${month.label}: valor ilustrativo` : `${month.label}: ${calculatedCurrency(month.total)}`)}">
                   <strong>${month.future ? "" : escapeHtml(formatCompactCurrency(month.total))}</strong>
                   <i class="goal-month-bar" style="--bar-height:${month.height}%"></i>
                 </button>
@@ -5521,7 +5655,9 @@ function renderUpdatesAside(allActivities) {
 }
 
 function renderUpdatesSideRow(row, total) {
-  const percentage = Math.max(0, Math.min(100, (row.value / Math.max(1, total)) * 100));
+  const percentage = privacyModeEnabled
+    ? privacyVisualPercent(`updates-summary:${row.label}`, 18, 88)
+    : Math.max(0, Math.min(100, (row.value / Math.max(1, total)) * 100));
   return `
     <div class="updates-summary-bar">
       <div>
