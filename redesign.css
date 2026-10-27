@@ -9048,6 +9048,7 @@ body.privacy-mode :is(
 
 .client-work-editor .dialog-header {
   align-items: flex-start;
+  flex-direction: row;
   padding: 18px 20px 15px;
   border-bottom-color: #ebebeb;
 }
@@ -9387,6 +9388,8 @@ body.privacy-mode :is(
 }
 
 .client-work-editor .dialog-footer {
+  align-items: center;
+  flex-direction: row;
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
@@ -9447,6 +9450,8 @@ body.privacy-mode :is(
   }
 
   .client-work-editor .dialog-footer {
+    align-items: center;
+    flex-direction: row;
     flex-wrap: wrap;
   }
 
@@ -9470,6 +9475,7 @@ body.privacy-mode :is(
   }
 
   .client-work-editor .dialog-footer button {
-    flex: 1;
+    min-width: 0;
+    flex: 1 1 calc(50% - 4px);
   }
 }
