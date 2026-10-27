@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=186" />
+    <link rel="stylesheet" href="./redesign.css?v=187" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -600,8 +600,8 @@
           <button class="tab-button active" type="button" data-tab="summaryTab">Resumo</button>
           <button class="tab-button" type="button" data-tab="clientTab">Cliente e obra</button>
           <button class="tab-button" type="button" data-tab="monthlyTab">Mensal</button>
-          <button class="tab-button" type="button" data-tab="tasksTab">Tarefas</button>
-          <button class="tab-button" type="button" data-tab="notesTab">Anotações</button>
+          <button class="tab-button" type="button" data-tab="tasksTab">Tarefas <span id="clientTasksTabCount" class="client-tab-count" hidden>0</span></button>
+          <button class="tab-button" type="button" data-tab="notesTab">Anotações <span id="clientNotesTabCount" class="client-tab-count" hidden>0</span></button>
           <button class="tab-button" type="button" data-tab="financeTab">Financeiro</button>
           <button class="tab-button" type="button" data-tab="historyTab">Histórico</button>
         </div>
@@ -843,21 +843,21 @@
         </section>
 
         <section id="tasksTab" class="tab-panel">
-          <div class="client-work-grid">
-            <section class="client-work-section">
-              <div class="mini-heading">
-                <h3>Tarefas</h3>
-                <button id="addTaskButton" class="small-button" type="button"><i data-lucide="plus"></i> Nova tarefa</button>
+          <div class="client-task-workspace">
+            <div class="client-task-toolbar">
+              <div id="clientTaskFilters" class="client-task-filters" role="group" aria-label="Filtrar tarefas e prazos">
+                <button class="client-task-filter active" type="button" data-client-work-filter="all" aria-pressed="true">Tudo <span data-client-work-count="all">0</span></button>
+                <button class="client-task-filter" type="button" data-client-work-filter="task" aria-pressed="false">Tarefas <span data-client-work-count="task">0</span></button>
+                <button class="client-task-filter" type="button" data-client-work-filter="deadline" aria-pressed="false">Prazos <span data-client-work-count="deadline">0</span></button>
+                <button class="client-task-filter" type="button" data-client-work-filter="done" aria-pressed="false">Concluídos <span data-client-work-count="done">0</span></button>
               </div>
-              <div id="tasksList" class="item-list"></div>
-            </section>
-            <section class="client-work-section">
-              <div class="mini-heading">
-                <h3>Prazos</h3>
-                <button id="addDeadlineButton" class="small-button" type="button"><i data-lucide="plus"></i> Novo prazo</button>
+              <div class="client-task-actions">
+                <button id="addDeadlineButton" class="small-button" type="button"><i data-lucide="timer"></i> Novo prazo</button>
+                <button id="addTaskButton" class="primary-button" type="button"><i data-lucide="plus"></i> Nova tarefa</button>
               </div>
-              <div id="deadlinesList" class="item-list"></div>
-            </section>
+            </div>
+            <div id="tasksList" class="client-task-groups"></div>
+            <div id="deadlinesList" hidden aria-hidden="true"></div>
           </div>
         </section>
 
@@ -1335,7 +1335,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=186"></script>
+    <script src="./app.js?v=187"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

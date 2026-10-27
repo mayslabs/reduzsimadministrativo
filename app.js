@@ -304,6 +304,7 @@ let activeRegularization = null;
 let activeClientQuickFilter = "active";
 let activeClientSortKey = "created";
 let activeClientSortDirection = "desc";
+let activeClientWorkFilter = "all";
 let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
@@ -507,6 +508,8 @@ const el = {
   clientDialogTitle: document.getElementById("clientDialogTitle"),
   clientDialogHeaderStatuses: document.getElementById("clientDialogHeaderStatuses"),
   clientDialogMeta: document.getElementById("clientDialogMeta"),
+  clientTasksTabCount: document.getElementById("clientTasksTabCount"),
+  clientNotesTabCount: document.getElementById("clientNotesTabCount"),
   clientDestinationSelection: document.getElementById("clientDestinationSelection"),
   clientDestinationToggle: document.getElementById("clientDestinationToggle"),
   clientDestinationMenu: document.getElementById("clientDestinationMenu"),
@@ -529,6 +532,7 @@ const el = {
   monthlyProgressList: document.getElementById("monthlyProgressList"),
   monthlyTable: document.querySelector("#monthlyTable tbody"),
   addTaskButton: document.getElementById("addTaskButton"),
+  clientTaskFilters: document.getElementById("clientTaskFilters"),
   tasksList: document.getElementById("tasksList"),
   addDeadlineButton: document.getElementById("addDeadlineButton"),
   deadlinesList: document.getElementById("deadlinesList"),
@@ -781,7 +785,9 @@ function migrateState(savedState = {}, persist = false) {
     commissionPaid: normalizeSelectValue(client.commissionPaid, ["Sim", "Não"]),
     monthly: Array.isArray(client.monthly) ? client.monthly.map(normalizeMonthRow) : [],
     tasks: Array.isArray(client.tasks) ? client.tasks.map((task) => normalizeClientTask(task, client, migrated.users[0]?.id || "")) : [],
-    deadlines: Array.isArray(client.deadlines) ? client.deadlines : [],
+    deadlines: Array.isArray(client.deadlines)
+      ? client.deadlines.map((deadline) => normalizeClientDeadline(deadline, client, migrated.users[0]?.id || ""))
+      : [],
     notes: Array.isArray(client.notes) ? client.notes : [],
     history: Array.isArray(client.history) ? client.history.map(normalizeHistoryEntry) : [],
     documents: Array.isArray(client.documents) ? client.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
@@ -1285,6 +1291,23 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
   };
 }
 
+function normalizeClientDeadline(deadline = {}, client = {}, fallbackUserId = "") {
+  return {
+    ...deadline,
+    id: deadline.id || id(),
+    title: deadline.title || "",
+    description: deadline.description || deadline.notes || "",
+    type: deadline.type || "Interno",
+    ownerId: deadline.ownerId || client.internalOwner || fallbackUserId,
+    date: deadline.date || "",
+    status: deadline.status || "Pendente",
+    createdBy: deadline.createdBy || client.internalOwner || fallbackUserId,
+    createdAt: deadline.createdAt || client.createdAt || new Date().toISOString(),
+    updatedAt: deadline.updatedAt || null,
+    completedAt: deadline.completedAt || null,
+  };
+}
+
 function normalizeWorkerMessages(client = {}, fallbackUserId = "") {
   if (Array.isArray(client.workerMessages) && client.workerMessages.length) {
     return client.workerMessages.map((message) => ({
@@ -1327,7 +1350,9 @@ function normalizeClientWorks(client = {}, fallbackUserId = "") {
     area: formatFieldValue("area", work.area || ""),
     monthly: Array.isArray(work.monthly) ? work.monthly.map(normalizeMonthRow) : [],
     tasks: Array.isArray(work.tasks) ? work.tasks.map((task) => normalizeClientTask(task, client, fallbackUserId)) : [],
-    deadlines: Array.isArray(work.deadlines) ? work.deadlines : [],
+    deadlines: Array.isArray(work.deadlines)
+      ? work.deadlines.map((deadline) => normalizeClientDeadline(deadline, client, fallbackUserId))
+      : [],
     documents: Array.isArray(work.documents) ? work.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
     workersNotes: work.workersNotes || "",
     workerMessages: Array.isArray(work.workerMessages) ? work.workerMessages : normalizeWorkerMessages(work, fallbackUserId),
@@ -1966,6 +1991,12 @@ function bindEvents() {
   });
   el.addDeadlineButton.addEventListener("click", () => {
     openClientDeadlineDialog();
+  });
+  el.clientTaskFilters?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-client-work-filter]");
+    if (!button) return;
+    activeClientWorkFilter = button.dataset.clientWorkFilter || "all";
+    renderTasks();
   });
   el.addNoteButton.addEventListener("click", addNote);
   el.addFinanceMessageButton.addEventListener("click", addFinanceMessage);
@@ -7328,14 +7359,17 @@ function taskCenterItems() {
     });
 
     const deadlines = (client.deadlines || []).map((deadline) => {
+      const completed = ["Concluída", "Concluído"].includes(localizeLabel(deadline.status || "Pendente"));
       const item = {
         id: deadline.id,
         source: "Administrativo",
         kind: "Prazo",
         title: deadline.title || "Prazo sem título",
+        description: deadline.description || deadline.notes || "",
         ownerId: deadline.ownerId,
         date: deadline.date || "",
-        status: deadline.type || "Prazo",
+        status: completed ? "Concluído" : deadline.type || "Prazo",
+        type: deadline.type || "Interno",
         priority: "Importante",
         clientId: client.id,
         clientName: client.clientName || "Cliente sem nome",
@@ -9645,6 +9679,7 @@ function openClientById(clientId) {
 
 function openClient(client) {
   activeClient = client;
+  activeClientWorkFilter = "all";
   visibleHistoryCount = 20;
   activeClient.documentType = documentTypeForClient(activeClient);
   activeClient.cpf = formatFieldValue("cpf", activeClient.cpf || "");
@@ -9664,7 +9699,6 @@ function openClient(client) {
   renderStatusPicker();
   renderMonthlyTable();
   renderTasks();
-  renderDeadlines();
   renderNotes();
   renderHistory();
   renderFinanceMessages();
@@ -10359,82 +10393,199 @@ function renderMonthlyProgressList(sourceRows = null) {
 }
 
 function renderTasks() {
-  el.tasksList.innerHTML = (activeClient.tasks || []).length
-    ? activeClient.tasks
-        .map(
-          (task) => {
-            const isDone = localizeLabel(task.status) === "Concluída";
-            return `
-            <div class="task-message ${isDone ? "done" : ""}" data-task="${task.id}">
-              <div class="task-message-body">
-                <p class="task-message-title">${escapeHtml(task.title || "Tarefa sem descrição")}</p>
-                ${task.description ? `<p class="task-message-description">${escapeHtml(task.description)}</p>` : ""}
-                ${task.followUpNotes ? `<p class="task-message-description"><strong>Anotação:</strong> ${escapeHtml(task.followUpNotes)}</p>` : ""}
-                <div class="task-message-meta">
-                  <span>Cadastrada por ${escapeHtml(ownerName(task.createdBy))}</span>
-                  <span>Responsável: ${escapeHtml(ownerName(task.ownerId))}</span>
-                  <span>${task.dueDate ? `Prazo: ${formatDate(task.dueDate)}` : "Sem prazo"}</span>
-                  <span>Prioridade: ${escapeHtml(normalizeTaskPriority(task.priority))}</span>
-                  <span>Status: ${escapeHtml(localizeLabel(task.status || "Pendente"))}</span>
-                </div>
-              </div>
-              <div class="task-message-actions">
-                <button class="small-button" type="button" data-edit-task="${task.id}"><i data-lucide="pencil"></i> Editar</button>
-                ${isDone ? "" : `<button class="icon-button" type="button" data-remove-task="${task.id}" aria-label="Remover tarefa"><i data-lucide="trash-2"></i></button>`}
-              </div>
-            </div>
-          `;
-          }
-        )
-        .join("")
-    : `<p class="empty-state">Nenhuma tarefa cadastrada.</p>`;
-  document.querySelectorAll("[data-edit-task]").forEach((button) => {
+  if (!el.tasksList || !activeClient) return;
+  const items = clientWorkItems(activeClient);
+  const openItems = items.filter((item) => !item.done);
+  const counts = {
+    all: openItems.length,
+    task: openItems.filter((item) => item.kind === "task").length,
+    deadline: openItems.filter((item) => item.kind === "deadline").length,
+    done: items.filter((item) => item.done).length,
+  };
+
+  el.clientTaskFilters?.querySelectorAll("[data-client-work-filter]").forEach((button) => {
+    const filter = button.dataset.clientWorkFilter;
+    const active = filter === activeClientWorkFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+    const count = button.querySelector("[data-client-work-count]");
+    if (count) count.textContent = String(counts[filter] || 0);
+  });
+
+  const filtered = activeClientWorkFilter === "done"
+    ? items.filter((item) => item.done)
+    : openItems.filter((item) => activeClientWorkFilter === "all" || item.kind === activeClientWorkFilter);
+  const groups = clientWorkGroups(filtered, activeClientWorkFilter === "done");
+  el.tasksList.innerHTML = groups.length
+    ? groups.map(renderClientWorkGroup).join("")
+    : `<div class="client-task-empty"><i data-lucide="list-checks"></i><strong>Nenhum item nesta visualização</strong><span>Use os botões acima para cadastrar uma tarefa ou prazo.</span></div>`;
+  if (el.deadlinesList) el.deadlinesList.innerHTML = "";
+
+  renderClientTabCounts();
+  bindClientWorkActions();
+  refreshIcons();
+}
+
+function clientWorkItems(client = {}) {
+  const tasks = (client.tasks || []).map((task) => ({
+    id: task.id,
+    kind: "task",
+    label: "Tarefa",
+    title: task.title || "Tarefa sem descrição",
+    description: task.description || "",
+    followUpNotes: task.followUpNotes || "",
+    ownerId: task.ownerId,
+    date: task.dueDate || "",
+    tag: normalizeTaskPriority(task.priority),
+    status: localizeLabel(task.status || "Pendente"),
+    done: ["Concluída", "Concluído"].includes(localizeLabel(task.status || "Pendente")),
+  }));
+  const deadlines = (client.deadlines || []).map((deadline) => ({
+    id: deadline.id,
+    kind: "deadline",
+    label: "Prazo",
+    title: deadline.title || "Prazo sem descrição",
+    description: deadline.description || deadline.notes || "",
+    followUpNotes: "",
+    ownerId: deadline.ownerId,
+    date: deadline.date || "",
+    tag: deadline.type || "Interno",
+    status: localizeLabel(deadline.status || "Pendente"),
+    done: ["Concluída", "Concluído"].includes(localizeLabel(deadline.status || "Pendente")),
+  }));
+  return [...tasks, ...deadlines];
+}
+
+function clientWorkGroups(items, completedOnly = false) {
+  const sortItems = (values) => [...values].sort((a, b) => (a.date || "9999-12-31").localeCompare(b.date || "9999-12-31") || a.title.localeCompare(b.title, "pt-BR"));
+  if (completedOnly) {
+    return items.length ? [{ key: "done", label: "Concluídos", items: sortItems(items) }] : [];
+  }
+  const today = localDateKey();
+  const weekEndDate = new Date();
+  weekEndDate.setDate(weekEndDate.getDate() + 7);
+  const weekEnd = localDateKey(weekEndDate);
+  return [
+    { key: "overdue", label: "Atrasados", items: sortItems(items.filter((item) => item.date && item.date < today)) },
+    { key: "soon", label: "Próximos 7 dias", items: sortItems(items.filter((item) => item.date && item.date >= today && item.date <= weekEnd)) },
+    { key: "later", label: "Mais adiante", items: sortItems(items.filter((item) => item.date && item.date > weekEnd)) },
+    { key: "no-date", label: "Sem data", items: sortItems(items.filter((item) => !item.date)) },
+  ].filter((group) => group.items.length);
+}
+
+function renderClientWorkGroup(group) {
+  return `
+    <section class="client-task-group group-${group.key}">
+      <header class="client-task-group-heading">
+        <span>${escapeHtml(group.label)}</span>
+        <b>${group.items.length}</b>
+        <i aria-hidden="true"></i>
+      </header>
+      <div class="client-task-group-list">${group.items.map(renderClientWorkCard).join("")}</div>
+    </section>
+  `;
+}
+
+function renderClientWorkCard(item) {
+  const overdue = !item.done && item.date && item.date < localDateKey();
+  const normalizedTag = normalize(item.tag);
+  const tagTone = item.kind === "deadline"
+    ? (normalizedTag === "interno" ? "soft" : "strong")
+    : normalizedTag.includes("urgent") ? "strong" : normalizedTag.includes("important") ? "soft" : "neutral";
+  return `
+    <article class="client-task-card ${overdue ? "overdue" : ""} ${item.done ? "done" : ""}" data-client-work-item="${escapeAttr(item.id)}" data-client-work-kind="${item.kind}">
+      ${clientWorkDateBadge(item.date, overdue)}
+      <div class="client-task-card-body">
+        <div class="client-task-card-labels">
+          <span class="client-task-kind">${escapeHtml(item.label)}</span>
+          <span class="client-task-tag tone-${tagTone}">${escapeHtml(item.tag)}</span>
+        </div>
+        <h4>${escapeHtml(item.title)}</h4>
+        ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
+        <div class="client-task-card-meta">
+          <span class="client-task-owner"><i>${escapeHtml(userInitials(ownerName(item.ownerId)))}</i>${escapeHtml(ownerName(item.ownerId))}</span>
+          <strong class="${overdue ? "overdue" : ""}">${escapeHtml(clientWorkDueText(item))}</strong>
+          ${item.followUpNotes ? `<span class="client-task-follow-up"><i data-lucide="message-square"></i>${escapeHtml(item.followUpNotes)}</span>` : ""}
+        </div>
+      </div>
+      <div class="client-task-card-actions">
+        <button class="client-task-complete" type="button" data-toggle-client-work="${escapeAttr(item.id)}" data-work-kind="${item.kind}">
+          <i data-lucide="${item.done ? "rotate-ccw" : "check"}"></i>${item.done ? "Reabrir" : "Concluir"}
+        </button>
+        <button class="icon-button" type="button" data-edit-${item.kind}="${escapeAttr(item.id)}" aria-label="Editar ${escapeAttr(item.label.toLowerCase())}"><i data-lucide="pencil"></i></button>
+        <button class="icon-button" type="button" data-remove-${item.kind}="${escapeAttr(item.id)}" aria-label="Remover ${escapeAttr(item.label.toLowerCase())}"><i data-lucide="trash-2"></i></button>
+      </div>
+    </article>
+  `;
+}
+
+function clientWorkDateBadge(dateValue, overdue = false) {
+  if (!dateValue) return `<span class="client-task-date-badge no-date"><strong>—</strong><small>S/ DATA</small></span>`;
+  return `<span class="client-task-date-badge ${overdue ? "overdue" : ""}"><strong>${escapeHtml(dateValue.slice(8, 10))}</strong><small>${escapeHtml(monthName(dateValue.slice(5, 7)).slice(0, 3).toUpperCase())}</small></span>`;
+}
+
+function clientWorkDueText(item) {
+  if (item.done) return "Concluído";
+  if (!item.date) return "Sem data definida";
+  const distance = taskDayDistance(item.date);
+  if (distance < 0) {
+    const days = Math.abs(distance);
+    return `Atrasado há ${days} ${days === 1 ? "dia" : "dias"}`;
+  }
+  if (distance === 0) return "Vence hoje";
+  if (distance === 1) return "Vence amanhã";
+  return `Vence em ${distance} dias`;
+}
+
+function renderClientTabCounts() {
+  if (!activeClient) return;
+  const openWorkCount = clientWorkItems(activeClient).filter((item) => !item.done).length;
+  const noteCount = (activeClient.notes || []).length;
+  if (el.clientTasksTabCount) {
+    el.clientTasksTabCount.textContent = String(openWorkCount);
+    el.clientTasksTabCount.hidden = openWorkCount === 0;
+  }
+  if (el.clientNotesTabCount) {
+    el.clientNotesTabCount.textContent = String(noteCount);
+    el.clientNotesTabCount.hidden = noteCount === 0;
+  }
+}
+
+function bindClientWorkActions() {
+  el.tasksList.querySelectorAll("[data-edit-task]").forEach((button) => {
     button.addEventListener("click", () => openClientTaskDialog(button.dataset.editTask));
   });
-  document.querySelectorAll("[data-remove-task]").forEach((button) => {
+  el.tasksList.querySelectorAll("[data-edit-deadline]").forEach((button) => {
+    button.addEventListener("click", () => openClientDeadlineDialog(button.dataset.editDeadline));
+  });
+  el.tasksList.querySelectorAll("[data-toggle-client-work]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const isTask = button.dataset.workKind === "task";
+      const records = isTask ? activeClient.tasks : activeClient.deadlines;
+      const record = records.find((item) => item.id === button.dataset.toggleClientWork);
+      if (!record) return;
+      const isDone = ["Concluída", "Concluído"].includes(localizeLabel(record.status || "Pendente"));
+      record.status = isDone ? "Pendente" : isTask ? "Concluída" : "Concluído";
+      record.completedAt = isDone ? null : new Date().toISOString();
+      record.updatedAt = new Date().toISOString();
+      renderTasks();
+      await persistActiveClient();
+    });
+  });
+  el.tasksList.querySelectorAll("[data-remove-task]").forEach((button) => {
     button.addEventListener("click", async () => {
       activeClient.tasks = activeClient.tasks.filter((task) => task.id !== button.dataset.removeTask);
       renderTasks();
       await persistActiveClient();
     });
   });
-  refreshIcons();
-}
-
-function renderDeadlines() {
-  el.deadlinesList.innerHTML = (activeClient.deadlines || []).length
-    ? activeClient.deadlines
-        .map(
-          (deadline) => `
-            <div class="task-message deadline-message" data-deadline="${deadline.id}">
-              <div class="task-message-body">
-                <p class="task-message-title">${escapeHtml(deadline.title || "Prazo sem descrição")}</p>
-                <div class="task-message-meta">
-                  <span>Tipo: ${escapeHtml(deadline.type || "Interno")}</span>
-                  <span>Responsável: ${escapeHtml(ownerName(deadline.ownerId))}</span>
-                  <span>${deadline.date ? `Data: ${formatDate(deadline.date)}` : "Sem data"}</span>
-                </div>
-              </div>
-              <div class="task-message-actions">
-                <button class="small-button" type="button" data-edit-deadline="${deadline.id}"><i data-lucide="pencil"></i> Editar</button>
-                <button class="icon-button" type="button" data-remove-deadline="${deadline.id}" aria-label="Remover prazo"><i data-lucide="trash-2"></i></button>
-              </div>
-            </div>
-          `
-        )
-        .join("")
-    : `<p class="empty-state">Nenhum prazo cadastrado.</p>`;
-  document.querySelectorAll("[data-edit-deadline]").forEach((button) => {
-    button.addEventListener("click", () => openClientDeadlineDialog(button.dataset.editDeadline));
-  });
-  document.querySelectorAll("[data-remove-deadline]").forEach((button) => {
+  el.tasksList.querySelectorAll("[data-remove-deadline]").forEach((button) => {
     button.addEventListener("click", async () => {
       activeClient.deadlines = activeClient.deadlines.filter((deadline) => deadline.id !== button.dataset.removeDeadline);
-      renderDeadlines();
+      renderTasks();
       await persistActiveClient();
     });
   });
-  refreshIcons();
 }
 
 function renderNotes() {
@@ -10486,6 +10637,7 @@ function renderNotes() {
       await persistActiveClient();
     });
   });
+  renderClientTabCounts();
   refreshIcons();
 }
 
@@ -11402,10 +11554,12 @@ function openClientDeadlineDialog(deadlineId = null) {
   const deadline = activeClient.deadlines.find((item) => item.id === deadlineId) || null;
   const draft = deadline || emptyDeadline();
   openSimpleDialog(deadline ? "Editar prazo" : "Novo prazo", [
-    { label: "Prazo", name: "title", type: "text", value: draft.title || "" },
+    { label: "Prazo", name: "title", type: "text", value: draft.title || "", span: 2 },
+    { label: "Descrição", name: "description", type: "textarea", rows: 3, value: draft.description || draft.notes || "", placeholder: "Detalhes, orientação ou contexto deste prazo...", span: 2 },
     { label: "Tipo", name: "type", type: "select", value: draft.type || "Interno", options: deadlineTypeValues().map((value) => ({ value, label: value })) },
     { label: "Data", name: "date", type: "date", value: draft.date || "" },
     { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "Status", name: "status", type: "select", value: draft.status || "Pendente", options: ["Pendente", "Concluído"].map((value) => ({ value, label: value })) },
   ], async (values) => {
     if (!values.title) {
       alert("Informe o nome do prazo.");
@@ -11414,9 +11568,12 @@ function openClientDeadlineDialog(deadlineId = null) {
 
     const payload = {
       title: values.title,
+      description: values.description || "",
       type: values.type || "Interno",
       date: values.date,
       ownerId: values.ownerId || currentUser.id,
+      status: values.status || "Pendente",
+      updatedAt: new Date().toISOString(),
     };
 
     if (deadline) {
@@ -11425,10 +11582,12 @@ function openClientDeadlineDialog(deadlineId = null) {
       activeClient.deadlines.push({
         ...draft,
         ...payload,
+        createdBy: currentUser.id,
+        createdAt: new Date().toISOString(),
       });
     }
 
-    renderDeadlines();
+    renderTasks();
     return persistActiveClient();
   });
 }
@@ -11965,7 +12124,19 @@ function emptyTask() {
 }
 
 function emptyDeadline() {
-  return { id: id(), title: "", type: "Interno", ownerId: currentUser.id, date: "" };
+  return {
+    id: id(),
+    title: "",
+    description: "",
+    type: "Interno",
+    ownerId: currentUser.id,
+    date: "",
+    status: "Pendente",
+    createdBy: currentUser.id,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+    completedAt: null,
+  };
 }
 
 function emptyDocument() {

@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=186/);
+  assert.match(indexHtml, /redesign\.css\?v=187/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=186/);
+  assert.match(indexHtml, /app\.js\?v=187/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -83,6 +83,20 @@ test("client dialog combines tasks and deadlines and ends with history", () => {
   assert.match(appJs, /workerMessages:\s*normalizeWorkerMessages/);
   assert.match(redesignCss, /#clientDialog \.destination-field input\[type="checkbox"\][\s\S]*min-height:\s*16px/);
   assert.match(redesignCss, /\.client-work-grid[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+});
+
+test("client task tab uses grouped filters and compact work cards", () => {
+  assert.match(indexHtml, /id="clientTaskFilters"[\s\S]*data-client-work-filter="all"[\s\S]*data-client-work-filter="task"[\s\S]*data-client-work-filter="deadline"[\s\S]*data-client-work-filter="done"/);
+  assert.match(indexHtml, /id="addDeadlineButton"[\s\S]*Novo prazo[\s\S]*id="addTaskButton"[\s\S]*Nova tarefa/);
+  assert.match(appJs, /let activeClientWorkFilter = "all"/);
+  assert.match(appJs, /Atrasados[\s\S]*Próximos 7 dias[\s\S]*Mais adiante[\s\S]*Sem data/);
+  assert.match(appJs, /function renderClientWorkCard/);
+  assert.match(appJs, /data-toggle-client-work/);
+  assert.match(appJs, /record\.status = isDone \? "Pendente" : isTask \? "Concluída" : "Concluído"/);
+  assert.match(appJs, /description: values\.description \|\| ""/);
+  assert.match(redesignCss, /\.client-task-workspace/);
+  assert.match(redesignCss, /\.client-task-card\.overdue/);
+  assert.match(redesignCss, /\.client-task-date-badge/);
 });
 
 test("client summary exposes pending work in the redesigned dialog", () => {
