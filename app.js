@@ -22,6 +22,7 @@ const DEFAULT_GOAL_SETTINGS = {
 const BILL_YEAR = "2026";
 const DEFAULT_BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
 const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
+const MONTHLY_BOOLEAN_FIELDS = ["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"];
 const MARKETING_CHANNELS = ["Instagram", "Facebook", "LinkedIn", "Site", "YouTube", "TikTok", "Outro"];
 const MARKETING_FORMATS = ["Reels", "Carrossel", "Post", "Stories", "Vídeo", "Artigo", "Outro"];
 const MARKETING_OBJECTIVES = ["Educar", "Vender", "Informar", "Autoridade"];
@@ -1942,6 +1943,9 @@ function bindEvents() {
   el.addMonthButton.addEventListener("click", () => {
     activeClient.monthly.push(emptyMonth());
     renderMonthlyTable();
+  });
+  document.querySelectorAll("[data-month-toggle-all]").forEach((input) => {
+    input.addEventListener("change", () => setAllMonthlyField(input.dataset.monthToggleAll, input.checked));
   });
   el.addTaskButton.addEventListener("click", () => {
     openClientTaskDialog();
@@ -9960,7 +9964,7 @@ function renderMonthlyTable() {
       (row) => `
         <tr data-month-row="${row.id}">
           <td><input type="month" value="${row.month || ""}" data-month-field="month" /></td>
-          ${["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"]
+          ${MONTHLY_BOOLEAN_FIELDS
             .map((field) => `<td><input type="checkbox" ${row[field] ? "checked" : ""} data-month-field="${field}" /></td>`)
             .join("")}
           <td><input type="text" value="${escapeAttr(row.notes || "")}" data-month-field="notes" /></td>
@@ -9977,8 +9981,34 @@ function renderMonthlyTable() {
       });
       input.addEventListener("change", () => {
         row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
+        if (input.type === "checkbox") syncMonthlyBulkToggles();
       });
     });
+  });
+  syncMonthlyBulkToggles();
+}
+
+function setAllMonthlyField(field, checked) {
+  if (!activeClient || !MONTHLY_BOOLEAN_FIELDS.includes(field)) return;
+  (activeClient.monthly || []).forEach((row) => {
+    row[field] = Boolean(checked);
+  });
+  renderMonthlyTable();
+}
+
+function syncMonthlyBulkToggles() {
+  const rows = activeClient?.monthly || [];
+  const labels = monthlyFieldLabels();
+  document.querySelectorAll("[data-month-toggle-all]").forEach((input) => {
+    const field = input.dataset.monthToggleAll;
+    const checkedCount = rows.filter((row) => row[field]).length;
+    const allChecked = rows.length > 0 && checkedCount === rows.length;
+    const partiallyChecked = checkedCount > 0 && checkedCount < rows.length;
+    input.disabled = rows.length === 0;
+    input.checked = allChecked;
+    input.indeterminate = partiallyChecked;
+    input.setAttribute("aria-label", `${allChecked ? "Desmarcar" : "Marcar"} ${labels[field] || "etapa"} em todos os meses`);
+    input.closest(".monthly-bulk-toggle")?.classList.toggle("is-partial", partiallyChecked);
   });
 }
 
@@ -10596,7 +10626,7 @@ function monthlyActivityDetail(row = {}, previousRow = null) {
   const labels = monthlyFieldLabels();
   const monthLabel = row.month ? `Competência ${row.month}` : "Competência sem data";
   if (!previousRow) {
-    const marked = ["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"]
+    const marked = MONTHLY_BOOLEAN_FIELDS
       .filter((field) => row[field])
       .map((field) => labels[field]);
     return [monthLabel, marked.length ? `Marcado: ${marked.join(", ")}.` : "Nenhuma coluna marcada."].join("\n");
@@ -10610,7 +10640,7 @@ function monthlyActivityDetail(row = {}, previousRow = null) {
 }
 
 function monthlyFieldValue(value, field) {
-  if (["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"].includes(field)) {
+  if (MONTHLY_BOOLEAN_FIELDS.includes(field)) {
     return value ? "marcado" : "desmarcado";
   }
   if (field === "month") return value || "sem competência";

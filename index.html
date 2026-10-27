@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=177" />
+    <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
     <link rel="stylesheet" href="./redesign.css?v=176" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -727,12 +727,60 @@
               <thead>
                 <tr>
                   <th>Competência</th>
-                  <th>Recibo enviado</th>
-                  <th>Recibo assinado</th>
-                  <th>Remuneração enviada</th>
-                  <th>Guia emitida</th>
-                  <th>Guia enviada</th>
-                  <th>Guia paga</th>
+                  <th>
+                    <span class="monthly-column-heading">
+                      <span>Recibo enviado</span>
+                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
+                        <input type="checkbox" data-month-toggle-all="receiptSent" aria-label="Marcar Recibo enviado em todos os meses" />
+                        <span>Todos</span>
+                      </label>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="monthly-column-heading">
+                      <span>Recibo assinado</span>
+                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
+                        <input type="checkbox" data-month-toggle-all="receiptSigned" aria-label="Marcar Recibo assinado em todos os meses" />
+                        <span>Todos</span>
+                      </label>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="monthly-column-heading">
+                      <span>Remuneração enviada</span>
+                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
+                        <input type="checkbox" data-month-toggle-all="remunerationSent" aria-label="Marcar Remuneração enviada em todos os meses" />
+                        <span>Todos</span>
+                      </label>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="monthly-column-heading">
+                      <span>Guia emitida</span>
+                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
+                        <input type="checkbox" data-month-toggle-all="guideIssued" aria-label="Marcar Guia emitida em todos os meses" />
+                        <span>Todos</span>
+                      </label>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="monthly-column-heading">
+                      <span>Guia enviada</span>
+                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
+                        <input type="checkbox" data-month-toggle-all="guideSent" aria-label="Marcar Guia enviada em todos os meses" />
+                        <span>Todos</span>
+                      </label>
+                    </span>
+                  </th>
+                  <th>
+                    <span class="monthly-column-heading">
+                      <span>Guia paga</span>
+                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
+                        <input type="checkbox" data-month-toggle-all="guidePaid" aria-label="Marcar Guia paga em todos os meses" />
+                        <span>Todos</span>
+                      </label>
+                    </span>
+                  </th>
                   <th>Obs.</th>
                 </tr>
               </thead>
@@ -1234,7 +1282,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=178"></script>
+    <script src="./app.js?v=179"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

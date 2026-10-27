@@ -9,7 +9,7 @@ const [indexHtml, appJs, stylesCss] = await Promise.all([
 ]);
 
 test("presentation privacy starts disabled and has a global toggle", () => {
-  assert.match(indexHtml, /styles\.css\?v=177/);
+  assert.match(indexHtml, /styles\.css\?v=179/);
   assert.match(indexHtml, /id="privacyToggleButton"/);
   assert.match(indexHtml, /aria-pressed="false"/);
   assert.match(indexHtml, /id="privacyToggleLabel">Dados visíveis/);

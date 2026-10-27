@@ -6089,6 +6089,46 @@ button.updates-important-item:hover {
   accent-color: var(--green);
 }
 
+#monthlyTable th:nth-child(n + 2):nth-child(-n + 7),
+#monthlyTable td:nth-child(n + 2):nth-child(-n + 7) {
+  text-align: center;
+}
+
+.monthly-column-heading {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  line-height: 1.25;
+}
+
+.monthly-bulk-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--green-dark);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.monthly-bulk-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.monthly-bulk-toggle.is-partial {
+  color: var(--green);
+}
+
+.monthly-bulk-toggle:has(input:disabled) {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .item-list,
 .timeline-list,
 .manager-list {
