@@ -9022,3 +9022,454 @@ body.privacy-mode :is(
     display: none;
   }
 }
+
+/* Client task and deadline editors */
+.client-work-editor {
+  width: min(560px, calc(100vw - 24px));
+  max-width: 560px;
+  max-height: min(720px, calc(100vh - 24px));
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 22px 64px rgba(4, 33, 28, 0.24);
+}
+
+.client-deadline-editor {
+  width: min(520px, calc(100vw - 24px));
+  max-width: 520px;
+}
+
+.client-work-editor .simple-form {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: min(720px, calc(100vh - 24px));
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.client-work-editor .dialog-header {
+  align-items: flex-start;
+  padding: 18px 20px 15px;
+  border-bottom-color: #ebebeb;
+}
+
+.client-work-editor .dialog-header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.client-work-editor .dialog-header h2 {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--green-dark);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.client-editor-title-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  color: #ffffff;
+  background: var(--green-dark);
+}
+
+.client-editor-title-icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.8;
+}
+
+.client-work-editor #simpleDialogSubtitle {
+  margin: -7px 0 0 46px;
+  overflow: hidden;
+  color: #8a8a8a;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.client-work-editor .dialog-header > .icon-button {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  flex: 0 0 auto;
+  border: 0;
+  color: #686868;
+}
+
+.client-work-editor .dialog-header > .icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.client-work-editor .client-editor-body {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  padding: 18px 20px;
+  overflow-y: auto;
+  scrollbar-color: #8f9693 transparent;
+}
+
+.client-editor-intro {
+  display: grid;
+  gap: 5px;
+}
+
+.client-editor-intro .client-editor-title-input,
+.client-editor-intro .client-editor-description-input {
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+  box-shadow: none;
+}
+
+.client-editor-intro .client-editor-title-input {
+  height: 30px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.client-editor-intro .client-editor-description-input {
+  min-height: 38px;
+  resize: vertical;
+  color: #6e6e6e;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.client-editor-intro :is(input, textarea)::placeholder {
+  color: #8d8d8d;
+  opacity: 1;
+}
+
+.client-editor-intro :is(input, textarea):focus-visible {
+  box-shadow: inset 0 -2px 0 var(--green);
+}
+
+.client-deadline-types {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.client-deadline-type {
+  display: grid;
+  min-width: 0;
+  min-height: 78px;
+  padding: 11px 10px;
+  align-content: start;
+  gap: 3px;
+  border: 1px solid #dedede;
+  border-radius: 10px;
+  color: #343434;
+  background: #ffffff;
+  text-align: left;
+}
+
+.client-deadline-type strong {
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.client-deadline-type small {
+  color: #8a8a8a;
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.client-deadline-type:hover,
+.client-deadline-type:focus-visible {
+  border-color: #78c8b5;
+}
+
+.client-deadline-type.active {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: #eaf7f3;
+}
+
+.client-deadline-type.active small {
+  color: var(--green);
+}
+
+.client-editor-settings {
+  display: grid;
+  gap: 11px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f3f3f3;
+}
+
+.client-editor-setting-row {
+  display: grid;
+  grid-template-columns: 122px minmax(0, 1fr);
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.client-editor-setting-label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: #707070;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.client-editor-setting-label svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: #858585;
+  stroke-width: 1.7;
+}
+
+.client-editor-setting-control {
+  min-width: 0;
+}
+
+.client-editor-setting-control > input[type="hidden"] {
+  display: none;
+}
+
+.client-editor-choices,
+.client-editor-date-control,
+.client-editor-date-shortcuts {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.client-editor-choice,
+.client-editor-date-shortcuts button {
+  display: inline-flex;
+  min-height: 30px;
+  padding: 5px 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #dedede;
+  border-radius: 999px;
+  color: #373737;
+  background: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.client-editor-choice:hover,
+.client-editor-choice:focus-visible,
+.client-editor-date-shortcuts button:hover,
+.client-editor-date-shortcuts button:focus-visible {
+  border-color: #8bcfbe;
+  color: var(--green-dark);
+}
+
+.client-editor-choice.active {
+  border-color: var(--green-dark);
+  color: #ffffff;
+  background: var(--green-dark);
+}
+
+.client-editor-choices.owner .client-editor-choice {
+  padding: 3px 10px 3px 4px;
+}
+
+.client-editor-choices.owner .client-editor-choice i {
+  display: inline-flex;
+  width: 23px;
+  height: 23px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.client-editor-choices.owner .client-editor-choice.active {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: #e5f4f0;
+}
+
+.client-editor-date-control {
+  flex-wrap: nowrap;
+}
+
+.client-editor-date-control > input[type="date"] {
+  width: 140px;
+  min-width: 132px;
+  min-height: 34px;
+  height: 34px;
+  padding: 5px 9px;
+  border-color: #dedede;
+  border-radius: 8px;
+  color: #444444;
+  background: #ffffff;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.client-editor-date-shortcuts {
+  flex: 1;
+}
+
+.client-editor-date-shortcuts button {
+  padding-inline: 9px;
+  border-color: transparent;
+  color: var(--green-dark);
+}
+
+.client-editor-notes-toggle {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 30px;
+  padding: 0;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.client-editor-notes-toggle svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 160ms ease;
+}
+
+.client-editor-notes-toggle[aria-expanded="true"] svg {
+  transform: rotate(45deg);
+}
+
+.client-editor-notes textarea {
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  color: #444444;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.client-editor-notes[hidden] {
+  display: none;
+}
+
+.client-work-editor .dialog-footer {
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top-color: #ebebeb;
+}
+
+.simple-dialog-footer-note {
+  min-width: 0;
+  margin-right: auto;
+  overflow: hidden;
+  color: #919191;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.simple-dialog-footer-note[hidden] {
+  display: none;
+}
+
+.client-work-editor .dialog-footer button {
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .client-work-editor,
+  .client-deadline-editor {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .client-work-editor .simple-form {
+    max-height: calc(100vh - 16px);
+  }
+
+  .client-work-editor .dialog-header,
+  .client-work-editor .client-editor-body {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .client-editor-setting-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .client-editor-date-control {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .client-editor-date-control > input[type="date"] {
+    width: 100%;
+  }
+
+  .client-work-editor .dialog-footer {
+    flex-wrap: wrap;
+  }
+
+  .client-work-editor .simple-dialog-footer-note {
+    width: 100%;
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .client-deadline-types {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .client-deadline-type {
+    min-height: 0;
+  }
+
+  .client-work-editor #simpleDialogSubtitle {
+    max-width: calc(100vw - 118px);
+  }
+
+  .client-work-editor .dialog-footer button {
+    flex: 1;
+  }
+}

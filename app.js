@@ -612,6 +612,7 @@ const el = {
   simpleDialogTitle: document.getElementById("simpleDialogTitle"),
   simpleDialogSubtitle: document.getElementById("simpleDialogSubtitle"),
   simpleDialogBody: document.getElementById("simpleDialogBody"),
+  simpleDialogFooterNote: document.getElementById("simpleDialogFooterNote"),
   simpleDialogSave: document.getElementById("simpleDialogSave"),
 };
 
@@ -1301,6 +1302,7 @@ function normalizeClientDeadline(deadline = {}, client = {}, fallbackUserId = ""
     ownerId: deadline.ownerId || client.internalOwner || fallbackUserId,
     date: deadline.date || "",
     status: deadline.status || "Pendente",
+    reminderDays: deadline.reminderDays ?? "",
     createdBy: deadline.createdBy || client.internalOwner || fallbackUserId,
     createdAt: deadline.createdAt || client.createdAt || new Date().toISOString(),
     updatedAt: deadline.updatedAt || null,
@@ -10449,7 +10451,7 @@ function clientWorkItems(client = {}) {
     followUpNotes: "",
     ownerId: deadline.ownerId,
     date: deadline.date || "",
-    tag: deadline.type || "Interno",
+    tag: deadline.type === "Receita" ? "Receita Federal" : deadline.type || "Interno",
     status: localizeLabel(deadline.status || "Pendente"),
     done: ["Concluída", "Concluído"].includes(localizeLabel(deadline.status || "Pendente")),
   }));
@@ -11498,20 +11500,22 @@ function openUserDialog() {
 function openClientTaskDialog(taskId = null) {
   const task = activeClient.tasks.find((item) => item.id === taskId) || null;
   const draft = task || emptyTask();
-  const userOptions = state.users.map((user) => ({ value: user.id, label: user.name }));
-  openSimpleDialog(task ? "Editar tarefa" : "Nova tarefa", [
-    { label: "1. Informações principais", type: "section" },
-    { label: "Tarefa", name: "title", type: "text", value: draft.title || "", placeholder: "Ex.: Revisar contrato de prestação de serviço", span: 2 },
-    { label: "Descrição", name: "description", type: "textarea", rows: 4, value: draft.description || "", placeholder: "Descreva o objetivo, contexto e detalhes da tarefa...", maxLength: 1000, span: 2 },
-    { label: "2. Acompanhamento", type: "section" },
-    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 3, value: draft.followUpNotes || "", placeholder: "Registre observações, atualizações ou próximos passos...", maxLength: 1000, span: 2 },
-    { label: "3. Responsáveis e prazo", type: "section" },
-    { label: "Criada por", name: "createdByLabel", type: "readonly", value: ownerName(draft.createdBy || currentUser.id) },
-    { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: userOptions },
-    { label: "Prazo", name: "dueDate", type: "date", value: draft.dueDate || "" },
-    { label: "Prioridade", name: "priority", type: "select", value: normalizeTaskPriority(draft.priority), options: taskPriorityValues().map((value) => ({ value, label: value })) },
-    { label: "Status", name: "status", type: "select", value: draft.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
-  ], (values) => {
+  const statusChoices = [
+    { value: "Pendente", label: "Pendente" },
+    { value: "Em andamento", label: "Em andamento" },
+    { value: "Aguardando cliente", label: "Aguardando" },
+  ];
+  if (draft.status === "Aguardando terceiro") {
+    statusChoices.push({ value: "Aguardando terceiro", label: "Aguardando terceiro" });
+  }
+  openClientWorkEditor({
+    kind: "task",
+    title: task ? "Editar tarefa" : "Nova tarefa",
+    icon: "list-checks",
+    saveLabel: task ? "Salvar tarefa" : "Criar tarefa",
+    footerNote: `Criada por ${ownerName(draft.createdBy || currentUser.id)}`,
+    body: renderClientTaskEditorBody(draft, statusChoices),
+    onSave: (values) => {
     if (!values.title) {
       alert("Informe o nome da tarefa.");
       return false;
@@ -11542,25 +11546,22 @@ function openClientTaskDialog(taskId = null) {
 
     renderTasks();
     return persistActiveClient();
-  }, {
-    className: "task-form-dialog",
-    subtitle: "Organize demandas do cliente e acompanhe prazos.",
-    saveLabel: "Salvar tarefa",
-    saveIcon: "save",
+    },
   });
 }
 
 function openClientDeadlineDialog(deadlineId = null) {
   const deadline = activeClient.deadlines.find((item) => item.id === deadlineId) || null;
   const draft = deadline || emptyDeadline();
-  openSimpleDialog(deadline ? "Editar prazo" : "Novo prazo", [
-    { label: "Prazo", name: "title", type: "text", value: draft.title || "", span: 2 },
-    { label: "Descrição", name: "description", type: "textarea", rows: 3, value: draft.description || draft.notes || "", placeholder: "Detalhes, orientação ou contexto deste prazo...", span: 2 },
-    { label: "Tipo", name: "type", type: "select", value: draft.type || "Interno", options: deadlineTypeValues().map((value) => ({ value, label: value })) },
-    { label: "Data", name: "date", type: "date", value: draft.date || "" },
-    { label: "Responsável", name: "ownerId", type: "select", value: draft.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
-    { label: "Status", name: "status", type: "select", value: draft.status || "Pendente", options: ["Pendente", "Concluído"].map((value) => ({ value, label: value })) },
-  ], async (values) => {
+  openClientWorkEditor({
+    kind: "deadline",
+    title: deadline ? "Editar prazo" : "Novo prazo",
+    icon: "timer",
+    saveLabel: "Salvar prazo",
+    footerNote: clientDeadlineFooterNote(draft.date),
+    updateFooterOnDate: true,
+    body: renderClientDeadlineEditorBody(draft, Boolean(deadline)),
+    onSave: async (values) => {
     if (!values.title) {
       alert("Informe o nome do prazo.");
       return false;
@@ -11572,7 +11573,8 @@ function openClientDeadlineDialog(deadlineId = null) {
       type: values.type || "Interno",
       date: values.date,
       ownerId: values.ownerId || currentUser.id,
-      status: values.status || "Pendente",
+      status: draft.status || "Pendente",
+      reminderDays: values.reminderDays || "",
       updatedAt: new Date().toISOString(),
     };
 
@@ -11589,7 +11591,184 @@ function openClientDeadlineDialog(deadlineId = null) {
 
     renderTasks();
     return persistActiveClient();
+    },
   });
+}
+
+function openClientWorkEditor({ kind, title, icon, saveLabel, footerNote, body, onSave, updateFooterOnDate = false }) {
+  el.simpleDialog.className = `simple-dialog client-work-editor client-${kind}-editor`;
+  el.simpleDialogTitle.innerHTML = `<span class="client-editor-title-icon"><i data-lucide="${icon}"></i></span><span>${escapeHtml(title)}</span>`;
+  el.simpleDialogSubtitle.textContent = clientWorkEditorSubtitle();
+  el.simpleDialogSubtitle.hidden = false;
+  el.simpleDialogBody.className = "client-editor-body";
+  el.simpleDialogBody.innerHTML = body;
+  el.simpleDialogFooterNote.textContent = footerNote || "";
+  el.simpleDialogFooterNote.hidden = !footerNote;
+  el.simpleDialogSave.textContent = saveLabel;
+  el.simpleDialogSave.disabled = false;
+  el.simpleDialogSave.onclick = async () => {
+    const values = {};
+    el.simpleDialogBody.querySelectorAll("[data-client-editor-field]").forEach((input) => {
+      values[input.dataset.clientEditorField] = input.value.trim();
+    });
+    el.simpleDialogSave.disabled = true;
+    try {
+      const shouldClose = await onSave(values);
+      if (shouldClose !== false) el.simpleDialog.close();
+    } catch (error) {
+      console.error(error);
+      showSyncError(error);
+    } finally {
+      el.simpleDialogSave.disabled = false;
+    }
+  };
+  bindClientWorkEditorInteractions({ updateFooterOnDate });
+  el.simpleDialog.showModal();
+  el.simpleDialogBody.querySelector("[data-client-editor-field='title']")?.focus();
+  refreshIcons();
+}
+
+function clientWorkEditorSubtitle() {
+  const client = compactClientDisplayName(activeClient?.clientName) || "Cliente";
+  const work = activeClient?.workTitle || "Obra principal";
+  return `${client} · ${work}`;
+}
+
+function renderClientTaskEditorBody(draft, statusChoices) {
+  return `
+    <div class="client-editor-intro">
+      <input class="client-editor-title-input" type="text" value="${escapeAttr(draft.title || "")}" placeholder="O que precisa ser feito?" aria-label="Tarefa" data-client-editor-field="title" />
+      <textarea class="client-editor-description-input" rows="2" maxlength="1000" placeholder="Adicionar descrição, objetivo ou contexto" aria-label="Descrição da tarefa" data-client-editor-field="description">${escapeHtml(draft.description || "")}</textarea>
+    </div>
+    <div class="client-editor-settings">
+      ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", state.users.map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
+      ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate || "")}
+      ${clientEditorSettingRow("flag", "Prioridade", clientEditorChoiceButtons("priority", taskPriorityValues().map((value) => ({ value, label: value })), normalizeTaskPriority(draft.priority)))}
+      ${clientEditorSettingRow("clock-3", "Status", clientEditorChoiceButtons("status", statusChoices, draft.status || "Pendente"))}
+    </div>
+    <button class="client-editor-notes-toggle" type="button" data-toggle-client-editor-notes aria-expanded="${Boolean(draft.followUpNotes)}">
+      <i data-lucide="plus"></i> Anotação de acompanhamento
+    </button>
+    <div class="client-editor-notes" ${draft.followUpNotes ? "" : "hidden"}>
+      <textarea rows="3" maxlength="1000" placeholder="Registre observações, atualizações ou próximos passos..." data-client-editor-field="followUpNotes">${escapeHtml(draft.followUpNotes || "")}</textarea>
+    </div>
+  `;
+}
+
+function renderClientDeadlineEditorBody(draft, editing = false) {
+  const selectedType = draft.type || "Interno";
+  const typeOptions = [
+    { value: "Interno", label: "Interno", hint: "Rotina do escritório" },
+    { value: "Receita", label: "Receita Federal", hint: "Prazo legal ou fiscal" },
+    { value: "Cliente", label: "Cliente", hint: "Combinado com o cliente" },
+  ];
+  if (editing && !typeOptions.some((option) => option.value === selectedType)) {
+    typeOptions.push({ value: selectedType, label: selectedType, hint: "Categoria atual" });
+  }
+  const reminder = String(draft.reminderDays ?? (editing ? "" : "3"));
+  return `
+    <div class="client-editor-intro">
+      <input class="client-editor-title-input" type="text" value="${escapeAttr(draft.title || "")}" placeholder="Qual é o prazo?" aria-label="Prazo" data-client-editor-field="title" />
+      <textarea class="client-editor-description-input" rows="2" maxlength="1000" placeholder="Adicionar descrição: o que precisa ser entregue e por quê" aria-label="Descrição do prazo" data-client-editor-field="description">${escapeHtml(draft.description || draft.notes || "")}</textarea>
+    </div>
+    <input type="hidden" value="${escapeAttr(selectedType)}" data-client-editor-field="type" />
+    <div class="client-deadline-types" role="group" aria-label="Tipo de prazo">
+      ${typeOptions.map((option) => `
+        <button class="client-deadline-type ${option.value === selectedType ? "active" : ""}" type="button" data-editor-choice-field="type" data-editor-choice-value="${escapeAttr(option.value)}" aria-pressed="${option.value === selectedType}">
+          <strong>${escapeHtml(option.label)}</strong><small>${escapeHtml(option.hint)}</small>
+        </button>
+      `).join("")}
+    </div>
+    <div class="client-editor-settings">
+      ${clientEditorDateRow("Data", "date", draft.date || "")}
+      ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", state.users.map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
+      ${clientEditorSettingRow("bell", "Lembrete", clientEditorChoiceButtons("reminderDays", [
+        { value: "", label: "Sem lembrete" },
+        { value: "1", label: "1 dia antes" },
+        { value: "3", label: "3 dias antes" },
+        { value: "7", label: "7 dias antes" },
+      ], reminder))}
+    </div>
+  `;
+}
+
+function clientEditorSettingRow(icon, label, control) {
+  return `
+    <div class="client-editor-setting-row">
+      <span class="client-editor-setting-label"><i data-lucide="${icon}"></i>${escapeHtml(label)}</span>
+      <div class="client-editor-setting-control">${control}</div>
+    </div>
+  `;
+}
+
+function clientEditorDateRow(label, field, value) {
+  return clientEditorSettingRow("calendar-days", label, `
+    <div class="client-editor-date-control">
+      <input type="date" value="${escapeAttr(value)}" data-client-editor-field="${field}" data-client-editor-date />
+      <div class="client-editor-date-shortcuts">
+        <button type="button" data-editor-date-offset="0">Hoje</button>
+        <button type="button" data-editor-date-offset="1">Amanhã</button>
+        <button type="button" data-editor-date-offset="7">+7 dias</button>
+      </div>
+    </div>
+  `);
+}
+
+function clientEditorChoiceButtons(field, options, selectedValue, className = "") {
+  const selected = String(selectedValue ?? "");
+  return `
+    <input type="hidden" value="${escapeAttr(selected)}" data-client-editor-field="${field}" />
+    <div class="client-editor-choices ${className}" role="group" aria-label="${escapeAttr(field)}">
+      ${options.map((option) => `
+        <button class="client-editor-choice ${String(option.value) === selected ? "active" : ""}" type="button" data-editor-choice-field="${field}" data-editor-choice-value="${escapeAttr(option.value)}" aria-pressed="${String(option.value) === selected}">
+          ${option.avatar ? `<i>${escapeHtml(option.avatar)}</i>` : ""}<span>${escapeHtml(option.label)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function bindClientWorkEditorInteractions({ updateFooterOnDate = false } = {}) {
+  el.simpleDialogBody.querySelectorAll("[data-editor-choice-field]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const field = button.dataset.editorChoiceField;
+      const input = el.simpleDialogBody.querySelector(`[data-client-editor-field="${field}"]`);
+      if (input) input.value = button.dataset.editorChoiceValue || "";
+      el.simpleDialogBody.querySelectorAll(`[data-editor-choice-field="${field}"]`).forEach((choice) => {
+        const active = choice === button;
+        choice.classList.toggle("active", active);
+        choice.setAttribute("aria-pressed", String(active));
+      });
+    });
+  });
+  const dateInput = el.simpleDialogBody.querySelector("[data-client-editor-date]");
+  el.simpleDialogBody.querySelectorAll("[data-editor-date-offset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const date = new Date();
+      date.setDate(date.getDate() + Number(button.dataset.editorDateOffset || 0));
+      if (dateInput) dateInput.value = localDateKey(date);
+      if (updateFooterOnDate && el.simpleDialogFooterNote) {
+        el.simpleDialogFooterNote.textContent = clientDeadlineFooterNote(dateInput?.value || "");
+      }
+    });
+  });
+  dateInput?.addEventListener("change", () => {
+    if (updateFooterOnDate && el.simpleDialogFooterNote) {
+      el.simpleDialogFooterNote.textContent = clientDeadlineFooterNote(dateInput.value);
+    }
+  });
+  const notesToggle = el.simpleDialogBody.querySelector("[data-toggle-client-editor-notes]");
+  notesToggle?.addEventListener("click", () => {
+    const notes = el.simpleDialogBody.querySelector(".client-editor-notes");
+    const expanded = Boolean(notes?.hidden);
+    if (notes) notes.hidden = !expanded;
+    notesToggle.setAttribute("aria-expanded", String(expanded));
+    if (expanded) notes?.querySelector("textarea")?.focus();
+  });
+}
+
+function clientDeadlineFooterNote(dateValue) {
+  return dateValue ? `Data definida: ${formatDate(dateValue)}` : "Sem data definida";
 }
 
 function openQuickInternalTaskDialog() {
@@ -11817,11 +11996,17 @@ function openMeetingDialog(meetingId = null) {
 function openSimpleDialog(title, fields, onSave, options = {}) {
   el.simpleDialog.className = `simple-dialog ${options.className || ""}`.trim();
   el.simpleDialogTitle.textContent = title;
+  el.simpleDialogBody.className = "field-stack";
+  if (el.simpleDialogFooterNote) {
+    el.simpleDialogFooterNote.textContent = "";
+    el.simpleDialogFooterNote.hidden = true;
+  }
   if (el.simpleDialogSubtitle) {
     el.simpleDialogSubtitle.textContent = options.subtitle || "";
     el.simpleDialogSubtitle.hidden = !options.subtitle;
   }
   el.simpleDialogSave.innerHTML = options.saveLabel ? `<i data-lucide="${options.saveIcon || "save"}"></i> ${escapeHtml(options.saveLabel)}` : "Salvar";
+  el.simpleDialogSave.disabled = false;
   el.simpleDialogBody.innerHTML = fields
     .map(
       (field) =>
@@ -12132,6 +12317,7 @@ function emptyDeadline() {
     ownerId: currentUser.id,
     date: "",
     status: "Pendente",
+    reminderDays: "3",
     createdBy: currentUser.id,
     createdAt: new Date().toISOString(),
     updatedAt: null,

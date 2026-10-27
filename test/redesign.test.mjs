@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=187/);
+  assert.match(indexHtml, /redesign\.css\?v=188/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=187/);
+  assert.match(indexHtml, /app\.js\?v=188/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -97,6 +97,23 @@ test("client task tab uses grouped filters and compact work cards", () => {
   assert.match(redesignCss, /\.client-task-workspace/);
   assert.match(redesignCss, /\.client-task-card\.overdue/);
   assert.match(redesignCss, /\.client-task-date-badge/);
+});
+
+test("client task and deadline actions use the compact choice-based editors", () => {
+  assert.match(indexHtml, /id="simpleDialogFooterNote"/);
+  assert.match(appJs, /function openClientWorkEditor/);
+  assert.match(appJs, /placeholder="O que precisa ser feito\?"/);
+  assert.match(appJs, /placeholder="Qual é o prazo\?"/);
+  assert.match(appJs, /Interno[\s\S]*Receita Federal[\s\S]*Cliente/);
+  assert.match(appJs, /Hoje[\s\S]*Amanhã[\s\S]*\+7 dias/);
+  assert.match(appJs, /Sem lembrete[\s\S]*1 dia antes[\s\S]*3 dias antes[\s\S]*7 dias antes/);
+  assert.match(appJs, /data-toggle-client-editor-notes/);
+  assert.match(appJs, /reminderDays: deadline\.reminderDays \?\? ""/);
+  assert.match(appJs, /el\.simpleDialogBody\.className = "field-stack"/);
+  assert.match(redesignCss, /\.client-work-editor\s*\{/);
+  assert.match(redesignCss, /\.client-editor-settings\s*\{/);
+  assert.match(redesignCss, /\.client-deadline-type\.active/);
+  assert.match(redesignCss, /\.client-editor-choices\.owner \.client-editor-choice\.active/);
 });
 
 test("client summary exposes pending work in the redesigned dialog", () => {
