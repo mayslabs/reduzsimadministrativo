@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=193/);
+  assert.match(indexHtml, /redesign\.css\?v=194/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=193/);
+  assert.match(indexHtml, /app\.js\?v=194/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -145,6 +145,9 @@ test("client summary exposes pending work in the redesigned dialog", () => {
   assert.match(indexHtml, /Pendência[\s\S]*Em andamento[\s\S]*Aguardando terceiros[\s\S]*Concluído/);
   assert.match(appJs, /function renderClientSummaryPending/);
   assert.match(appJs, /function setStatusPickerExpanded/);
+  const metaSource = appJs.slice(appJs.indexOf("function renderClientDialogMeta"), appJs.indexOf("function renderClientSummaryPending"));
+  assert.match(metaSource, /destinationLabel\(activeClient\)[\s\S]*activeClient\.state[\s\S]*activeClient\.area/);
+  assert.doesNotMatch(metaSource, /activeClient\.cpf|contractClosedDate|Fechado em/);
   assert.match(appJs, /const CLIENT_STATUS_THEME/);
   assert.match(appJs, /data-open-finance-summary/);
   assert.match(appJs, /Guias pagas no controle mensal/);

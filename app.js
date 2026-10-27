@@ -9767,8 +9767,6 @@ function renderClientDialogMeta() {
     destinationLabel(activeClient),
     activeClient.state,
     activeClient.area,
-    activeClient.cpf,
-    activeClient.contractClosedDate ? `Fechado em ${formatDate(activeClient.contractClosedDate)}` : "",
   ].filter(Boolean);
   el.clientDialogMeta.textContent = details.join(" · ");
 }
