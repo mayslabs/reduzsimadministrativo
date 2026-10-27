@@ -3758,8 +3758,8 @@ body.privacy-mode #dataSection :is(
 
 .client-details-fields {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px 18px;
 }
 
 .client-details-field {
