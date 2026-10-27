@@ -331,6 +331,7 @@ let updatesImportantOnly = false;
 let taskMineOnly = false;
 let advancedClientFiltersOpen = false;
 let visibleHistoryCount = 20;
+let activeHistoryFilter = "all";
 let activeSyncIssue = null;
 let privacyModeEnabled = false;
 let privacyVisualSeed = 0;
@@ -551,6 +552,7 @@ const el = {
   historyAdminControls: document.getElementById("historyAdminControls"),
   newHistoryText: document.getElementById("newHistoryText"),
   addHistoryButton: document.getElementById("addHistoryButton"),
+  historyFilters: document.getElementById("historyFilters"),
   historyList: document.getElementById("historyList"),
   newFinanceMessageText: document.getElementById("newFinanceMessageText"),
   addFinanceMessageButton: document.getElementById("addFinanceMessageButton"),
@@ -2072,6 +2074,11 @@ function bindEvents() {
     });
   });
   el.addHistoryButton.addEventListener("click", addManualHistory);
+  el.newHistoryText.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addManualHistory();
+  });
   el.addStatusButton.addEventListener("click", openStatusDialog);
   el.addUserButton.addEventListener("click", openUserDialog);
   el.saveAccountPasswordButton.addEventListener("click", changeOwnPassword);
@@ -9775,6 +9782,7 @@ function openClient(client) {
   activeClientNoteSearch = "";
   newClientNotePinned = false;
   visibleHistoryCount = 20;
+  activeHistoryFilter = "all";
   activeClient.documentType = documentTypeForClient(activeClient);
   activeClient.cpf = formatFieldValue("cpf", activeClient.cpf || "");
   activeClient.phone = formatFieldValue("phone", activeClient.phone || "");
@@ -11027,63 +11035,129 @@ function renderFinanceMessages() {
   refreshIcons();
 }
 
+const CLIENT_HISTORY_CATEGORY_ORDER = ["status", "tasks", "notes", "manual", "finance", "monthly", "client"];
+
+function clientHistoryCategory(entry = {}) {
+  if (entry.type === "manual") return "manual";
+  const details = Array.isArray(entry.details) ? entry.details : [];
+  const searchableText = normalize([entry.title, ...details].join(" "));
+  if (/(status|etiqueta)/.test(searchableText)) return "status";
+  if (/(tarefa|prazo)/.test(searchableText)) return "tasks";
+  if (/(anotacao|anotacoes|nota)/.test(searchableText)) return "notes";
+  if (/(finance|honorario|pagamento|parcela|inss|comissao)/.test(searchableText)) return "finance";
+  if (/(controle mensal|competencia|recibo|remuneracao|guia)/.test(searchableText)) return "monthly";
+  return "client";
+}
+
+function clientHistoryCategoryMeta(category) {
+  return {
+    status: { label: "Status" },
+    tasks: { label: "Tarefas" },
+    notes: { label: "Anotações" },
+    manual: { label: "Manual" },
+    finance: { label: "Financeiro" },
+    monthly: { label: "Mensal" },
+    client: { label: "Dados" },
+  }[category] || { label: "Dados" };
+}
+
+function clientHistoryDescription(entry = {}) {
+  const details = (Array.isArray(entry.details) ? entry.details : [])
+    .map((detail) => String(detail || "").trim())
+    .filter(Boolean);
+  if (!details.length) return entry.title || "Registro do histórico.";
+  if (entry.type === "manual") return details.join(" ");
+  if (details.length === 1) return details[0];
+  return `${details[0]} (+${details.length - 1} ${details.length === 2 ? "alteração" : "alterações"})`;
+}
+
 function renderHistory() {
   const isAdmin = currentUser.role === "admin";
   el.historyAdminControls.hidden = !isAdmin;
   const history = Array.isArray(activeClient.history) ? activeClient.history : [];
   const sortedHistory = [...history].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  const visibleHistory = sortedHistory.slice(0, visibleHistoryCount);
-  const remainingHistory = Math.max(0, sortedHistory.length - visibleHistory.length);
+  const categoryCounts = sortedHistory.reduce((counts, entry) => {
+    const category = clientHistoryCategory(entry);
+    counts[category] = (counts[category] || 0) + 1;
+    return counts;
+  }, {});
+  if (activeHistoryFilter !== "all" && !categoryCounts[activeHistoryFilter]) activeHistoryFilter = "all";
 
-  el.historyList.innerHTML = history.length
-    ? `<div class="history-timeline">${visibleHistory
-        .map((entry) => {
-          const details = Array.isArray(entry.details) && entry.details.length ? entry.details : [entry.title || "Registro do histórico"];
-          return `
-            <article class="history-timeline-item" data-history="${entry.id}">
-              <span class="history-dot"></span>
-              <div class="history-content">
-                <div class="history-meta">
-                  <span>${escapeHtml(ownerName(entry.userId))}</span>
-                  <span>${formatDateTime(entry.createdAt)}${entry.updatedAt ? " | editado" : ""}</span>
-                  <span>${entry.type === "system" ? "Automático" : "Manual"}</span>
-                </div>
-                <ul>${details.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>
-                ${
-                  isAdmin
-                    ? `<div class="inline-actions history-actions">
-                        <button class="small-button" type="button" data-edit-history="${entry.id}"><i data-lucide="pencil"></i> Editar</button>
-                        <button class="danger-button" type="button" data-remove-history="${entry.id}"><i data-lucide="trash-2"></i> Remover</button>
-                      </div>`
-                    : ""
-                }
-              </div>
-            </article>
-          `;
-        })
-        .join("")}</div>
-        ${
-          remainingHistory
-            ? `<button class="secondary-button history-load-more" type="button" data-load-more-history>
-                <i data-lucide="history"></i> Carregar anteriores (${remainingHistory})
-              </button>`
-            : ""
-        }`
-    : `<p class="empty-state">Nenhum histórico registrado.</p>`;
+  const availableCategories = CLIENT_HISTORY_CATEGORY_ORDER.filter((category) => categoryCounts[category]);
+  el.historyFilters.innerHTML = [
+    `<button class="client-history-filter ${activeHistoryFilter === "all" ? "active" : ""}" type="button" data-history-filter="all" aria-pressed="${activeHistoryFilter === "all"}">Tudo <span>${sortedHistory.length}</span></button>`,
+    ...availableCategories.map((category) => {
+      const meta = clientHistoryCategoryMeta(category);
+      return `<button class="client-history-filter category-${category} ${activeHistoryFilter === category ? "active" : ""}" type="button" data-history-filter="${category}" aria-pressed="${activeHistoryFilter === category}"><i></i>${escapeHtml(meta.label)} <span>${categoryCounts[category]}</span></button>`;
+    }),
+  ].join("");
+
+  const filteredHistory = activeHistoryFilter === "all"
+    ? sortedHistory
+    : sortedHistory.filter((entry) => clientHistoryCategory(entry) === activeHistoryFilter);
+  const visibleHistory = filteredHistory.slice(0, visibleHistoryCount);
+  const remainingHistory = Math.max(0, filteredHistory.length - visibleHistory.length);
+  const groupedHistory = visibleHistory.reduce((groups, entry) => {
+    const dayKey = activityDayKey(entry.createdAt);
+    if (!groups.has(dayKey)) groups.set(dayKey, []);
+    groups.get(dayKey).push(entry);
+    return groups;
+  }, new Map());
+
+  el.historyList.innerHTML = visibleHistory.length
+    ? `${[...groupedHistory.entries()].map(([dayKey, entries]) => `
+        <section class="client-history-day-group">
+          <header class="client-history-day-heading">
+            <strong>${escapeHtml(activityDayLabel(dayKey))}</strong>
+            <span>${entries.length} ${entries.length === 1 ? "registro" : "registros"}</span>
+          </header>
+          <div class="client-history-day-rows">
+            ${entries.map((entry) => {
+              const category = clientHistoryCategory(entry);
+              const meta = clientHistoryCategoryMeta(category);
+              const owner = ownerName(entry.userId);
+              return `
+                <article class="client-history-row category-${category}" data-history="${escapeAttr(entry.id)}">
+                  <time datetime="${escapeAttr(entry.createdAt || "")}">${escapeHtml(activityTimeLabel(entry.createdAt))}</time>
+                  <span class="client-history-category"><i></i>${escapeHtml(meta.label)}</span>
+                  <p class="client-history-description" title="${escapeAttr(entry.updatedAt ? "Editado" : "")}">${escapeHtml(clientHistoryDescription(entry))}</p>
+                  <span class="client-history-avatar" title="${escapeAttr(owner)}">${escapeHtml(userInitials(owner).slice(0, 1))}</span>
+                  ${isAdmin ? `
+                    <div class="client-history-row-actions">
+                      <button class="client-history-edit-action" type="button" data-edit-history="${escapeAttr(entry.id)}" aria-label="Editar registro"><i data-lucide="pencil"></i></button>
+                      <button type="button" data-remove-history="${escapeAttr(entry.id)}" aria-label="Remover registro"><i data-lucide="x"></i></button>
+                    </div>
+                  ` : ""}
+                </article>
+              `;
+            }).join("")}
+          </div>
+        </section>
+      `).join("")}
+      ${remainingHistory ? `<button class="secondary-button client-history-load-more" type="button" data-load-more-history>Carregar anteriores (${remainingHistory})</button>` : ""}`
+    : `<p class="client-history-empty">${history.length ? "Nenhum registro nesta categoria." : "Nenhum histórico registrado."}</p>`;
+
+  el.historyFilters.querySelectorAll("[data-history-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeHistoryFilter = button.dataset.historyFilter;
+      visibleHistoryCount = 20;
+      renderHistory();
+    });
+  });
 
   el.historyList.querySelector("[data-load-more-history]")?.addEventListener("click", () => {
     visibleHistoryCount += 20;
     renderHistory();
   });
 
-  document.querySelectorAll("[data-edit-history]").forEach((button) => {
+  el.historyList.querySelectorAll("[data-edit-history]").forEach((button) => {
     button.addEventListener("click", () => {
       if (currentUser.role !== "admin") return;
       openHistoryEditDialog(button.dataset.editHistory);
     });
   });
 
-  document.querySelectorAll("[data-remove-history]").forEach((button) => {
+  el.historyList.querySelectorAll("[data-remove-history]").forEach((button) => {
     button.addEventListener("click", async () => {
       if (currentUser.role !== "admin") return;
       activeClient.history = activeClient.history.filter((entry) => entry.id !== button.dataset.removeHistory);
@@ -11218,6 +11292,8 @@ async function addManualHistory() {
   if (!text) return;
   addHistoryEntry(activeClient, "Registro manual", text.split("\n").map((line) => line.trim()).filter(Boolean), "manual");
   el.newHistoryText.value = "";
+  activeHistoryFilter = "all";
+  visibleHistoryCount = 20;
   renderHistory();
   await persistActiveClient();
 }

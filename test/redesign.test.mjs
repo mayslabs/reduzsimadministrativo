@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=195/);
+  assert.match(indexHtml, /redesign\.css\?v=196/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=195/);
+  assert.match(indexHtml, /app\.js\?v=196/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -134,6 +134,19 @@ test("client notes separate pinned items from a searchable date-grouped history"
   assert.match(redesignCss, /\.client-pinned-notes-grid\s*\{/);
   assert.match(redesignCss, /\.client-note-day-group\s*\{/);
   assert.match(redesignCss, /\.client-note-entry\s*\{/);
+});
+
+test("client history uses compact filters and date-grouped records", () => {
+  assert.match(indexHtml, /id="historyAdminControls" class="client-history-composer"[\s\S]*id="historyFilters"[\s\S]*id="historyList" class="client-history-list"/);
+  assert.match(indexHtml, /Registrar complemento manual no histórico/);
+  assert.match(appJs, /let activeHistoryFilter = "all"/);
+  assert.match(appJs, /function clientHistoryCategory[\s\S]*function clientHistoryCategoryMeta[\s\S]*function clientHistoryDescription/);
+  assert.match(appJs, /data-history-filter=/);
+  assert.match(appJs, /activityDayLabel\(dayKey\)[\s\S]*client-history-day-group/);
+  assert.match(appJs, /activeHistoryFilter = "all"[\s\S]*visibleHistoryCount = 20/);
+  assert.match(redesignCss, /\.client-history-row\s*\{[\s\S]*grid-template-columns:/);
+  assert.match(redesignCss, /\.client-history-row\.category-manual\s*\{[\s\S]*background:/);
+  assert.match(redesignCss, /body\.privacy-mode #historyTab \.client-history-description/);
 });
 
 test("client summary exposes pending work in the redesigned dialog", () => {

@@ -10694,3 +10694,358 @@ body.privacy-mode :is(
     pointer-events: auto;
   }
 }
+
+/* Client history workspace */
+#clientDialog #historyTab {
+  padding-top: 24px;
+  padding-bottom: 52px;
+}
+
+.client-history-composer,
+.client-history-filters,
+.client-history-list {
+  width: min(880px, 100%);
+}
+
+.client-history-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+#historyTab .client-history-composer input {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: #2e2e2e;
+  background: #ffffff;
+  font-size: 11.5px;
+}
+
+#historyTab .client-history-composer input::placeholder {
+  color: #8b8b8b;
+}
+
+.client-history-composer .primary-button {
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.client-history-filters {
+  display: flex;
+  margin-bottom: 13px;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.client-history-filter {
+  display: inline-flex;
+  min-height: 28px;
+  padding: 4px 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #414141;
+  background: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.client-history-filter:hover {
+  border-color: #9fc8be;
+}
+
+.client-history-filter.active {
+  border-color: var(--green-dark);
+  color: #ffffff;
+  background: var(--green-dark);
+}
+
+.client-history-filter > i,
+.client-history-category > i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--history-category-color, var(--green-dark));
+}
+
+.client-history-filter.active > i {
+  background: #ffffff;
+}
+
+.client-history-filter span {
+  color: #8b8b8b;
+  font-weight: 500;
+}
+
+.client-history-filter.active span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.client-history-filter.category-status,
+.client-history-row.category-status {
+  --history-category-color: #075648;
+}
+
+.client-history-filter.category-tasks,
+.client-history-row.category-tasks {
+  --history-category-color: #00a17b;
+}
+
+.client-history-filter.category-notes,
+.client-history-row.category-notes {
+  --history-category-color: #8f9996;
+}
+
+.client-history-filter.category-manual,
+.client-history-row.category-manual {
+  --history-category-color: #146b5b;
+}
+
+.client-history-filter.category-finance,
+.client-history-row.category-finance {
+  --history-category-color: #397d70;
+}
+
+.client-history-filter.category-monthly,
+.client-history-row.category-monthly {
+  --history-category-color: #69b8a7;
+}
+
+.client-history-filter.category-client,
+.client-history-row.category-client {
+  --history-category-color: #a6b7b2;
+}
+
+.client-history-list {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.client-history-day-group + .client-history-day-group {
+  border-top: 1px solid var(--line);
+}
+
+.client-history-day-heading {
+  display: flex;
+  min-height: 32px;
+  padding: 7px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #565656;
+  background: #f1f2f2;
+  font-size: 9.5px;
+}
+
+.client-history-day-heading strong {
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.client-history-day-heading span {
+  color: #8a8a8a;
+  font-weight: 400;
+}
+
+.client-history-row {
+  display: grid;
+  grid-template-columns: 52px 110px minmax(0, 1fr) 24px 45px;
+  min-height: 40px;
+  padding: 6px 10px 6px 12px;
+  align-items: center;
+  gap: 5px;
+  color: #4e4e4e;
+  background: #ffffff;
+  font-size: 10.5px;
+}
+
+.client-history-row + .client-history-row {
+  border-top: 1px solid var(--line);
+}
+
+.client-history-row.category-manual {
+  background: #edf8f5;
+}
+
+.client-history-row > time {
+  color: #5f5f5f;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.client-history-category {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: #4f4f4f;
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.client-history-description {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #4b4b4b;
+  font-size: 10.5px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-history-avatar {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.client-history-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+}
+
+.client-history-row-actions button {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  color: #8b8b8b;
+  background: transparent;
+}
+
+.client-history-row-actions button:hover {
+  color: var(--green-dark);
+}
+
+.client-history-row-actions svg {
+  width: 11px;
+  height: 11px;
+}
+
+.client-history-edit-action {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.client-history-row:hover .client-history-edit-action,
+.client-history-row:focus-within .client-history-edit-action {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.client-history-load-more {
+  width: calc(100% - 20px);
+  min-height: 32px;
+  margin: 10px;
+  font-size: 10.5px;
+}
+
+.client-history-empty {
+  margin: 0;
+  padding: 26px 18px;
+  color: #8a8a8a;
+  font-size: 11px;
+  text-align: center;
+}
+
+body.privacy-mode #historyTab .client-history-description {
+  color: transparent !important;
+  text-shadow: none !important;
+  background-color: var(--privacy-mask) !important;
+  border-radius: 4px;
+  user-select: none;
+}
+
+@media (max-width: 700px) {
+  #clientDialog #historyTab {
+    padding: 18px;
+  }
+
+  .client-history-composer,
+  .client-history-filters,
+  .client-history-list {
+    width: 100%;
+  }
+
+  .client-history-row {
+    grid-template-columns: 44px minmax(0, 1fr) 24px 45px;
+    padding: 8px 10px;
+    align-items: center;
+    row-gap: 6px;
+  }
+
+  .client-history-row > time {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .client-history-category {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .client-history-description {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow: visible;
+    line-height: 1.4;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .client-history-avatar {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .client-history-row-actions {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .client-history-edit-action {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 460px) {
+  .client-history-composer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .client-history-composer .primary-button {
+    width: 100%;
+  }
+
+  .client-history-day-heading {
+    padding-inline: 10px;
+  }
+}
