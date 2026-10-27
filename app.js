@@ -305,6 +305,8 @@ let activeClientQuickFilter = "active";
 let activeClientSortKey = "created";
 let activeClientSortDirection = "desc";
 let activeClientWorkFilter = "all";
+let activeClientNoteSearch = "";
+let newClientNotePinned = false;
 let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
@@ -539,7 +541,12 @@ const el = {
   addDocumentButton: document.getElementById("addDocumentButton"),
   documentsList: document.getElementById("documentsList"),
   newNoteText: document.getElementById("newNoteText"),
+  newNotePinButton: document.getElementById("newNotePinButton"),
   addNoteButton: document.getElementById("addNoteButton"),
+  pinnedNotesSection: document.getElementById("pinnedNotesSection"),
+  pinnedNotesList: document.getElementById("pinnedNotesList"),
+  notesHistoryCount: document.getElementById("notesHistoryCount"),
+  noteSearchInput: document.getElementById("noteSearchInput"),
   notesList: document.getElementById("notesList"),
   historyAdminControls: document.getElementById("historyAdminControls"),
   newHistoryText: document.getElementById("newHistoryText"),
@@ -789,7 +796,9 @@ function migrateState(savedState = {}, persist = false) {
     deadlines: Array.isArray(client.deadlines)
       ? client.deadlines.map((deadline) => normalizeClientDeadline(deadline, client, migrated.users[0]?.id || ""))
       : [],
-    notes: Array.isArray(client.notes) ? client.notes : [],
+    notes: Array.isArray(client.notes)
+      ? client.notes.map((note) => normalizeClientNote(note, client, migrated.users[0]?.id || ""))
+      : [],
     history: Array.isArray(client.history) ? client.history.map(normalizeHistoryEntry) : [],
     documents: Array.isArray(client.documents) ? client.documents.map((doc) => ({ ...doc, name: localizeLabel(doc.name), status: localizeLabel(doc.status) })) : [],
     workerMessages: normalizeWorkerMessages(client, migrated.users[0]?.id || ""),
@@ -1274,6 +1283,18 @@ function normalizeFinanceMessages(client = {}, fallbackUserId = "") {
   }
 
   return normalized;
+}
+
+function normalizeClientNote(note = {}, client = {}, fallbackUserId = "") {
+  return {
+    id: note.id || id(),
+    text: note.text || "",
+    userId: note.userId || client.internalOwner || fallbackUserId,
+    pinned: Boolean(note.pinned),
+    pinnedAt: note.pinnedAt || null,
+    createdAt: note.createdAt || client.createdAt || new Date().toISOString(),
+    updatedAt: note.updatedAt || null,
+  };
 }
 
 function normalizeClientTask(task, client = {}, fallbackUserId = "") {
@@ -1999,6 +2020,20 @@ function bindEvents() {
     if (!button) return;
     activeClientWorkFilter = button.dataset.clientWorkFilter || "all";
     renderTasks();
+  });
+  el.newNotePinButton?.addEventListener("click", () => {
+    newClientNotePinned = !newClientNotePinned;
+    renderNewNotePinButton();
+  });
+  el.noteSearchInput?.addEventListener("input", () => {
+    activeClientNoteSearch = el.noteSearchInput.value;
+    renderNotes();
+  });
+  el.newNoteText?.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      addNote();
+    }
   });
   el.addNoteButton.addEventListener("click", addNote);
   el.addFinanceMessageButton.addEventListener("click", addFinanceMessage);
@@ -9682,6 +9717,8 @@ function openClientById(clientId) {
 function openClient(client) {
   activeClient = client;
   activeClientWorkFilter = "all";
+  activeClientNoteSearch = "";
+  newClientNotePinned = false;
   visibleHistoryCount = 20;
   activeClient.documentType = documentTypeForClient(activeClient);
   activeClient.cpf = formatFieldValue("cpf", activeClient.cpf || "");
@@ -9701,6 +9738,8 @@ function openClient(client) {
   renderStatusPicker();
   renderMonthlyTable();
   renderTasks();
+  if (el.noteSearchInput) el.noteSearchInput.value = "";
+  renderNewNotePinButton();
   renderNotes();
   renderHistory();
   renderFinanceMessages();
@@ -10590,43 +10629,154 @@ function bindClientWorkActions() {
   });
 }
 
-function renderNotes() {
-  el.notesList.innerHTML = (activeClient.notes || []).length
-    ? [...activeClient.notes]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .map(
-          (note) => `
-            <article class="note-message" data-note="${note.id}">
-              <p class="note-text">${escapeHtml(note.text || "")}</p>
-              <textarea class="note-edit-field" data-note-field="text" hidden>${escapeHtml(note.text || "")}</textarea>
-              <div class="note-footer">
-                <span>${escapeHtml(ownerName(note.userId))} | ${formatDateTime(note.createdAt)}${note.updatedAt ? " | editada" : ""}</span>
-                <button type="button" data-edit-note="${note.id}">Editar</button>
-                <button type="button" data-save-note="${note.id}" hidden>Salvar</button>
-                <button type="button" data-remove-note="${note.id}" aria-label="Remover anotação">×</button>
-              </div>
-            </article>
-          `
-        )
-        .join("")
-    : `<p class="empty-state">Nenhuma anotação registrada.</p>`;
+function renderNewNotePinButton() {
+  if (!el.newNotePinButton) return;
+  el.newNotePinButton.classList.toggle("active", newClientNotePinned);
+  el.newNotePinButton.setAttribute("aria-pressed", String(newClientNotePinned));
+  el.newNotePinButton.setAttribute("aria-label", newClientNotePinned ? "Não fixar nova anotação" : "Fixar nova anotação");
+  el.newNotePinButton.title = newClientNotePinned ? "Não fixar anotação" : "Fixar anotação";
+}
 
+function clientNoteDate(note) {
+  const date = new Date(note.createdAt || 0);
+  return Number.isNaN(date.getTime()) ? new Date(0) : date;
+}
+
+function clientNoteDayKey(note) {
+  const date = clientNoteDate(note);
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
+function clientNoteDayLabel(note) {
+  const date = clientNoteDate(note);
+  const month = date.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toLowerCase();
+  return {
+    dayMonth: `${String(date.getDate()).padStart(2, "0")} ${month}`,
+    year: String(date.getFullYear()),
+  };
+}
+
+function clientNoteTime(note) {
+  return clientNoteDate(note).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function clientNoteShortDate(note) {
+  return clientNoteDate(note).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function renderPinnedNoteCard(note) {
+  return `
+    <article class="client-pinned-note" data-note="${escapeAttr(note.id)}">
+      <header>
+        <span>${escapeHtml(ownerName(note.userId))} · ${escapeHtml(clientNoteShortDate(note))}</span>
+        <div class="client-note-card-actions">
+          <button type="button" data-toggle-pin-note="${escapeAttr(note.id)}" aria-label="Desafixar anotação" title="Desafixar anotação"><i data-lucide="pin"></i></button>
+          <button class="client-note-edit-action" type="button" data-edit-note="${escapeAttr(note.id)}" aria-label="Editar anotação" title="Editar anotação"><i data-lucide="pencil"></i></button>
+          <button class="client-note-save-action" type="button" data-save-note="${escapeAttr(note.id)}" aria-label="Salvar anotação" title="Salvar anotação" hidden><i data-lucide="check"></i></button>
+          <button class="client-note-remove-action" type="button" data-remove-note="${escapeAttr(note.id)}" aria-label="Remover anotação" title="Remover anotação"><i data-lucide="trash-2"></i></button>
+        </div>
+      </header>
+      <p class="note-text">${escapeHtml(note.text || "")}</p>
+      <textarea class="note-edit-field" data-note-field="text" rows="4" hidden>${escapeHtml(note.text || "")}</textarea>
+    </article>
+  `;
+}
+
+function renderHistoryNoteCard(note) {
+  return `
+    <article class="client-note-entry" data-note="${escapeAttr(note.id)}">
+      <span class="client-note-avatar">${escapeHtml(userInitials(ownerName(note.userId)))}</span>
+      <div class="client-note-entry-content">
+        <header><strong>${escapeHtml(ownerName(note.userId))}</strong><time>${escapeHtml(clientNoteTime(note))}${note.updatedAt ? " · editada" : ""}</time></header>
+        <p class="note-text">${escapeHtml(note.text || "")}</p>
+        <textarea class="note-edit-field" data-note-field="text" rows="3" hidden>${escapeHtml(note.text || "")}</textarea>
+      </div>
+      <div class="client-note-card-actions">
+        <button type="button" data-toggle-pin-note="${escapeAttr(note.id)}" aria-label="Fixar anotação" title="Fixar anotação"><i data-lucide="pin"></i></button>
+        <button class="client-note-edit-action" type="button" data-edit-note="${escapeAttr(note.id)}" aria-label="Editar anotação" title="Editar anotação"><i data-lucide="pencil"></i></button>
+        <button class="client-note-save-action" type="button" data-save-note="${escapeAttr(note.id)}" aria-label="Salvar anotação" title="Salvar anotação" hidden><i data-lucide="check"></i></button>
+        <button class="client-note-remove-action" type="button" data-remove-note="${escapeAttr(note.id)}" aria-label="Remover anotação" title="Remover anotação"><i data-lucide="trash-2"></i></button>
+      </div>
+    </article>
+  `;
+}
+
+function renderNotes() {
+  const notes = [...(activeClient.notes || [])].sort((a, b) => clientNoteDate(b) - clientNoteDate(a));
+  const query = normalize(activeClientNoteSearch);
+  const visibleNotes = query
+    ? notes.filter((note) => normalize(`${note.text || ""} ${ownerName(note.userId)}`).includes(query))
+    : notes;
+  const pinnedNotes = visibleNotes
+    .filter((note) => note.pinned)
+    .sort((a, b) => new Date(b.pinnedAt || b.createdAt) - new Date(a.pinnedAt || a.createdAt));
+  const historyNotes = visibleNotes.filter((note) => !note.pinned);
+
+  if (el.noteSearchInput && el.noteSearchInput.value !== activeClientNoteSearch) {
+    el.noteSearchInput.value = activeClientNoteSearch;
+  }
+  if (el.notesHistoryCount) el.notesHistoryCount.textContent = String(visibleNotes.length);
+  if (el.pinnedNotesSection) el.pinnedNotesSection.hidden = pinnedNotes.length === 0;
+  if (el.pinnedNotesList) el.pinnedNotesList.innerHTML = pinnedNotes.map(renderPinnedNoteCard).join("");
+
+  const dayGroups = new Map();
+  historyNotes.forEach((note) => {
+    const key = clientNoteDayKey(note);
+    if (!dayGroups.has(key)) dayGroups.set(key, []);
+    dayGroups.get(key).push(note);
+  });
+
+  el.notesList.innerHTML = dayGroups.size
+    ? [...dayGroups.values()].map((group) => {
+        const label = clientNoteDayLabel(group[0]);
+        return `
+          <section class="client-note-day-group">
+            <div class="client-note-day-label"><strong>${escapeHtml(label.dayMonth)}</strong><small>${escapeHtml(label.year)}</small></div>
+            <div class="client-note-day-list">${group.map(renderHistoryNoteCard).join("")}</div>
+          </section>
+        `;
+      }).join("")
+    : `<p class="client-notes-empty">${query ? "Nenhuma anotação encontrada." : pinnedNotes.length ? "As anotações fixadas aparecem acima." : "Nenhuma anotação registrada."}</p>`;
+
+  bindClientNoteActions();
+  renderClientTabCounts();
+  refreshIcons();
+}
+
+function bindClientNoteActions() {
   document.querySelectorAll("[data-edit-note]").forEach((button) => {
     button.addEventListener("click", () => {
       const wrapper = button.closest("[data-note]");
+      if (!wrapper) return;
+      wrapper.classList.add("editing");
       wrapper.querySelector(".note-text").hidden = true;
-      wrapper.querySelector("[data-note-field]").hidden = false;
+      const field = wrapper.querySelector("[data-note-field]");
+      field.hidden = false;
       button.hidden = true;
       wrapper.querySelector("[data-save-note]").hidden = false;
+      field.focus();
     });
   });
 
   document.querySelectorAll("[data-save-note]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const note = activeClient.notes.find((item) => item.id === button.dataset.saveNote);
-      const box = document.querySelector(`[data-note="${note.id}"] [data-note-field="text"]`);
-      note.text = box.value.trim();
+      const wrapper = button.closest("[data-note]");
+      const note = activeClient.notes.find((item) => item.id === wrapper?.dataset.note);
+      const field = wrapper?.querySelector("[data-note-field]");
+      if (!note || !field || !field.value.trim()) return;
+      note.text = field.value.trim();
       note.updatedAt = new Date().toISOString();
+      renderNotes();
+      await persistActiveClient();
+    });
+  });
+
+  document.querySelectorAll("[data-toggle-pin-note]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const note = activeClient.notes.find((item) => item.id === button.dataset.togglePinNote);
+      if (!note) return;
+      note.pinned = !note.pinned;
+      note.pinnedAt = note.pinned ? new Date().toISOString() : null;
       renderNotes();
       await persistActiveClient();
     });
@@ -10639,8 +10789,6 @@ function renderNotes() {
       await persistActiveClient();
     });
   });
-  renderClientTabCounts();
-  refreshIcons();
 }
 
 function renderFinanceMessages() {
@@ -10846,14 +10994,21 @@ function bindCollectionFields(type, collection, rerender) {
 async function addNote() {
   const text = el.newNoteText.value.trim();
   if (!text) return;
+  const now = new Date().toISOString();
   activeClient.notes.unshift({
     id: id(),
     text,
     userId: currentUser.id,
-    createdAt: new Date().toISOString(),
+    pinned: newClientNotePinned,
+    pinnedAt: newClientNotePinned ? now : null,
+    createdAt: now,
     updatedAt: null,
   });
   el.newNoteText.value = "";
+  activeClientNoteSearch = "";
+  if (el.noteSearchInput) el.noteSearchInput.value = "";
+  newClientNotePinned = false;
+  renderNewNotePinButton();
   renderNotes();
   await persistActiveClient();
 }

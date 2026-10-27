@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=189" />
+    <link rel="stylesheet" href="./redesign.css?v=190" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -862,11 +862,31 @@
         </section>
 
         <section id="notesTab" class="tab-panel">
-          <div class="note-composer">
-            <textarea id="newNoteText" rows="3" placeholder="Registrar anotação do atendimento, decisão ou pendência"></textarea>
-            <button id="addNoteButton" class="secondary-button" type="button"><i data-lucide="send"></i> Salvar anotação</button>
+          <div class="client-notes-workspace">
+            <div class="client-note-composer">
+              <textarea id="newNoteText" rows="4" placeholder="Registre atendimentos, decisões ou combinados com o cliente"></textarea>
+              <div class="client-note-composer-actions">
+                <button id="newNotePinButton" class="client-note-pin-toggle" type="button" aria-label="Fixar nova anotação" aria-pressed="false" title="Fixar anotação"><i data-lucide="pin"></i></button>
+                <button id="addNoteButton" class="primary-button" type="button">Salvar anotação</button>
+              </div>
+            </div>
+
+            <section id="pinnedNotesSection" class="client-pinned-notes" hidden>
+              <h3><i data-lucide="pin"></i> Fixadas</h3>
+              <div id="pinnedNotesList" class="client-pinned-notes-grid"></div>
+            </section>
+
+            <section class="client-notes-history">
+              <div class="client-notes-history-heading">
+                <h3>Histórico de anotações · <span id="notesHistoryCount">0</span></h3>
+                <label class="client-notes-search">
+                  <i data-lucide="search"></i>
+                  <input id="noteSearchInput" type="search" placeholder="Buscar" aria-label="Buscar anotações" />
+                </label>
+              </div>
+              <div id="notesList" class="client-note-history-list"></div>
+            </section>
           </div>
-          <div id="notesList" class="timeline-list"></div>
         </section>
 
         <section id="financeTab" class="tab-panel">
@@ -1336,7 +1356,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=189"></script>
+    <script src="./app.js?v=190"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
