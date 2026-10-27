@@ -577,8 +577,8 @@ textarea:focus {
 .compact-client-row,
 .compact-client-row.active-work,
 .compact-client-row.finished {
-  min-height: 72px;
-  padding: 16px 20px;
+  min-height: 68px;
+  padding: 13px 20px;
   border-bottom-color: var(--line);
   box-shadow: none;
   background: #ffffff;
