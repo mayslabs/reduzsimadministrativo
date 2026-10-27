@@ -12034,7 +12034,8 @@ function formatAreaValue(value) {
   const padded = digits.padStart(3, "0");
   const integer = padded.slice(0, -2).replace(/^0+(?=\d)/, "");
   const decimal = padded.slice(-2);
-  return `${integer},${decimal} m²`;
+  const groupedInteger = Number(integer || "0").toLocaleString("pt-BR");
+  return `${groupedInteger},${decimal} m²`;
 }
 
 function areaInputValue(value) {

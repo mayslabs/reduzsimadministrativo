@@ -116,6 +116,7 @@ test("client and work tab uses the structured two-panel editor", () => {
   assert.match(appJs, /function renderClientWorkControls/);
   assert.match(appJs, /function renderClientWorkDuration/);
   assert.match(appJs, /function renderDestinationSelection/);
+  assert.match(appJs, /Number\(integer \|\| "0"\)\.toLocaleString\("pt-BR"\)/);
   assert.match(redesignCss, /\.client-details-layout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 0\.82fr\) minmax\(0, 1\.18fr\)/);
   assert.match(redesignCss, /\.client-work-type-options\s*\{[\s\S]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 });

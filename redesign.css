@@ -3586,6 +3586,13 @@ body.privacy-mode #dataSection :is(
   box-shadow: 0 24px 70px rgba(4, 33, 28, 0.22);
 }
 
+@media (min-width: 761px) {
+  .client-dialog,
+  #clientDialog .dialog-frame {
+    max-height: min(880px, calc(100vh - 16px));
+  }
+}
+
 .client-dialog::backdrop,
 .simple-dialog::backdrop,
 .marketing-dialog::backdrop {
