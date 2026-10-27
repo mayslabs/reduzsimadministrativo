@@ -103,6 +103,13 @@ const defaultStatuses = [
   ["Finalizado", "#4d4d4d"],
 ].map(([name, color]) => ({ id: id(), name, color }));
 
+const CLIENT_STATUS_THEME = {
+  pending: { label: "Pendência", color: "#074d40" },
+  progress: { label: "Em andamento", color: "#009b77" },
+  waiting: { label: "Aguardando terceiros", color: "#8fc9ba" },
+  complete: { label: "Concluído", color: "#6f817c" },
+};
+
 const labelReplacements = {
   "Procuracao e-CAC pendente": "Procuração e-CAC pendente",
   "Recibos em elaboracao": "Recibos em elaboração",
@@ -498,11 +505,15 @@ const el = {
   compactView: document.getElementById("compactView"),
   clientDialog: document.getElementById("clientDialog"),
   clientDialogTitle: document.getElementById("clientDialogTitle"),
+  clientDialogHeaderStatuses: document.getElementById("clientDialogHeaderStatuses"),
   clientDialogMeta: document.getElementById("clientDialogMeta"),
   clientSummaryPending: document.getElementById("clientSummaryPending"),
   deleteClientButton: document.getElementById("deleteClientButton"),
   saveClientButton: document.getElementById("saveClientButton"),
   openStatusPicker: document.getElementById("openStatusPicker"),
+  addStatusFromSummary: document.getElementById("addStatusFromSummary"),
+  activeStatusCount: document.getElementById("activeStatusCount"),
+  statusPickerToggleLabel: document.getElementById("statusPickerToggleLabel"),
   activeStatusList: document.getElementById("activeStatusList"),
   inssReductionSummary: document.getElementById("inssReductionSummary"),
   inssReductionResults: document.getElementById("inssReductionResults"),
@@ -1937,7 +1948,11 @@ function bindEvents() {
   el.saveClientButton.addEventListener("click", saveActiveClient);
   el.deleteClientButton.addEventListener("click", deleteActiveClient);
   el.openStatusPicker.addEventListener("click", () => {
-    el.statusPicker.hidden = !el.statusPicker.hidden;
+    setStatusPickerExpanded(el.statusPicker.hidden);
+  });
+  el.addStatusFromSummary?.addEventListener("click", () => {
+    setStatusPickerExpanded(true);
+    el.statusPicker.querySelector("[data-toggle-status]:not(:checked), #newStatusName")?.focus();
   });
   el.generateMonthsButton.addEventListener("click", generateMonthsFromWorkDates);
   el.addMonthButton.addEventListener("click", () => {
@@ -1986,7 +2001,7 @@ function bindEvents() {
         }
       }
       if (input.dataset.field === "clientOrigin" || input.dataset.field === "hasReferralCommission") syncReferralCommissionFields();
-      if (["feeValue", "inssOriginalValue", "inssReducedValue"].includes(input.dataset.field)) renderInssReduction();
+      if (["feeValue", "inssOriginalValue", "inssReducedValue", "paymentMethod", "installments", "financeStatus"].includes(input.dataset.field)) renderInssReduction();
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -9612,6 +9627,7 @@ function openClient(client) {
   normalizeClientSelectValues(activeClient);
   el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
   renderClientDialogMeta();
+  setStatusPickerExpanded(false);
   renderUserSelects();
   fillClientFields();
   renderDestinationOptions();
@@ -9678,13 +9694,18 @@ function renderClientSummaryPending() {
       icon: "chart-column",
       label: "Guias pagas no controle mensal",
       hint: monthly.length ? `${paidGuides} de ${monthly.length} competências` : "Sem competências cadastradas",
-      value: monthly.length ? `${paidGuides}/${monthly.length}` : "0",
+      value: monthly.length ? `${paidGuides} de ${monthly.length}` : "0",
+      progress: monthly.length ? (paidGuides / monthly.length) * 100 : 0,
     },
   ];
   el.clientSummaryPending.innerHTML = rows.map((row) => `
     <article>
       <span><i data-lucide="${row.icon}"></i></span>
-      <div><strong>${escapeHtml(row.label)}</strong><small>${escapeHtml(row.hint)}</small></div>
+      <div>
+        <strong>${escapeHtml(row.label)}</strong>
+        <small>${escapeHtml(row.hint)}</small>
+        ${row.progress !== undefined ? `<span class="summary-pending-progress" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, row.progress))}%"></i></span>` : ""}
+      </div>
       <b>${escapeHtml(String(row.value))}</b>
     </article>
   `).join("");
@@ -9707,19 +9728,72 @@ function syncDestinationOptions() {
 function renderInssReduction() {
   if (!activeClient || !el.inssReductionSummary || !el.inssReductionResults) return;
   const values = inssReductionValues(activeClient);
-  el.inssReductionSummary.innerHTML = [
-    reductionValue("INSS sem redução", values.original, "original"),
-    reductionValue("INSS com redução", values.reduced, "reduced"),
-    reductionValue("Economia bruta", values.grossEconomy, "gross"),
-    reductionValue("Economia líquida estimada", values.netEconomy, "net"),
-    reductionValue("Redução", values.reductionPercent, "percent"),
-  ].join("");
+  const reduction = Number.isFinite(values.reductionPercentValue)
+    ? Math.max(0, Math.min(100, values.reductionPercentValue))
+    : 0;
+  const remaining = Number.isFinite(values.remainingPercentValue)
+    ? Math.max(0, Math.min(100, values.remainingPercentValue))
+    : 0;
+  const installmentCount = Number(activeClient.installments);
+  const hasNoInstallments = normalize(activeClient.installments) === "sem parcelas";
+  const isInstallmentPlan = Number.isFinite(installmentCount) && installmentCount > 1;
+  const paymentCondition = isInstallmentPlan
+    ? "Parcelado"
+    : activeClient.installments
+      ? "À vista"
+      : "Condição não informada";
+  const installmentLabel = Number.isFinite(installmentCount) && installmentCount > 0
+    ? `${installmentCount}x ${calculatedCurrency(values.feeAmount === null ? null : values.feeAmount / installmentCount)}`
+    : hasNoInstallments
+      ? "Sem parcelas"
+      : "Parcelas não informadas";
+  const paymentMethod = activeClient.paymentMethod || "Forma não informada";
+  const financeStatus = activeClient.financeStatus || "Não informado";
+
+  el.inssReductionSummary.innerHTML = `
+    <header class="summary-reduction-heading">
+      <p>Redução do INSS</p>
+      <div class="summary-reduction-rate">
+        <span class="summary-reduction-ring" style="--summary-reduction:${reduction}" aria-hidden="true"><i></i></span>
+        <div><strong>${escapeHtml(values.reductionPercent)}</strong><small>de redução</small></div>
+      </div>
+    </header>
+    <div class="summary-reduction-amounts">
+      <article><span><i></i>Sem redução</span><strong>${escapeHtml(values.original)}</strong></article>
+      <article><span><i></i>Com redução</span><strong>${escapeHtml(values.reduced)}</strong></article>
+    </div>
+    <div class="summary-reduction-track" aria-hidden="true">
+      <i class="remaining" style="width:${remaining}%"></i>
+      <i class="reduced" style="width:${reduction}%"></i>
+    </div>
+    <div class="summary-reduction-scale">
+      <span>${escapeHtml(calculatedPercent(values.remainingPercentValue))} a recolher</span>
+      <span>${escapeHtml(values.reductionPercent)} reduzido</span>
+    </div>
+    <div class="summary-reduction-economy">
+      <span>Economia</span><strong>${escapeHtml(values.grossEconomy)}</strong>
+    </div>
+    <div class="summary-finance-overview">
+      <div class="summary-finance-heading"><span>Honorários</span><strong>${escapeHtml(values.fee)}</strong></div>
+      <div class="summary-finance-tags">
+        <span class="summary-finance-tag">Condição <strong>${escapeHtml(paymentCondition)}</strong></span>
+        <span class="summary-finance-tag">${escapeHtml(installmentLabel)}</span>
+        <span class="summary-finance-tag">Forma <strong>${escapeHtml(paymentMethod)}</strong></span>
+      </div>
+      <div class="summary-finance-status"><span>Status financeiro</span><strong>${escapeHtml(financeStatus)}</strong></div>
+    </div>
+    <button class="summary-finance-link" type="button" data-open-finance-summary>
+      Ver financeiro <i data-lucide="chevron-right"></i>
+    </button>
+  `;
+  el.inssReductionSummary.querySelector("[data-open-finance-summary]")?.addEventListener("click", () => switchTab("financeTab"));
   el.inssReductionResults.innerHTML = [
     reductionValue("Economia bruta", values.grossEconomy, "gross"),
     reductionValue("Total com honorários", values.totalWithFees, "total"),
     reductionValue("Economia líquida estimada", values.netEconomy, "net"),
     reductionValue("Percentual de redução", values.reductionPercent, "percent"),
   ].join("");
+  refreshIcons();
 }
 
 function reductionValue(label, value, modifier = "") {
@@ -9740,6 +9814,7 @@ function inssReductionValues(client) {
   const totalWithFees = reduced !== null && fee !== null ? reduced + fee : null;
   const netEconomy = original !== null && totalWithFees !== null ? original - totalWithFees : null;
   const reductionPercent = hasValues && original ? (grossEconomy / original) * 100 : null;
+  const remainingPercent = hasValues && original ? (reduced / original) * 100 : null;
 
   return {
     original: calculatedCurrency(original),
@@ -9748,6 +9823,10 @@ function inssReductionValues(client) {
     totalWithFees: calculatedCurrency(totalWithFees),
     netEconomy: calculatedCurrency(netEconomy),
     reductionPercent: calculatedPercent(reductionPercent),
+    remainingPercentValue: remainingPercent,
+    reductionPercentValue: reductionPercent,
+    feeAmount: fee,
+    fee: calculatedCurrency(fee),
   };
 }
 
@@ -9849,23 +9928,69 @@ function renderUserSelects() {
   });
 }
 
+function setStatusPickerExpanded(expanded) {
+  if (!el.statusPicker) return;
+  const isExpanded = Boolean(expanded);
+  el.statusPicker.hidden = !isExpanded;
+  el.openStatusPicker?.setAttribute("aria-expanded", String(isExpanded));
+  el.addStatusFromSummary?.setAttribute("aria-expanded", String(isExpanded));
+  el.openStatusPicker?.classList.toggle("expanded", isExpanded);
+  if (el.statusPickerToggleLabel) {
+    el.statusPickerToggleLabel.textContent = isExpanded ? "Ocultar opções" : "Exibir opções";
+  }
+}
+
+function clientSummaryStatusTone(status = {}) {
+  const name = normalize(typeof status === "string" ? status : status.name);
+  const color = String(typeof status === "string" ? "" : status.color || "").toLowerCase();
+  const savedTone = Object.entries(CLIENT_STATUS_THEME).find(([, theme]) => theme.color.toLowerCase() === color)?.[0];
+  if (savedTone) return savedTone;
+  if (["finalizado", "cnd emitida", "contrato pago", "guia paga", "concluido", "concluida"].some((value) => name.includes(value))) {
+    return "complete";
+  }
+  if (name.includes("aguardando") || name.includes("para assinatura")) return "waiting";
+  if (name.includes("pendente") || name.includes("pendencia") || name.includes("atrasad")) return "pending";
+  return "progress";
+}
+
+function summaryStatusChip(status, removable = false) {
+  const tone = clientSummaryStatusTone(status);
+  return `
+    <span class="summary-status-chip tone-${tone}">
+      <i aria-hidden="true"></i>
+      <span>${escapeHtml(status.name)}</span>
+      ${removable ? `<button type="button" aria-label="Remover ${escapeAttr(status.name)}" data-remove-status="${escapeAttr(status.id)}"><i data-lucide="x"></i></button>` : ""}
+    </span>
+  `;
+}
+
+function statusToneSwatches(selectedTone, statusId = "") {
+  return Object.entries(CLIENT_STATUS_THEME).map(([tone, theme]) => `
+    <button
+      class="status-tone-swatch tone-${tone} ${tone === selectedTone ? "selected" : ""}"
+      type="button"
+      data-status-tone="${tone}"
+      ${statusId ? `data-set-status-tone="${escapeAttr(statusId)}"` : "data-new-status-tone"}
+      aria-label="${escapeAttr(theme.label)}"
+      aria-pressed="${tone === selectedTone}"
+      title="${escapeAttr(theme.label)}"
+    ></button>
+  `).join("");
+}
+
 function renderActiveStatuses() {
   const statuses = getClientStatuses(activeClient);
+  if (el.activeStatusCount) el.activeStatusCount.textContent = String(statuses.length);
+  if (el.clientDialogHeaderStatuses) {
+    const visibleStatuses = statuses.slice(0, 2).map((status) => summaryStatusChip(status)).join("");
+    const remaining = statuses.length - 2;
+    el.clientDialogHeaderStatuses.innerHTML = `${visibleStatuses}${remaining > 0 ? `<span class="summary-status-overflow">+${remaining}</span>` : ""}`;
+  }
   el.activeStatusList.innerHTML = statuses.length
-    ? statuses
-        .map(
-          (status) => `
-            <span class="chip compact-status-chip tone-${clientStatusTone(status.name)}">
-              <span aria-hidden="true"></span>
-              ${escapeHtml(status.name)}
-              <button type="button" aria-label="Remover status" data-remove-status="${status.id}">x</button>
-            </span>
-          `
-        )
-        .join("")
-    : `<p class="empty-state">Nenhum status ativo.</p>`;
+    ? statuses.map((status) => summaryStatusChip(status, true)).join("")
+    : `<p class="empty-state compact">Nenhum status ativo.</p>`;
 
-  document.querySelectorAll("[data-remove-status]").forEach((button) => {
+  el.activeStatusList.querySelectorAll("[data-remove-status]").forEach((button) => {
     button.addEventListener("click", async () => {
       activeClient.statusIds = activeClient.statusIds.filter((idValue) => idValue !== button.dataset.removeStatus);
       renderActiveStatuses();
@@ -9873,11 +9998,15 @@ function renderActiveStatuses() {
       await persistActiveClient();
     });
   });
+  refreshIcons();
 }
 
 function renderStatusPicker() {
   const active = new Set(activeClient.statusIds || []);
   el.statusPicker.innerHTML = `
+    <div class="status-picker-heading">
+      <div><strong>Todos os status</strong><span>Ative, renomeie ou escolha uma tonalidade do tema.</span></div>
+    </div>
     <div class="status-editor-list">
       ${state.statuses
         .map(
@@ -9888,22 +10017,26 @@ function renderStatusPicker() {
                 <span>Ativo</span>
               </label>
               <input value="${escapeAttr(status.name)}" data-status-editor-field="name" aria-label="Nome do status" />
-              <input class="color-input" type="color" value="${status.color}" data-status-editor-field="color" aria-label="Cor do status" />
+              <div class="status-tone-swatches" role="group" aria-label="Tonalidade de ${escapeAttr(status.name)}">
+                ${statusToneSwatches(clientSummaryStatusTone(status), status.id)}
+              </div>
               <button class="icon-button" type="button" data-remove-global-status="${status.id}" aria-label="Remover status"><i data-lucide="trash-2"></i></button>
             </div>
           `
         )
         .join("")}
       <div class="status-editor-row new-status-row">
-        <span></span>
+        <span class="status-editor-new-label">Novo</span>
         <input id="newStatusName" type="text" placeholder="Novo status" />
-        <input id="newStatusColor" class="color-input" type="color" value="#009f7f" />
+        <div id="newStatusTone" class="status-tone-swatches" role="group" aria-label="Tonalidade do novo status" data-selected-tone="progress">
+          ${statusToneSwatches("progress")}
+        </div>
         <button id="createStatusFromCard" class="small-button" type="button"><i data-lucide="plus"></i> Criar</button>
       </div>
     </div>
   `;
 
-  document.querySelectorAll("[data-toggle-status]").forEach((checkbox) => {
+  el.statusPicker.querySelectorAll("[data-toggle-status]").forEach((checkbox) => {
     checkbox.addEventListener("change", async () => {
       if (checkbox.checked) {
         activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), checkbox.dataset.toggleStatus])];
@@ -9915,7 +10048,7 @@ function renderStatusPicker() {
     });
   });
 
-  document.querySelectorAll("[data-status-editor]").forEach((row) => {
+  el.statusPicker.querySelectorAll("[data-status-editor]").forEach((row) => {
     const status = state.statuses.find((item) => item.id === row.dataset.statusEditor);
     row.querySelectorAll("[data-status-editor-field]").forEach((input) => {
       input.addEventListener("input", () => {
@@ -9927,7 +10060,36 @@ function renderStatusPicker() {
     });
   });
 
-  document.querySelectorAll("[data-remove-global-status]").forEach((button) => {
+  el.statusPicker.querySelectorAll("[data-set-status-tone]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const status = state.statuses.find((item) => item.id === button.dataset.setStatusTone);
+      const theme = CLIENT_STATUS_THEME[button.dataset.statusTone];
+      if (!status || !theme) return;
+      status.color = theme.color;
+      button.parentElement.querySelectorAll("[data-status-tone]").forEach((swatch) => {
+        const isSelected = swatch === button;
+        swatch.classList.toggle("selected", isSelected);
+        swatch.setAttribute("aria-pressed", String(isSelected));
+      });
+      saveState();
+      renderClients();
+      renderActiveStatuses();
+    });
+  });
+
+  el.statusPicker.querySelectorAll("[data-new-status-tone]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const control = document.getElementById("newStatusTone");
+      control.dataset.selectedTone = button.dataset.statusTone;
+      control.querySelectorAll("[data-status-tone]").forEach((swatch) => {
+        const isSelected = swatch === button;
+        swatch.classList.toggle("selected", isSelected);
+        swatch.setAttribute("aria-pressed", String(isSelected));
+      });
+    });
+  });
+
+  el.statusPicker.querySelectorAll("[data-remove-global-status]").forEach((button) => {
     button.addEventListener("click", async () => {
       state.statuses = state.statuses.filter((status) => status.id !== button.dataset.removeGlobalStatus);
       state.clients.forEach((client) => {
@@ -9943,10 +10105,10 @@ function renderStatusPicker() {
 
   document.getElementById("createStatusFromCard")?.addEventListener("click", async () => {
     const nameInput = document.getElementById("newStatusName");
-    const colorInput = document.getElementById("newStatusColor");
     const name = nameInput.value.trim();
     if (!name) return;
-    const status = { id: id(), name, color: colorInput.value || "#009f7f" };
+    const selectedTone = document.getElementById("newStatusTone")?.dataset.selectedTone || "progress";
+    const status = { id: id(), name, color: CLIENT_STATUS_THEME[selectedTone]?.color || CLIENT_STATUS_THEME.progress.color };
     state.statuses.push(status);
     activeClient.statusIds = [...new Set([...(activeClient.statusIds || []), status.id])];
     renderClients();

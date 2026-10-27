@@ -3606,10 +3606,32 @@ body.privacy-mode #dataSection :is(
   align-items: flex-start;
 }
 
+.client-dialog-heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.client-dialog-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .dialog-header h2 {
+  margin: 0;
   color: var(--green-dark);
   font-size: 24px;
   font-weight: 700;
+}
+
+.client-dialog-header-statuses {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
 }
 
 .client-dialog-meta {
@@ -3717,22 +3739,372 @@ body.privacy-mode #dataSection :is(
 
 .client-summary-main {
   display: grid;
-  gap: 22px;
+  gap: 24px;
+}
+
+.summary-status-section {
+  display: grid;
+  gap: 10px;
+}
+
+.summary-status-heading,
+.summary-section-title {
+  display: flex;
+  align-items: center;
+}
+
+.summary-status-heading {
+  min-height: 34px;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary-section-title {
+  gap: 8px;
+}
+
+.summary-section-title h3,
+.client-summary-pending > h3 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.summary-count-badge,
+.summary-status-overflow {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.summary-status-toggle {
+  min-height: 36px;
+  padding: 0 11px;
+  gap: 7px;
+  color: var(--green-dark);
+  background: #ffffff;
+}
+
+.summary-status-toggle svg {
+  width: 15px;
+  height: 15px;
+}
+
+.summary-status-toggle-chevron {
+  transition: transform 160ms ease;
+}
+
+.summary-status-toggle.expanded .summary-status-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+.summary-status-surface {
+  display: flex;
+  min-height: 80px;
+  padding: 12px;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-radius: 9px;
+  background: var(--soft);
+}
+
+#clientDialog #activeStatusList {
+  display: contents;
+}
+
+.summary-status-chip {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 27px;
+  padding: 4px 9px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.summary-status-chip > i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.summary-status-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-status-chip.tone-pending {
+  border-color: var(--green-dark);
+  color: #ffffff;
+  background: var(--green-dark);
+}
+
+.summary-status-chip.tone-pending > i {
+  background: var(--green);
+}
+
+.summary-status-chip.tone-progress {
+  border-color: var(--green);
+  color: #ffffff;
+  background: var(--green);
+}
+
+.summary-status-chip.tone-waiting {
+  border-color: #c6e5dd;
+  color: var(--green-dark);
+  background: var(--green-soft);
+}
+
+.summary-status-chip.tone-waiting > i {
+  background: var(--green);
+}
+
+.summary-status-chip.tone-complete {
+  border-color: #cfd8d5;
+  color: #5c6b67;
+  background: #ffffff;
+}
+
+.summary-status-chip.tone-complete > i {
+  background: #7f918c;
+}
+
+.summary-status-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: -1px -4px -1px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.summary-status-chip:is(.tone-waiting, .tone-complete) button {
+  background: rgba(7, 77, 64, 0.08);
+}
+
+.summary-status-chip button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.client-dialog-header-statuses .summary-status-chip {
+  max-width: 190px;
+  min-height: 26px;
+  padding-inline: 10px;
+  font-size: 11px;
+}
+
+.summary-add-status {
+  display: inline-flex;
+  min-height: 28px;
+  padding: 4px 10px;
+  align-items: center;
+  gap: 5px;
+  border: 1px dashed #8da39d;
+  border-radius: 999px;
+  color: var(--green-dark);
+  background: #ffffff;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.summary-add-status svg {
+  width: 13px;
+  height: 13px;
+}
+
+.summary-status-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #777777;
+  font-size: 10.5px;
+}
+
+.summary-status-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.summary-status-legend i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+.summary-status-legend .tone-pending i {
+  background: var(--green-dark);
+}
+
+.summary-status-legend .tone-progress i {
+  background: var(--green);
+}
+
+.summary-status-legend .tone-waiting i {
+  border-color: #c6e5dd;
+  background: var(--green-soft);
+}
+
+.summary-status-legend .tone-complete i {
+  border-color: #aebdb9;
+  background: #ffffff;
+}
+
+#clientDialog .summary-status-picker {
+  max-height: 340px;
+  margin: 2px 0 0;
+  padding: 12px;
+  border-radius: 9px;
+  background: #fbfcfc;
+}
+
+#clientDialog .summary-status-picker[hidden] {
+  display: none;
+}
+
+.status-picker-heading {
+  padding: 2px 2px 10px;
+}
+
+.status-picker-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.status-picker-heading strong {
+  color: var(--green-dark);
+  font-size: 12.5px;
+}
+
+.status-picker-heading span {
+  color: #777777;
+  font-size: 10.5px;
+}
+
+#clientDialog .status-editor-list {
+  gap: 7px;
+}
+
+#clientDialog .status-editor-row {
+  grid-template-columns: 62px minmax(180px, 1fr) 116px 34px;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+#clientDialog .status-editor-row > input:not([type="checkbox"]) {
+  height: 36px;
+}
+
+#clientDialog .status-toggle {
+  justify-content: center;
+  gap: 5px;
+  font-size: 10.5px;
+}
+
+#clientDialog .status-tone-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 24px);
+  align-items: center;
+  justify-content: end;
+  gap: 5px;
+}
+
+#clientDialog .status-tone-swatch {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #cfd8d5;
+}
+
+#clientDialog .status-tone-swatch.tone-pending {
+  background: var(--green-dark);
+}
+
+#clientDialog .status-tone-swatch.tone-progress {
+  background: var(--green);
+}
+
+#clientDialog .status-tone-swatch.tone-waiting {
+  background: #8fc9ba;
+}
+
+#clientDialog .status-tone-swatch.tone-complete {
+  background: #6f817c;
+}
+
+#clientDialog .status-tone-swatch.selected {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--green-dark);
+}
+
+#clientDialog .status-editor-row > .icon-button {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+}
+
+#clientDialog .new-status-row {
+  grid-template-columns: 62px minmax(180px, 1fr) 116px 72px;
+  margin-top: 3px;
+  border-top: 1px solid var(--line);
+}
+
+.status-editor-new-label {
+  color: var(--green-dark);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .summary-next-action {
+  display: grid;
+  gap: 8px;
   color: var(--green-dark);
   font-size: 13px;
+  font-weight: 700;
+}
+
+.summary-next-action textarea {
+  min-height: 112px;
+  color: #333333;
+  font-weight: 400;
 }
 
 .client-summary-pending {
   display: grid;
   gap: 10px;
-}
-
-.client-summary-pending > h3 {
-  color: var(--green-dark);
-  font-size: 15px;
 }
 
 .client-summary-pending-list {
@@ -3772,7 +4144,7 @@ body.privacy-mode #dataSection :is(
 
 .client-summary-pending-list article > div {
   display: grid;
-  gap: 2px;
+  gap: 3px;
 }
 
 .client-summary-pending-list strong {
@@ -3788,57 +4160,313 @@ body.privacy-mode #dataSection :is(
 
 .client-summary-pending-list b {
   color: var(--green-dark);
-  font-size: 17px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.summary-pending-progress {
+  width: min(100%, 180px);
+  height: 4px;
+  margin-top: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eeec;
+}
+
+.summary-pending-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
 }
 
 .summary-layout .reduction-summary {
   margin: 0;
-  padding: 26px 28px;
+  padding: 0;
   border: 0;
+  background: transparent;
+}
+
+.reduction-summary-card {
+  display: grid;
+  gap: 14px;
+  padding: 24px;
   border-radius: 12px;
   color: #ffffff;
   background: var(--green-dark);
 }
 
-.summary-layout .reduction-summary .eyebrow,
-.summary-layout .reduction-summary h3 {
-  color: #ffffff;
+.summary-reduction-heading,
+.summary-reduction-rate,
+.summary-reduction-economy,
+.summary-finance-heading,
+.summary-finance-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.summary-layout .reduction-summary-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.summary-reduction-heading > p,
+.summary-finance-heading > span {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.summary-reduction-rate {
+  justify-content: flex-end;
+}
+
+.summary-reduction-rate > div {
+  display: grid;
   gap: 0;
 }
 
-.summary-layout .reduction-value {
-  min-height: 84px;
-  padding: 16px 0;
-  border: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-  background: transparent;
-}
-
-.summary-layout .reduction-value:nth-last-child(-n + 2) {
-  border-bottom: 0;
-}
-
-.summary-layout .reduction-value.net {
-  grid-column: 1 / -1;
-  order: -1;
-  min-height: 112px;
-}
-
-.summary-layout .reduction-value span,
-.summary-layout .reduction-value strong {
+.summary-reduction-rate strong {
   color: #ffffff;
+  font-size: 23px;
+  line-height: 1;
 }
 
-.summary-layout .reduction-value strong {
+.summary-reduction-rate small {
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.summary-reduction-ring {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 50%;
+  background: conic-gradient(var(--green) calc(var(--summary-reduction) * 1%), rgba(255, 255, 255, 0.18) 0);
+}
+
+.summary-reduction-ring i {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: var(--green-dark);
+}
+
+.summary-reduction-amounts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.summary-reduction-amounts article {
+  display: grid;
+  gap: 5px;
+}
+
+.summary-reduction-amounts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 11px;
+}
+
+.summary-reduction-amounts span i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.summary-reduction-amounts article:last-child span i {
+  background: #ffffff;
+}
+
+.summary-reduction-amounts strong {
+  color: #ffffff;
   font-size: 20px;
+  line-height: 1.2;
 }
 
-.summary-layout .reduction-value.net strong {
-  font-size: 36px;
+.summary-reduction-track {
+  display: flex;
+  width: 100%;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.summary-reduction-track i {
+  display: block;
+  height: 100%;
+}
+
+.summary-reduction-track .remaining {
+  background: #ffffff;
+}
+
+.summary-reduction-track .reduced {
+  background: #58af9a;
+}
+
+.summary-reduction-scale {
+  display: flex;
+  margin-top: -8px;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+}
+
+.summary-reduction-economy {
+  padding: 14px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+}
+
+.summary-reduction-economy strong,
+.summary-finance-heading strong {
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.summary-finance-overview {
+  display: grid;
+  gap: 10px;
+}
+
+.summary-finance-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.summary-finance-tag {
+  display: inline-flex;
+  min-height: 26px;
+  padding: 4px 9px;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 10.5px;
+}
+
+.summary-finance-tag strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.summary-finance-status {
+  padding-top: 2px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 10.5px;
+}
+
+.summary-finance-status strong {
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.summary-finance-link {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 13px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  color: #ffffff;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.summary-finance-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.summary-finance-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 760px) {
+  #clientDialog .dialog-header {
+    position: relative;
+    padding-right: 64px;
+  }
+
+  #clientDialog .dialog-header > .icon-button {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+  }
+
+  #clientDialog .client-dialog-title-row {
+    align-items: flex-start;
+  }
+
+  #clientDialog .client-dialog-header-statuses {
+    width: 100%;
+  }
+
+  #clientDialog .summary-status-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #clientDialog .summary-status-toggle {
+    width: fit-content;
+  }
+
+  #clientDialog .status-editor-row,
+  #clientDialog .new-status-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #clientDialog .status-toggle,
+  #clientDialog .status-tone-swatches {
+    justify-content: start;
+  }
+
+  #clientDialog .status-editor-new-label {
+    text-align: left;
+  }
+
+  #clientDialog .new-status-row .small-button {
+    width: fit-content;
+  }
+}
+
+@media (max-width: 460px) {
+  .summary-reduction-amounts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .summary-reduction-heading,
+  .summary-reduction-economy,
+  .summary-finance-heading,
+  .summary-finance-status {
+    align-items: flex-start;
+  }
+
+  .summary-reduction-scale {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .client-summary-pending-list article {
+    padding-inline: 12px;
+  }
 }
 
 .dialog-footer {
@@ -3856,6 +4484,9 @@ body.privacy-mode :is(
   #clientSummaryPending strong,
   #clientSummaryPending small,
   #clientSummaryPending b,
+  #inssReductionSummary strong,
+  #inssReductionSummary .summary-reduction-scale span,
+  #inssReductionSummary .summary-finance-tag,
   #usersSection .user-identity h3,
   #usersSection .user-identity p,
   #usersSection .user-access-meta,

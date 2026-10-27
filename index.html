@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=180" />
+    <link rel="stylesheet" href="./redesign.css?v=181" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -585,9 +585,12 @@
     <dialog id="clientDialog" class="client-dialog">
       <form method="dialog" class="dialog-frame">
         <header class="dialog-header">
-          <div>
+          <div class="client-dialog-heading">
             <p class="eyebrow">Card do cliente</p>
-            <h2 id="clientDialogTitle">Novo cliente</h2>
+            <div class="client-dialog-title-row">
+              <h2 id="clientDialogTitle">Novo cliente</h2>
+              <div id="clientDialogHeaderStatuses" class="client-dialog-header-statuses" aria-label="Status ativos do cliente"></div>
+            </div>
             <p id="clientDialogMeta" class="client-dialog-meta"></p>
           </div>
           <button class="icon-button" value="close" aria-label="Fechar" type="submit"><i data-lucide="x"></i></button>
@@ -606,26 +609,40 @@
         <section id="summaryTab" class="tab-panel active">
           <div class="summary-layout">
             <div class="client-summary-main">
-              <div class="mini-heading">
-                <h3>Status ativos</h3>
-                <button id="openStatusPicker" class="small-button" type="button"><i data-lucide="settings-2"></i> Gerenciar</button>
-              </div>
-              <div id="activeStatusList" class="chip-list"></div>
-              <div id="statusPicker" class="status-picker" hidden></div>
-              <label class="summary-next-action">Próxima ação<textarea data-field="nextAction" rows="3" placeholder="O que precisa acontecer agora?"></textarea></label>
+              <section class="summary-status-section">
+                <div class="summary-status-heading">
+                  <div class="summary-section-title">
+                    <h3>Status do processo</h3>
+                    <span id="activeStatusCount" class="summary-count-badge">0</span>
+                  </div>
+                  <button id="openStatusPicker" class="small-button summary-status-toggle" type="button" aria-controls="statusPicker" aria-expanded="false">
+                    <i data-lucide="list-filter"></i>
+                    <span id="statusPickerToggleLabel">Exibir opções</span>
+                    <i class="summary-status-toggle-chevron" data-lucide="chevron-down"></i>
+                  </button>
+                </div>
+                <div class="summary-status-surface">
+                  <div id="activeStatusList" class="chip-list"></div>
+                  <button id="addStatusFromSummary" class="summary-add-status" type="button" aria-controls="statusPicker">
+                    <i data-lucide="plus"></i> Adicionar status
+                  </button>
+                </div>
+                <div class="summary-status-legend" aria-label="Legenda das tonalidades dos status">
+                  <span class="tone-pending"><i></i>Pendência</span>
+                  <span class="tone-progress"><i></i>Em andamento</span>
+                  <span class="tone-waiting"><i></i>Aguardando terceiros</span>
+                  <span class="tone-complete"><i></i>Concluído</span>
+                </div>
+                <div id="statusPicker" class="status-picker summary-status-picker" hidden></div>
+              </section>
+              <label class="summary-next-action">Próxima ação<textarea data-field="nextAction" rows="3" placeholder="O que precisa acontecer agora? Ex.: cobrar recibos assinados do cliente"></textarea></label>
               <section class="client-summary-pending">
                 <h3>Pendências</h3>
                 <div id="clientSummaryPending" class="client-summary-pending-list"></div>
               </section>
             </div>
             <section class="reduction-summary">
-              <div class="mini-heading">
-                <div>
-                  <p class="eyebrow">Redução do INSS</p>
-                  <h3>Economia estimada</h3>
-                </div>
-              </div>
-              <div id="inssReductionSummary" class="reduction-summary-grid"></div>
+              <div id="inssReductionSummary" class="reduction-summary-card"></div>
             </section>
           </div>
         </section>
@@ -1282,7 +1299,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=180"></script>
+    <script src="./app.js?v=181"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

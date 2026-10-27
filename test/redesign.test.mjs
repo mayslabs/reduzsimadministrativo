@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=180/);
+  assert.match(indexHtml, /redesign\.css\?v=181/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -49,7 +49,7 @@ test("home client labels use the new palette without a status dropdown", () => {
   assert.doesNotMatch(indexHtml, /id="statusFilter"/);
   assert.doesNotMatch(appJs, /renderStatusFilter|el\.statusFilter|function chip\(status\)/);
   assert.match(appJs, /return needsAction \? "strong" : name\.includes\("aguardando"\) \? "neutral" : "soft"/);
-  assert.match(appJs, /class="chip compact-status-chip tone-\$\{clientStatusTone\(status\.name\)\}"/);
+  assert.match(appJs, /function compactStatusChip\(status\)[\s\S]*class="chip compact-status-chip tone-\$\{tone\}"/);
   assert.match(redesignCss, /compact-status-chip\.tone-strong/);
   assert.match(redesignCss, /compact-status-chip\.tone-soft/);
   assert.match(redesignCss, /compact-status-chip\.tone-neutral/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=180/);
+  assert.match(indexHtml, /app\.js\?v=181/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -88,6 +88,18 @@ test("client dialog combines tasks and deadlines and ends with history", () => {
 test("client summary exposes pending work in the redesigned dialog", () => {
   assert.match(indexHtml, /id="clientSummaryPending"/);
   assert.match(indexHtml, /id="clientDialogMeta"/);
+  assert.match(indexHtml, /id="clientDialogHeaderStatuses"/);
+  assert.match(indexHtml, /id="activeStatusCount"/);
+  assert.match(indexHtml, /id="statusPickerToggleLabel">Exibir opções/);
+  assert.match(indexHtml, /Pendência[\s\S]*Em andamento[\s\S]*Aguardando terceiros[\s\S]*Concluído/);
   assert.match(appJs, /function renderClientSummaryPending/);
+  assert.match(appJs, /function setStatusPickerExpanded/);
+  assert.match(appJs, /const CLIENT_STATUS_THEME/);
+  assert.match(appJs, /data-open-finance-summary/);
   assert.match(appJs, /Guias pagas no controle mensal/);
+  assert.match(redesignCss, /\.reduction-summary-card/);
+  assert.match(redesignCss, /\.summary-status-chip\.tone-pending/);
+  assert.match(redesignCss, /\.summary-status-chip\.tone-progress/);
+  assert.match(redesignCss, /\.summary-status-chip\.tone-waiting/);
+  assert.match(redesignCss, /\.summary-status-chip\.tone-complete/);
 });
