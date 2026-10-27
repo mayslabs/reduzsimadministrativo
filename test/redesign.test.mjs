@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=191/);
+  assert.match(indexHtml, /redesign\.css\?v=192/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=191/);
+  assert.match(indexHtml, /app\.js\?v=192/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -97,6 +97,9 @@ test("client task tab uses grouped filters and compact work cards", () => {
   assert.match(redesignCss, /\.client-task-workspace/);
   assert.match(redesignCss, /\.client-task-card\.overdue/);
   assert.match(redesignCss, /\.client-task-date-badge/);
+  assert.match(redesignCss, /\.client-task-card\s*\{[\s\S]*?min-height:\s*0/);
+  assert.match(redesignCss, /\.client-task-card-body h4\s*\{[\s\S]*?font-weight:\s*600/);
+  assert.match(redesignCss, /\.client-task-complete\s*\{[\s\S]*?font-weight:\s*600/);
 });
 
 test("client task and deadline actions use the compact choice-based editors", () => {
