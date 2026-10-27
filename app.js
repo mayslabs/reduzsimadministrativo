@@ -10329,6 +10329,9 @@ function renderMonthlyTable() {
       });
     });
   });
+  document.querySelectorAll("[data-month-toggle-all]").forEach((button) => {
+    button.onclick = () => toggleAllMonthlyField(button.dataset.monthToggleAll);
+  });
   renderMonthlyRangeSummary(rows);
   renderMonthlyProgressList(rows);
   syncMonthlyBulkToggles();
@@ -10393,11 +10396,18 @@ function setAllMonthlyField(field, checked) {
   renderMonthlyTable();
 }
 
+function toggleAllMonthlyField(field) {
+  if (!activeClient || !MONTHLY_BOOLEAN_FIELDS.includes(field)) return;
+  const rows = activeClient.monthly || [];
+  const allChecked = rows.length > 0 && rows.every((row) => row[field]);
+  setAllMonthlyField(field, !allChecked);
+}
+
 function syncMonthlyBulkToggles() {
   const rows = activeClient?.monthly || [];
   const labels = monthlyFieldLabels();
-  document.querySelectorAll("[data-month-summary-toggle]").forEach((button) => {
-    const field = button.dataset.monthSummaryToggle;
+  document.querySelectorAll("[data-month-summary-toggle], [data-month-toggle-all]").forEach((button) => {
+    const field = button.dataset.monthSummaryToggle || button.dataset.monthToggleAll;
     const checkedCount = rows.filter((row) => row[field]).length;
     const allChecked = rows.length > 0 && checkedCount === rows.length;
     const partiallyChecked = checkedCount > 0 && checkedCount < rows.length;
@@ -10406,6 +10416,7 @@ function syncMonthlyBulkToggles() {
     button.classList.toggle("partial", partiallyChecked);
     button.setAttribute("aria-pressed", String(allChecked));
     button.setAttribute("aria-label", `${allChecked ? "Desmarcar" : "Marcar"} ${labels[field] || "etapa"} em todos os meses`);
+    button.title = `${allChecked ? "Desmarcar" : "Marcar"} todos os meses`;
   });
 }
 
@@ -10426,9 +10437,7 @@ function renderMonthlyProgressList(sourceRows = null) {
   }).join("");
   el.monthlyProgressList.querySelectorAll("[data-month-summary-toggle]").forEach((button) => {
     button.addEventListener("click", () => {
-      const field = button.dataset.monthSummaryToggle;
-      const allChecked = rows.length > 0 && rows.every((row) => row[field]);
-      setAllMonthlyField(field, !allChecked);
+      toggleAllMonthlyField(button.dataset.monthSummaryToggle);
     });
   });
 }

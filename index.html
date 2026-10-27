@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=192" />
+    <link rel="stylesheet" href="./redesign.css?v=193" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -827,12 +827,36 @@
               <thead>
                 <tr>
                   <th>Competência</th>
-                  <th>Recibo<br />enviado</th>
-                  <th>Recibo<br />assinado</th>
-                  <th>Remuneração<br />enviada</th>
-                  <th>Guia emitida</th>
-                  <th>Guia enviada</th>
-                  <th>Guia paga</th>
+                  <th>
+                    <button class="monthly-column-toggle" type="button" data-month-toggle-all="receiptSent" aria-label="Marcar Recibo enviado em todos os meses">
+                      <span>Recibo<br />enviado</span><span class="monthly-column-toggle-icon"><i data-lucide="chevrons-down"></i></span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="monthly-column-toggle" type="button" data-month-toggle-all="receiptSigned" aria-label="Marcar Recibo assinado em todos os meses">
+                      <span>Recibo<br />assinado</span><span class="monthly-column-toggle-icon"><i data-lucide="chevrons-down"></i></span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="monthly-column-toggle" type="button" data-month-toggle-all="remunerationSent" aria-label="Marcar Remuneração enviada em todos os meses">
+                      <span>Remuneração<br />enviada</span><span class="monthly-column-toggle-icon"><i data-lucide="chevrons-down"></i></span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="monthly-column-toggle" type="button" data-month-toggle-all="guideIssued" aria-label="Marcar Guia emitida em todos os meses">
+                      <span>Guia emitida</span><span class="monthly-column-toggle-icon"><i data-lucide="chevrons-down"></i></span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="monthly-column-toggle" type="button" data-month-toggle-all="guideSent" aria-label="Marcar Guia enviada em todos os meses">
+                      <span>Guia enviada</span><span class="monthly-column-toggle-icon"><i data-lucide="chevrons-down"></i></span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="monthly-column-toggle" type="button" data-month-toggle-all="guidePaid" aria-label="Marcar Guia paga em todos os meses">
+                      <span>Guia paga</span><span class="monthly-column-toggle-icon"><i data-lucide="chevrons-down"></i></span>
+                    </button>
+                  </th>
                   <th>Observação</th>
                   <th>Etapas</th>
                 </tr>
@@ -1356,7 +1380,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=192"></script>
+    <script src="./app.js?v=193"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
