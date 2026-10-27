@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=194" />
+    <link rel="stylesheet" href="./redesign.css?v=195" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -914,96 +914,163 @@
         </section>
 
         <section id="financeTab" class="tab-panel">
-          <section class="finance-reduction">
-            <div class="mini-heading">
-              <h3>Redução do INSS</h3>
+          <div class="client-finance-workspace">
+            <section class="client-finance-card client-finance-reduction-card">
+              <header class="client-finance-section-heading">
+                <h3>Redução do INSS</h3>
+                <div id="financeReductionRate" class="client-finance-reduction-rate" aria-live="polite"></div>
+              </header>
+              <div class="client-finance-reduction-fields">
+                <label>INSS sem redução
+                  <span class="client-finance-currency-field"><b>R$</b><input data-field="inssOriginalValue" data-currency-compact type="text" inputmode="numeric" placeholder="0,00" /></span>
+                </label>
+                <label>INSS com redução
+                  <span class="client-finance-currency-field"><b>R$</b><input data-field="inssReducedValue" data-currency-compact type="text" inputmode="numeric" placeholder="0,00" /></span>
+                </label>
+                <div id="inssReductionResults" class="client-finance-economy" aria-live="polite"></div>
+              </div>
+              <div id="financeReductionTrack" class="client-finance-reduction-track" aria-hidden="true">
+                <i class="remaining"></i><i class="reduced"></i>
+              </div>
+              <div class="client-finance-reduction-scale"><span>A recolher</span><span>Reduzido</span></div>
+            </section>
+
+            <div class="client-finance-columns">
+              <section class="client-finance-card client-finance-fees-card">
+                <header class="client-finance-section-heading">
+                  <h3>Honorários</h3>
+                  <label class="client-finance-status-select">
+                    <i></i>
+                    <select data-field="financeStatus" aria-label="Status financeiro">
+                      <option value="">Selecione</option>
+                      <option value="Pago">Pago</option>
+                      <option value="Em andamento">Em andamento</option>
+                      <option value="Atrasado">Atrasado</option>
+                    </select>
+                  </label>
+                </header>
+
+                <div class="client-finance-fee-settings">
+                  <label>Valor total
+                    <span class="client-finance-currency-field"><b>R$</b><input data-field="feeValue" data-currency-compact type="text" inputmode="numeric" placeholder="0,00" /></span>
+                  </label>
+                  <div class="client-finance-setting-group">
+                    <span>Condição</span>
+                    <div class="client-finance-segmented" role="group" aria-label="Condição de pagamento">
+                      <button type="button" data-finance-condition="cash">À vista</button>
+                      <button type="button" data-finance-condition="installments">Parcelado</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="client-finance-setting-group">
+                  <span>Forma de pagamento</span>
+                  <div class="client-finance-payment-methods" role="group" aria-label="Forma de pagamento">
+                    <button type="button" data-finance-payment-method="Pix">Pix</button>
+                    <button type="button" data-finance-payment-method="Boleto">Boleto</button>
+                    <button type="button" data-finance-payment-method="Cartão de crédito">Cartão</button>
+                    <button type="button" data-finance-payment-method="Transferência">Transferência</button>
+                    <button type="button" data-finance-payment-method="Dinheiro">Dinheiro</button>
+                  </div>
+                </div>
+
+                <select class="client-finance-native-select" data-field="paymentMethod" aria-hidden="true" tabindex="-1">
+                  <option value="">Selecione</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Boleto">Boleto</option>
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Cartão de crédito">Cartão de crédito</option>
+                  <option value="Transferência">Transferência</option>
+                </select>
+                <select class="client-finance-native-select" data-field="installments" aria-hidden="true" tabindex="-1">
+                  <option value="">Selecione</option>
+                  <option value="Sem parcelas">Sem parcelas</option>
+                  <option value="1">1 parcela</option>
+                  <option value="2">2 parcelas</option>
+                  <option value="3">3 parcelas</option>
+                  <option value="4">4 parcelas</option>
+                  <option value="5">5 parcelas</option>
+                  <option value="6">6 parcelas</option>
+                  <option value="7">7 parcelas</option>
+                  <option value="8">8 parcelas</option>
+                  <option value="9">9 parcelas</option>
+                  <option value="10">10 parcelas</option>
+                  <option value="11">11 parcelas</option>
+                  <option value="12">12 parcelas</option>
+                  <option value="13">13 parcelas</option>
+                  <option value="14">14 parcelas</option>
+                  <option value="15">15 parcelas</option>
+                  <option value="16">16 parcelas</option>
+                  <option value="17">17 parcelas</option>
+                  <option value="18">18 parcelas</option>
+                  <option value="19">19 parcelas</option>
+                  <option value="20">20 parcelas</option>
+                </select>
+
+                <div class="client-finance-installments-heading">
+                  <span>Parcelas</span>
+                  <div class="client-finance-stepper" aria-label="Quantidade de parcelas">
+                    <button type="button" data-finance-installment-step="-1" aria-label="Diminuir parcelas">−</button>
+                    <strong id="financeInstallmentCount">1x</strong>
+                    <button type="button" data-finance-installment-step="1" aria-label="Aumentar parcelas">+</button>
+                  </div>
+                </div>
+                <div id="financeInstallmentsList" class="client-finance-installments"></div>
+                <div class="client-finance-paid-summary">
+                  <span><i id="financePaidProgress"></i></span>
+                  <p id="financePaidSummary"></p>
+                </div>
+              </section>
+
+              <div class="client-finance-side-column">
+                <section class="client-finance-card client-finance-overview-card">
+                  <label class="client-finance-overview-row">
+                    <span>Origem do cliente</span>
+                    <select data-field="clientOrigin">
+                      <option value="">Selecione</option>
+                      <option value="BNI">BNI</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="Facebook">Facebook</option>
+                      <option value="Outdoor">Outdoor</option>
+                      <option value="Panfleto">Panfleto</option>
+                      <option value="Prospecção ativa">Prospecção ativa</option>
+                      <option value="Site">Site</option>
+                      <option value="Indicação">Indicação</option>
+                    </select>
+                  </label>
+                  <div class="client-finance-overview-row"><span>Próximo recebimento</span><strong id="financeNextPayment">Não informado</strong></div>
+                  <div class="client-finance-overview-row"><span>Honorários sobre a economia</span><strong id="financeFeePercent">Não informado</strong></div>
+                  <div class="client-finance-referral-fields">
+                    <label id="referrerField">Quem indicou<input data-field="referrer" type="text" /></label>
+                    <label id="hasReferralCommissionField">Comissão de indicação
+                      <select data-field="hasReferralCommission">
+                        <option value="">Selecione</option>
+                        <option value="Sim">Sim</option>
+                        <option value="Não">Não</option>
+                      </select>
+                    </label>
+                    <label id="referralCommissionValueField">Valor da comissão<input data-field="referralCommission" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
+                    <label id="commissionPaidField">Comissão paga?
+                      <select data-field="commissionPaid">
+                        <option value="">Selecione</option>
+                        <option value="Sim">Sim</option>
+                        <option value="Não">Não</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="client-finance-card client-finance-notes-card">
+                  <h3>Observações</h3>
+                  <div class="client-finance-note-composer">
+                    <textarea id="newFinanceMessageText" rows="3" placeholder="Pagamento, comissão ou combinado"></textarea>
+                    <button id="addFinanceMessageButton" class="primary-button" type="button">Salvar</button>
+                  </div>
+                  <div id="financeMessagesList" class="client-finance-messages"></div>
+                </section>
+              </div>
             </div>
-            <div class="form-grid reduction-inputs">
-              <label>INSS sem redução<input data-field="inssOriginalValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
-              <label>INSS com redução<input data-field="inssReducedValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
-            </div>
-            <div id="inssReductionResults" class="reduction-results"></div>
-          </section>
-          <div class="form-grid">
-            <label>Valor dos honorários<input data-field="feeValue" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
-            <label>Forma de pagamento
-              <select data-field="paymentMethod">
-                <option value="">Selecione</option>
-                <option value="Pix">Pix</option>
-                <option value="Boleto">Boleto</option>
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Cartão de crédito">Cartão de crédito</option>
-              </select>
-            </label>
-            <label>Parcelas
-              <select data-field="installments">
-                <option value="">Selecione</option>
-                <option value="Sem parcelas">Sem parcelas</option>
-                <option value="1">1 parcela</option>
-                <option value="2">2 parcelas</option>
-                <option value="3">3 parcelas</option>
-                <option value="4">4 parcelas</option>
-                <option value="5">5 parcelas</option>
-                <option value="6">6 parcelas</option>
-                <option value="7">7 parcelas</option>
-                <option value="8">8 parcelas</option>
-                <option value="9">9 parcelas</option>
-                <option value="10">10 parcelas</option>
-                <option value="11">11 parcelas</option>
-                <option value="12">12 parcelas</option>
-                <option value="13">13 parcelas</option>
-                <option value="14">14 parcelas</option>
-                <option value="15">15 parcelas</option>
-                <option value="16">16 parcelas</option>
-                <option value="17">17 parcelas</option>
-                <option value="18">18 parcelas</option>
-                <option value="19">19 parcelas</option>
-                <option value="20">20 parcelas</option>
-              </select>
-            </label>
-            <label>Status financeiro
-              <select data-field="financeStatus">
-                <option value="">Selecione</option>
-                <option value="Pago">Pago</option>
-                <option value="Em andamento">Em andamento</option>
-                <option value="Atrasado">Atrasado</option>
-              </select>
-            </label>
-            <label>Origem
-              <select data-field="clientOrigin">
-                <option value="">Selecione</option>
-                <option value="BNI">BNI</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Facebook">Facebook</option>
-                <option value="Outdoor">Outdoor</option>
-                <option value="Panfleto">Panfleto</option>
-                <option value="Prospecção ativa">Prospecção ativa</option>
-                <option value="Site">Site</option>
-                <option value="Indicação">Indicação</option>
-              </select>
-            </label>
-            <label id="referrerField">Quem indicou<input data-field="referrer" type="text" /></label>
-            <label id="hasReferralCommissionField">Comissão de indicação
-              <select data-field="hasReferralCommission">
-                <option value="">Selecione</option>
-                <option value="Sim">Sim</option>
-                <option value="Não">Não</option>
-              </select>
-            </label>
-            <label id="referralCommissionValueField">Valor da comissão<input data-field="referralCommission" type="text" inputmode="numeric" placeholder="R$ 0,00" /></label>
-            <label id="commissionPaidField">Comissão paga?
-              <select data-field="commissionPaid">
-                <option value="">Selecione</option>
-                <option value="Sim">Sim</option>
-                <option value="Não">Não</option>
-              </select>
-            </label>
           </div>
-          <div class="note-composer finance-composer">
-            <textarea id="newFinanceMessageText" rows="3" placeholder="Registrar observação financeira, pagamento, comissão ou combinação"></textarea>
-            <button id="addFinanceMessageButton" class="secondary-button" type="button"><i data-lucide="send"></i> Salvar observação</button>
-          </div>
-          <div id="financeMessagesList" class="timeline-list"></div>
         </section>
 
         <section id="historyTab" class="tab-panel">
@@ -1380,7 +1447,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=194"></script>
+    <script src="./app.js?v=195"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

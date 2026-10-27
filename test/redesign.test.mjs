@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=194/);
+  assert.match(indexHtml, /redesign\.css\?v=195/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=194/);
+  assert.match(indexHtml, /app\.js\?v=195/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -156,6 +156,17 @@ test("client summary exposes pending work in the redesigned dialog", () => {
   assert.match(redesignCss, /\.summary-status-chip\.tone-progress/);
   assert.match(redesignCss, /\.summary-status-chip\.tone-waiting/);
   assert.match(redesignCss, /\.summary-status-chip\.tone-complete/);
+});
+
+test("client finance tab follows the supplied financial workspace", () => {
+  assert.match(indexHtml, /id="financeTab"[\s\S]*client-finance-reduction-card[\s\S]*client-finance-fees-card[\s\S]*client-finance-overview-card[\s\S]*client-finance-notes-card/);
+  assert.match(indexHtml, /data-finance-condition="cash"[\s\S]*data-finance-condition="installments"/);
+  assert.match(indexHtml, /data-finance-payment-method="Pix"[\s\S]*data-finance-payment-method="Transferência"/);
+  assert.match(indexHtml, /id="financeInstallmentsList"[\s\S]*id="financePaidSummary"/);
+  assert.match(appJs, /function renderClientFinanceWorkspace[\s\S]*function financeInstallmentSchedule[\s\S]*function financeInstallmentDateKey/);
+  assert.match(appJs, /financePaidInstallments/);
+  assert.match(redesignCss, /\.client-finance-columns\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1\.45fr\) minmax\(300px, 0\.95fr\)/);
+  assert.match(redesignCss, /@media \(max-width: 700px\)[\s\S]*\.client-finance-payment-methods/);
 });
 
 test("client and work tab uses the structured two-panel editor", () => {

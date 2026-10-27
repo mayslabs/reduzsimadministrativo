@@ -771,6 +771,7 @@ function migrateState(savedState = {}, persist = false) {
     paymentMethod: "",
     installments: "",
     financeStatus: "Em andamento",
+    financePaidInstallments: 0,
     clientOrigin: "",
     hasReferralCommission: "",
     referralCommission: "",
@@ -787,6 +788,7 @@ function migrateState(savedState = {}, persist = false) {
     paymentMethod: normalizeSelectValue(client.paymentMethod, financePaymentMethods()),
     installments: normalizeInstallmentsValue(client.installments),
     financeStatus: normalizeFinanceStatus(client.financeStatus),
+    financePaidInstallments: normalizeFinancePaidInstallments(client.financePaidInstallments, client.installments, client.financeStatus),
     clientOrigin: normalizeClientOrigin(client),
     hasReferralCommission: normalizeReferralCommissionChoice(client),
     referralCommission: formatCurrencyValue(client.referralCommission || ""),
@@ -2037,6 +2039,38 @@ function bindEvents() {
   });
   el.addNoteButton.addEventListener("click", addNote);
   el.addFinanceMessageButton.addEventListener("click", addFinanceMessage);
+  el.newFinanceMessageText?.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      addFinanceMessage();
+    }
+  });
+  document.querySelectorAll("[data-finance-condition]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const installments = document.querySelector('select[data-field="installments"]');
+      if (!installments) return;
+      const currentCount = financeInstallmentCount(installments.value);
+      installments.value = button.dataset.financeCondition === "installments" && currentCount < 2 ? "2" : button.dataset.financeCondition === "cash" ? "1" : String(currentCount);
+      installments.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+  document.querySelectorAll("[data-finance-payment-method]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const paymentMethod = document.querySelector('select[data-field="paymentMethod"]');
+      if (!paymentMethod) return;
+      paymentMethod.value = button.dataset.financePaymentMethod || "";
+      paymentMethod.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+  document.querySelectorAll("[data-finance-installment-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const installments = document.querySelector('select[data-field="installments"]');
+      if (!installments) return;
+      const step = Number(button.dataset.financeInstallmentStep) || 0;
+      installments.value = String(Math.max(1, Math.min(20, financeInstallmentCount(installments.value) + step)));
+      installments.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
   el.addHistoryButton.addEventListener("click", addManualHistory);
   el.addStatusButton.addEventListener("click", openStatusDialog);
   el.addUserButton.addEventListener("click", openUserDialog);
@@ -2078,7 +2112,11 @@ function bindEvents() {
       const field = input.dataset.field;
       if (field === "cpf") syncDocumentTypeFromNumber(input.value);
       const formattedValue = formatFieldValue(field, input.value);
-      input.value = field === "area" ? areaInputValue(formattedValue) : formattedValue;
+      input.value = field === "area"
+        ? areaInputValue(formattedValue)
+        : input.hasAttribute("data-currency-compact")
+          ? currencyInputValue(formattedValue)
+          : formattedValue;
       activeClient[field] = formattedValue;
       if (field === "clientName") {
         el.clientDialogTitle.textContent = compactClientDisplayName(formattedValue) || "Novo cliente";
@@ -2094,7 +2132,24 @@ function bindEvents() {
       if (["startDate", "endDate"].includes(field)) renderClientWorkDuration();
       if (["clientName", "destination", "state", "area", "cpf", "contractClosedDate"].includes(field)) renderClientDialogMeta();
       if (field === "clientOrigin" || field === "hasReferralCommission") syncReferralCommissionFields();
-      if (["feeValue", "inssOriginalValue", "inssReducedValue", "paymentMethod", "installments", "financeStatus"].includes(field)) renderInssReduction();
+      if (field === "installments") {
+        const count = financeInstallmentCount(formattedValue);
+        activeClient.financePaidInstallments = activeClient.financeStatus === "Pago"
+          ? count
+          : normalizeFinancePaidInstallments(activeClient.financePaidInstallments, formattedValue, activeClient.financeStatus);
+        if (activeClient.financePaidInstallments >= count && activeClient.financePaidInstallments > 0) {
+          activeClient.financeStatus = "Pago";
+          const statusInput = document.querySelector('select[data-field="financeStatus"]');
+          if (statusInput) statusInput.value = "Pago";
+        }
+      }
+      if (field === "financeStatus") {
+        const count = financeInstallmentCount(activeClient.installments);
+        activeClient.financePaidInstallments = formattedValue === "Pago"
+          ? count
+          : Math.min(normalizeFinancePaidInstallments(activeClient.financePaidInstallments, activeClient.installments, formattedValue), Math.max(0, count - 1));
+      }
+      if (["feeValue", "inssOriginalValue", "inssReducedValue", "paymentMethod", "installments", "financeStatus", "contractClosedDate"].includes(field)) renderInssReduction();
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -9757,6 +9812,7 @@ function fillClientFields() {
     const value = activeClient[field] || "";
     if (field === "clientName") input.value = compactClientDisplayName(value);
     else if (field === "area") input.value = areaInputValue(value);
+    else if (input.hasAttribute("data-currency-compact")) input.value = currencyInputValue(value);
     else input.value = value;
   });
 }
@@ -9951,13 +10007,126 @@ function renderInssReduction() {
     </button>
   `;
   el.inssReductionSummary.querySelector("[data-open-finance-summary]")?.addEventListener("click", () => switchTab("financeTab"));
-  el.inssReductionResults.innerHTML = [
-    reductionValue("Economia bruta", values.grossEconomy, "gross"),
-    reductionValue("Total com honorários", values.totalWithFees, "total"),
-    reductionValue("Economia líquida estimada", values.netEconomy, "net"),
-    reductionValue("Percentual de redução", values.reductionPercent, "percent"),
-  ].join("");
+  el.inssReductionResults.innerHTML = `<span>Economia</span><strong>${escapeHtml(values.grossEconomy)}</strong>`;
+  const rate = document.getElementById("financeReductionRate");
+  if (rate) {
+    rate.innerHTML = `<i class="client-finance-rate-ring" style="--finance-reduction:${reduction}" aria-hidden="true"><b></b></i><strong>${escapeHtml(values.reductionPercent)}</strong><span>de redução</span>`;
+  }
+  const track = document.getElementById("financeReductionTrack");
+  if (track) {
+    track.querySelector(".remaining").style.width = `${remaining}%`;
+    track.querySelector(".reduced").style.width = `${reduction}%`;
+  }
+  renderClientFinanceWorkspace(values);
   refreshIcons();
+}
+
+function renderClientFinanceWorkspace(values) {
+  if (!activeClient) return;
+  const count = financeInstallmentCount(activeClient.installments);
+  activeClient.financePaidInstallments = normalizeFinancePaidInstallments(
+    activeClient.financePaidInstallments,
+    activeClient.installments,
+    activeClient.financeStatus
+  );
+  const paidCount = activeClient.financePaidInstallments;
+  const schedule = financeInstallmentSchedule(activeClient, values.feeAmount, count, paidCount);
+  const installmentCount = document.getElementById("financeInstallmentCount");
+  const installmentsList = document.getElementById("financeInstallmentsList");
+  const paidProgress = document.getElementById("financePaidProgress");
+  const paidSummary = document.getElementById("financePaidSummary");
+  const nextPayment = document.getElementById("financeNextPayment");
+  const feePercent = document.getElementById("financeFeePercent");
+
+  if (installmentCount) installmentCount.textContent = `${count}x`;
+  document.querySelectorAll("[data-finance-condition]").forEach((button) => {
+    const active = button.dataset.financeCondition === (count > 1 ? "installments" : "cash");
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-finance-payment-method]").forEach((button) => {
+    const active = button.dataset.financePaymentMethod === activeClient.paymentMethod;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelector(".client-finance-status-select")?.setAttribute("data-status", normalize(activeClient.financeStatus || "em andamento").replace(/\s+/g, "-"));
+
+  if (installmentsList) {
+    installmentsList.innerHTML = schedule.map((installment) => `
+      <article class="client-finance-installment ${installment.overdue ? "overdue" : ""}">
+        <span class="client-finance-installment-number">${installment.index + 1}ª</span>
+        <strong class="client-finance-installment-amount">${escapeHtml(installment.amountLabel)}</strong>
+        <time datetime="${escapeHtml(installment.dateKey || "")}">${escapeHtml(installment.dateLabel)}${installment.dateKey ? '<i data-lucide="calendar-days"></i>' : ""}</time>
+        <button class="client-finance-installment-status ${installment.statusClass}" type="button" data-finance-installment-index="${installment.index}" aria-pressed="${installment.paid}">
+          ${installment.paid ? '<i data-lucide="check"></i>' : ""}${escapeHtml(installment.statusLabel)}
+        </button>
+      </article>
+    `).join("");
+    installmentsList.querySelectorAll("[data-finance-installment-index]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = Number(button.dataset.financeInstallmentIndex);
+        const currentPaid = normalizeFinancePaidInstallments(activeClient.financePaidInstallments, activeClient.installments, activeClient.financeStatus);
+        activeClient.financePaidInstallments = index < currentPaid ? index : index + 1;
+        activeClient.financeStatus = activeClient.financePaidInstallments >= count
+          ? "Pago"
+          : activeClient.financeStatus === "Pago" || !activeClient.financeStatus
+            ? "Em andamento"
+            : activeClient.financeStatus;
+        const statusInput = document.querySelector('select[data-field="financeStatus"]');
+        if (statusInput) statusInput.value = activeClient.financeStatus;
+        renderInssReduction();
+      });
+    });
+  }
+
+  const progress = count ? (paidCount / count) * 100 : 0;
+  if (paidProgress) paidProgress.style.width = `${progress}%`;
+  if (paidSummary) {
+    const received = values.feeAmount === null ? null : (values.feeAmount / count) * paidCount;
+    paidSummary.innerHTML = `<strong>${escapeHtml(calculatedCurrency(received))}</strong> de ${escapeHtml(values.fee)} recebidos`;
+  }
+  const upcoming = schedule.find((installment) => !installment.paid);
+  if (nextPayment) {
+    nextPayment.textContent = upcoming
+      ? `${upcoming.dateLabel} · ${upcoming.amountLabel}`
+      : values.feeAmount === null
+        ? "Não informado"
+        : "Tudo recebido";
+  }
+  if (feePercent) {
+    const percent = values.grossEconomyAmount && values.feeAmount !== null
+      ? (values.feeAmount / values.grossEconomyAmount) * 100
+      : null;
+    feePercent.textContent = calculatedPercent(percent);
+  }
+}
+
+function financeInstallmentSchedule(client, feeAmount, count, paidCount) {
+  const amount = feeAmount === null ? null : feeAmount / count;
+  return Array.from({ length: count }, (_, index) => {
+    const dateKey = financeInstallmentDateKey(client.contractClosedDate, index);
+    const paid = index < paidCount;
+    const overdue = !paid && Boolean(dateKey) && dateKey < localDateKey();
+    return {
+      index,
+      paid,
+      overdue,
+      dateKey,
+      dateLabel: dateKey ? formatDate(dateKey) : "Sem data",
+      amountLabel: calculatedCurrency(amount),
+      statusClass: paid ? "paid" : overdue ? "overdue" : "planned",
+      statusLabel: paid ? "Paga" : overdue ? "Atrasada" : "Prevista",
+    };
+  });
+}
+
+function financeInstallmentDateKey(baseDate, offset) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(baseDate || "")) return "";
+  const [year, month, day] = baseDate.split("-").map(Number);
+  const firstOfMonth = new Date(year, month - 1 + offset, 1);
+  const lastDay = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth() + 1, 0).getDate();
+  const installmentDate = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), Math.min(day, lastDay));
+  return `${installmentDate.getFullYear()}-${String(installmentDate.getMonth() + 1).padStart(2, "0")}-${String(installmentDate.getDate()).padStart(2, "0")}`;
 }
 
 function reductionValue(label, value, modifier = "") {
@@ -9991,6 +10160,7 @@ function inssReductionValues(client) {
     reductionPercentValue: reductionPercent,
     feeAmount: fee,
     fee: calculatedCurrency(fee),
+    grossEconomyAmount: grossEconomy,
   };
 }
 
@@ -10805,20 +10975,26 @@ function renderFinanceMessages() {
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .map(
           (message) => `
-            <article class="note-message" data-finance-message="${message.id}">
-              <p class="note-text">${escapeHtml(message.text || "")}</p>
+            <article class="client-finance-message" data-finance-message="${message.id}">
+              <header>
+                <div class="client-finance-message-author">
+                  <span>${escapeHtml(userInitials(ownerName(message.userId)))}</span>
+                  <strong>${escapeHtml(ownerName(message.userId))}</strong>
+                  <time>${escapeHtml(formatDateTime(message.createdAt))}${message.updatedAt ? " · editada" : ""}</time>
+                </div>
+                <div class="client-finance-message-actions">
+                  <button type="button" data-edit-finance-message="${message.id}" aria-label="Editar observação financeira" title="Editar"><i data-lucide="pencil"></i></button>
+                  <button type="button" data-save-finance-message="${message.id}" hidden>Salvar</button>
+                  <button type="button" data-remove-finance-message="${message.id}" aria-label="Remover observação financeira" title="Remover"><i data-lucide="trash-2"></i></button>
+                </div>
+              </header>
+              <p class="note-text client-finance-message-text">${escapeHtml(message.text || "")}</p>
               <textarea class="note-edit-field" data-finance-message-field="text" hidden>${escapeHtml(message.text || "")}</textarea>
-              <div class="note-footer">
-                <span>${escapeHtml(ownerName(message.userId))} | ${formatDateTime(message.createdAt)}${message.updatedAt ? " | editada" : ""}</span>
-                <button type="button" data-edit-finance-message="${message.id}">Editar</button>
-                <button type="button" data-save-finance-message="${message.id}" hidden>Salvar</button>
-                <button type="button" data-remove-finance-message="${message.id}" aria-label="Remover observação financeira">×</button>
-              </div>
             </article>
           `
         )
         .join("")
-    : `<p class="empty-state">Nenhuma observação financeira registrada.</p>`;
+    : `<p class="client-finance-empty-message">Nenhuma observação financeira registrada.</p>`;
 
   document.querySelectorAll("[data-edit-finance-message]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -11304,6 +11480,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     paymentMethod: "Forma de pagamento",
     installments: "Parcelas",
     financeStatus: "Status financeiro",
+    financePaidInstallments: "Parcelas pagas",
     clientOrigin: "Origem",
     hasReferralCommission: "Comissão de indicação",
     referralCommission: "Comissão de indicação",
@@ -12365,6 +12542,7 @@ function createEmptyClient() {
     paymentMethod: "",
     installments: "",
     financeStatus: "Em andamento",
+    financePaidInstallments: 0,
     clientOrigin: "",
     hasReferralCommission: "",
     referralCommission: "",
@@ -12636,6 +12814,10 @@ function areaInputValue(value) {
   return String(value || "").replace(/\s*m²\s*$/i, "").trim();
 }
 
+function currencyInputValue(value) {
+  return String(value || "").replace(/^R\$\s*/i, "").trim();
+}
+
 function formatCurrencyValue(value) {
   const digits = onlyDigits(value);
   if (!digits) return "";
@@ -12680,7 +12862,7 @@ function calculatedPercent(value) {
 }
 
 function financePaymentMethods() {
-  return ["Pix", "Boleto", "Dinheiro", "Cartão de crédito"];
+  return ["Pix", "Boleto", "Dinheiro", "Cartão de crédito", "Transferência"];
 }
 
 function normalizeInstallmentsValue(value) {
@@ -12690,6 +12872,22 @@ function normalizeInstallmentsValue(value) {
   const count = Number(digits);
   if (count < 1 || count > 20) return "";
   return String(count);
+}
+
+function financeInstallmentCount(value) {
+  if (normalize(value) === "sem parcelas") return 1;
+  const count = Number(value);
+  return Number.isFinite(count) && count >= 1 ? Math.min(20, Math.floor(count)) : 1;
+}
+
+function normalizeFinancePaidInstallments(value, installments, financeStatus) {
+  const count = financeInstallmentCount(installments);
+  if (value === undefined || value === null || value === "") {
+    return normalizeFinanceStatus(financeStatus) === "Pago" ? count : 0;
+  }
+  const paid = Number(value);
+  if (!Number.isFinite(paid)) return 0;
+  return Math.max(0, Math.min(count, Math.floor(paid)));
 }
 
 function normalizeReferralCommissionChoice(client = {}) {
@@ -12741,6 +12939,7 @@ function normalizeClientSelectValues(client) {
   client.paymentMethod = normalizeSelectValue(client.paymentMethod, financePaymentMethods());
   client.installments = normalizeInstallmentsValue(client.installments);
   client.financeStatus = normalizeFinanceStatus(client.financeStatus);
+  client.financePaidInstallments = normalizeFinancePaidInstallments(client.financePaidInstallments, client.installments, client.financeStatus);
   client.clientOrigin = normalizeClientOrigin(client);
   client.hasReferralCommission = normalizeReferralCommissionChoice(client);
   client.referralCommission = formatCurrencyValue(client.referralCommission || "");
