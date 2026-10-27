@@ -1006,7 +1006,7 @@ body.privacy-mode :is(
   padding: 2px 9px;
   border-radius: 999px;
   color: #ffffff;
-  background: var(--green-dark);
+  background: var(--red);
   font-size: 10.5px;
   font-style: normal;
   font-weight: 600;
@@ -1111,6 +1111,20 @@ body.privacy-mode :is(
   background: var(--green-dark);
 }
 
+.task-work-panel.overdue.has-items .task-panel-title {
+  color: var(--red);
+}
+
+.task-work-panel.overdue.has-items .task-panel-count,
+.task-work-panel.overdue.has-items .task-panel-count.strong {
+  color: #ffffff;
+  background: var(--red);
+}
+
+.task-work-panel.overdue.has-items .task-table-list {
+  border-color: rgba(209, 67, 67, 0.24);
+}
+
 .task-panel-heading small {
   color: #8a8a8a;
   font-size: 12.5px;
@@ -1145,6 +1159,15 @@ body.privacy-mode :is(
 
 .task-table-row:hover {
   background: rgba(0, 155, 119, 0.035);
+}
+
+.task-table-row.overdue {
+  border-left-color: var(--red);
+  background: #fff7f7;
+}
+
+.task-table-row.overdue:hover {
+  background: #fff1f1;
 }
 
 .task-row-content {
@@ -1188,7 +1211,7 @@ body.privacy-mode :is(
 }
 
 .task-row-date.overdue {
-  color: var(--green-dark);
+  color: var(--red);
   font-weight: 600;
 }
 
@@ -1389,7 +1412,7 @@ body.privacy-mode :is(
 }
 
 .task-waiting-age {
-  color: var(--green-dark);
+  color: var(--red);
   font-weight: 600;
 }
 

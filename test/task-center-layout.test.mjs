@@ -35,6 +35,15 @@ test("day view follows the redesigned task hierarchy", () => {
   assert.match(redesign, /\.task-return-group h4/);
 });
 
+test("overdue and stalled task signals use the urgent red treatment", () => {
+  assert.match(app, /task-work-panel \$\{key\} \$\{items\.length \? "has-items" : "is-empty"\}/);
+  assert.match(redesign, /\.task-stat-heading em[\s\S]*?background:\s*var\(--red\)/);
+  assert.match(redesign, /\.task-work-panel\.overdue\.has-items \.task-panel-title[\s\S]*?color:\s*var\(--red\)/);
+  assert.match(redesign, /\.task-table-row\.overdue[\s\S]*?border-left-color:\s*var\(--red\)[\s\S]*?background:\s*#fff7f7/);
+  assert.match(redesign, /\.task-row-date\.overdue[\s\S]*?color:\s*var\(--red\)/);
+  assert.match(redesign, /\.task-waiting-age[\s\S]*?color:\s*var\(--red\)/);
+});
+
 test("waiting status is independent from the task due date", () => {
   assert.match(app, /isWaitingTaskStatus\(item\.status\)\) return "waiting"/);
   assert.match(app, /return waiting && item\.urgency !== "done"/);

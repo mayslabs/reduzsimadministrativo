@@ -6832,7 +6832,7 @@ function renderTaskTablePanel(title, items, key, icon, options = {}) {
   const visibleItems = [...items].sort(taskItemSorter).slice(0, limit);
   const hiddenCount = Math.max(0, items.length - visibleItems.length);
   return `
-    <section class="task-work-panel ${key}">
+    <section class="task-work-panel ${key} ${items.length ? "has-items" : "is-empty"}">
       <header class="task-panel-heading">
         <span class="task-panel-title">${escapeHtml(title)}</span>
         <strong class="task-panel-count ${options.strongBadge && items.length ? "strong" : ""}">${items.length}</strong>
