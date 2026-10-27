@@ -507,6 +507,10 @@ const el = {
   clientDialogTitle: document.getElementById("clientDialogTitle"),
   clientDialogHeaderStatuses: document.getElementById("clientDialogHeaderStatuses"),
   clientDialogMeta: document.getElementById("clientDialogMeta"),
+  clientDestinationSelection: document.getElementById("clientDestinationSelection"),
+  clientDestinationToggle: document.getElementById("clientDestinationToggle"),
+  clientDestinationMenu: document.getElementById("clientDestinationMenu"),
+  clientWorkDuration: document.getElementById("clientWorkDuration"),
   clientSummaryPending: document.getElementById("clientSummaryPending"),
   deleteClientButton: document.getElementById("deleteClientButton"),
   saveClientButton: document.getElementById("saveClientButton"),
@@ -1977,6 +1981,27 @@ function bindEvents() {
   document.querySelectorAll("[data-destination-option]").forEach((input) => {
     input.addEventListener("change", syncDestinationOptions);
   });
+  el.clientDestinationToggle?.addEventListener("click", () => {
+    setDestinationMenuExpanded(el.clientDestinationMenu?.hidden !== false);
+  });
+  el.clientDestinationSelection?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-destination]");
+    if (!button) return;
+    const option = Array.from(document.querySelectorAll("[data-destination-option]"))
+      .find((input) => input.value === button.dataset.removeDestination);
+    if (!option) return;
+    option.checked = false;
+    syncDestinationOptions();
+  });
+  document.querySelectorAll("[data-client-choice-field]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const field = button.dataset.clientChoiceField;
+      const input = document.querySelector(`select[data-field="${field}"]`);
+      if (!input) return;
+      input.value = button.dataset.clientChoiceValue || "";
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
 
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => switchSection(button.dataset.section));
@@ -1987,21 +2012,26 @@ function bindEvents() {
   document.querySelectorAll("[data-field]").forEach((input) => {
     const syncField = () => {
       if (!activeClient) return;
-      if (input.dataset.field === "cpf") syncDocumentTypeFromNumber(input.value);
-      input.value = formatFieldValue(input.dataset.field, input.value);
-      activeClient[input.dataset.field] = input.value;
-      if (input.dataset.field === "clientName") {
-        el.clientDialogTitle.textContent = input.value || "Novo cliente";
+      const field = input.dataset.field;
+      if (field === "cpf") syncDocumentTypeFromNumber(input.value);
+      const formattedValue = formatFieldValue(field, input.value);
+      input.value = field === "area" ? areaInputValue(formattedValue) : formattedValue;
+      activeClient[field] = formattedValue;
+      if (field === "clientName") {
+        el.clientDialogTitle.textContent = compactClientDisplayName(formattedValue) || "Novo cliente";
       }
-      if (input.dataset.field === "documentType") {
+      if (field === "documentType") {
         const documentInput = document.querySelector('[data-field="cpf"]');
         if (documentInput) {
           documentInput.value = formatFieldValue("cpf", documentInput.value);
           activeClient.cpf = documentInput.value;
         }
       }
-      if (input.dataset.field === "clientOrigin" || input.dataset.field === "hasReferralCommission") syncReferralCommissionFields();
-      if (["feeValue", "inssOriginalValue", "inssReducedValue", "paymentMethod", "installments", "financeStatus"].includes(input.dataset.field)) renderInssReduction();
+      if (["documentType", "workType", "concrete"].includes(field)) renderClientWorkControls();
+      if (["startDate", "endDate"].includes(field)) renderClientWorkDuration();
+      if (["clientName", "destination", "state", "area", "cpf", "contractClosedDate"].includes(field)) renderClientDialogMeta();
+      if (field === "clientOrigin" || field === "hasReferralCommission") syncReferralCommissionFields();
+      if (["feeValue", "inssOriginalValue", "inssReducedValue", "paymentMethod", "installments", "financeStatus"].includes(field)) renderInssReduction();
     };
     input.addEventListener("input", syncField);
     input.addEventListener("change", syncField);
@@ -2013,6 +2043,7 @@ function syncDocumentTypeFromNumber(value) {
   activeClient.documentType = "cnpj";
   const documentTypeInput = document.querySelector('[data-field="documentType"]');
   if (documentTypeInput) documentTypeInput.value = "cnpj";
+  renderClientWorkControls();
 }
 
 function syncReferralCommissionFields() {
@@ -9625,12 +9656,15 @@ function openClient(client) {
   activeClient.phone = formatFieldValue("phone", activeClient.phone || "");
   activeClient.area = formatFieldValue("area", activeClient.area || "");
   normalizeClientSelectValues(activeClient);
-  el.clientDialogTitle.textContent = client.clientName || "Novo cliente";
+  el.clientDialogTitle.textContent = compactClientDisplayName(client.clientName) || "Novo cliente";
   renderClientDialogMeta();
   setStatusPickerExpanded(false);
+  setDestinationMenuExpanded(false);
   renderUserSelects();
   fillClientFields();
   renderDestinationOptions();
+  renderClientWorkControls();
+  renderClientWorkDuration();
   renderActiveStatuses();
   renderStatusPicker();
   renderMonthlyTable();
@@ -9649,7 +9683,11 @@ function openClient(client) {
 
 function fillClientFields() {
   document.querySelectorAll("[data-field]").forEach((input) => {
-    input.value = activeClient[input.dataset.field] || "";
+    const field = input.dataset.field;
+    const value = activeClient[field] || "";
+    if (field === "clientName") input.value = compactClientDisplayName(value);
+    else if (field === "area") input.value = areaInputValue(value);
+    else input.value = value;
   });
 }
 
@@ -9716,6 +9754,7 @@ function renderDestinationOptions() {
   document.querySelectorAll("[data-destination-option]").forEach((input) => {
     input.checked = selected.has(input.value);
   });
+  renderDestinationSelection();
 }
 
 function syncDestinationOptions() {
@@ -9723,6 +9762,63 @@ function syncDestinationOptions() {
   activeClient.destination = Array.from(document.querySelectorAll("[data-destination-option]:checked"))
     .map((input) => input.value)
     .join(" + ");
+  renderDestinationSelection();
+  renderClientDialogMeta();
+}
+
+function renderDestinationSelection() {
+  if (!el.clientDestinationSelection || !activeClient) return;
+  const selected = destinationList(activeClient.destination);
+  el.clientDestinationSelection.innerHTML = selected.length
+    ? selected.map((destination) => `
+      <span class="client-destination-chip">
+        ${escapeHtml(destination)}
+        <button type="button" data-remove-destination="${escapeHtml(destination)}" aria-label="Remover ${escapeHtml(destination)}">
+          <i data-lucide="x"></i>
+        </button>
+      </span>
+    `).join("")
+    : '<span class="client-destination-placeholder">Selecionar destinação</span>';
+  refreshIcons();
+}
+
+function setDestinationMenuExpanded(expanded) {
+  if (!el.clientDestinationMenu || !el.clientDestinationToggle) return;
+  el.clientDestinationMenu.hidden = !expanded;
+  el.clientDestinationToggle.setAttribute("aria-expanded", String(expanded));
+  el.clientDestinationToggle.classList.toggle("is-open", expanded);
+}
+
+function renderClientWorkControls() {
+  if (!activeClient) return;
+  document.querySelectorAll("[data-client-choice-field]").forEach((button) => {
+    const selected = activeClient[button.dataset.clientChoiceField] === button.dataset.clientChoiceValue;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function renderClientWorkDuration() {
+  if (!el.clientWorkDuration || !activeClient?.startDate || !activeClient?.endDate) {
+    if (el.clientWorkDuration) el.clientWorkDuration.hidden = true;
+    return;
+  }
+  const start = new Date(`${activeClient.startDate}T00:00:00`);
+  const end = new Date(`${activeClient.endDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    el.clientWorkDuration.hidden = true;
+    return;
+  }
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth() + 1;
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  const parts = [];
+  if (years) parts.push(`${years} ${years === 1 ? "ano" : "anos"}`);
+  if (remainingMonths) parts.push(`${remainingMonths} ${remainingMonths === 1 ? "mês" : "meses"}`);
+  const detail = parts.length ? ` <span>(${parts.join(" e ")})</span>` : "";
+  el.clientWorkDuration.innerHTML = `<i data-lucide="clock-3"></i> Duração: <strong>${months} ${months === 1 ? "mês" : "meses"}</strong>${detail}`;
+  el.clientWorkDuration.hidden = false;
+  refreshIcons();
 }
 
 function renderInssReduction() {
@@ -11662,6 +11758,10 @@ function switchTab(tabId) {
     renderClientSummaryPending();
     renderInssReduction();
   }
+  if (tabId === "clientTab") {
+    renderClientWorkControls();
+    renderClientWorkDuration();
+  }
 }
 
 function createEmptyClient() {
@@ -11882,7 +11982,7 @@ function documentStatusOptions(selected = "Pendente") {
 }
 
 function formatFieldValue(field, value) {
-  if (field === "clientName") return value.toLocaleUpperCase("pt-BR");
+  if (field === "clientName") return value;
   if (field === "cpf") return formatDocumentNumber(value, activeClient?.documentType || "cpf");
   if (field === "phone") return formatPhoneNumber(value);
   if (field === "area") return formatAreaValue(value);
@@ -11935,6 +12035,10 @@ function formatAreaValue(value) {
   const integer = padded.slice(0, -2).replace(/^0+(?=\d)/, "");
   const decimal = padded.slice(-2);
   return `${integer},${decimal} m²`;
+}
+
+function areaInputValue(value) {
+  return String(value || "").replace(/\s*m²\s*$/i, "").trim();
 }
 
 function formatCurrencyValue(value) {
@@ -12028,10 +12132,12 @@ function normalizeClientSelectValues(client) {
   const workTypeAliases = {
     construcao: "Alvenaria",
     construção: "Alvenaria",
+    mista: "Madeira ou mista",
+    "pre moldada": "Pré-moldada",
   };
   const rawDestination = destinationAliases[normalize(client.destination)] || client.destination;
   client.destination = destinationList(rawDestination).join(" + ");
-  client.workType = normalizeSelectValue(workTypeAliases[normalize(client.workType)] || client.workType, ["Alvenaria", "Madeira ou mista"]);
+  client.workType = normalizeSelectValue(workTypeAliases[normalize(client.workType)] || client.workType, ["Alvenaria", "Madeira", "Madeira ou mista", "Pré-moldada"]);
   client.concrete = normalizeSelectValue(client.concrete, ["Sim", "Não"]);
   client.state = normalizeSelectValue(String(client.state || "").toUpperCase(), brazilianStates());
   client.feeValue = formatCurrencyValue(client.feeValue || "");

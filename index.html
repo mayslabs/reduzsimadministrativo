@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=181" />
+    <link rel="stylesheet" href="./redesign.css?v=182" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -648,86 +648,165 @@
         </section>
 
         <section id="clientTab" class="tab-panel">
-          <div class="form-grid">
-            <label>Nome do cliente<input data-field="clientName" type="text" /></label>
-            <label>Título da obra<input data-field="workTitle" type="text" placeholder="Ex.: Casa principal, Galpão, Reforma" /></label>
-            <label>Data do fechamento (pagamento)<input data-field="contractClosedDate" type="date" /></label>
-            <label>Tipo de documento
-              <select data-field="documentType">
-                <option value="cpf">CPF</option>
-                <option value="cnpj">CNPJ</option>
-              </select>
-            </label>
-            <label>CPF/CNPJ<input data-field="cpf" type="text" inputmode="numeric" maxlength="18" /></label>
-            <label>Telefone<input data-field="phone" type="text" inputmode="numeric" maxlength="15" /></label>
-            <label>WhatsApp usado
-              <select data-field="whatsappDdd">
-                <option value="">Selecionar</option>
-                <option value="61">DDD 61</option>
-                <option value="63">DDD 63</option>
-                <option value="Celular pessoal">Celular pessoal</option>
-              </select>
-            </label>
-            <label>Responsável da obra<input data-field="workResponsible" type="text" /></label>
-            <fieldset class="checkbox-field destination-field">
-              <legend>Destinação</legend>
-              <label><input type="checkbox" data-destination-option value="Residencial unifamiliar" /> Residencial unifamiliar</label>
-              <label><input type="checkbox" data-destination-option value="Residencial multifamiliar" /> Residencial multifamiliar</label>
-              <label><input type="checkbox" data-destination-option value="Comercial salas e lojas" /> Comercial salas e lojas</label>
-              <label><input type="checkbox" data-destination-option value="Galpão industrial" /> Galpão industrial</label>
-              <label><input type="checkbox" data-destination-option value="Casa popular" /> Casa popular</label>
-              <label><input type="checkbox" data-destination-option value="Conjunto habitacional popular" /> Conjunto habitacional popular</label>
-              <label><input type="checkbox" data-destination-option value="Edifício de garagens" /> Edifício de garagens</label>
-            </fieldset>
-            <label>Tipo de obra
-              <select data-field="workType">
-                <option value="">-- Selecione --</option>
-                <option value="Alvenaria">Alvenaria</option>
-                <option value="Madeira ou mista">Madeira ou mista</option>
-              </select>
-            </label>
-            <label>Concreto usinado
-              <select data-field="concrete">
-                <option value="">-- Selecione --</option>
-                <option value="Sim">Sim</option>
-                <option value="Não">Não</option>
-              </select>
-            </label>
-            <label>Estado
-              <select data-field="state">
-                <option value="">-- Selecione --</option>
-                <option value="AC">AC</option>
-                <option value="AL">AL</option>
-                <option value="AP">AP</option>
-                <option value="AM">AM</option>
-                <option value="BA">BA</option>
-                <option value="CE">CE</option>
-                <option value="DF">DF</option>
-                <option value="ES">ES</option>
-                <option value="GO">GO</option>
-                <option value="MA">MA</option>
-                <option value="MT">MT</option>
-                <option value="MS">MS</option>
-                <option value="MG">MG</option>
-                <option value="PA">PA</option>
-                <option value="PB">PB</option>
-                <option value="PR">PR</option>
-                <option value="PE">PE</option>
-                <option value="PI">PI</option>
-                <option value="RJ">RJ</option>
-                <option value="RN">RN</option>
-                <option value="RS">RS</option>
-                <option value="RO">RO</option>
-                <option value="RR">RR</option>
-                <option value="SC">SC</option>
-                <option value="SP">SP</option>
-                <option value="SE">SE</option>
-                <option value="TO">TO</option>
-              </select>
-            </label>
-            <label>Início da obra<input data-field="startDate" type="date" /></label>
-            <label>Fim da obra<input data-field="endDate" type="date" /></label>
-            <label>Área<input data-field="area" type="text" inputmode="decimal" placeholder="Ex.: 180,00 m²" /></label>
+          <div class="client-details-layout">
+            <section class="client-details-card client-identity-card">
+              <header class="client-details-card-header">
+                <span class="client-details-card-icon"><i data-lucide="user-round"></i></span>
+                <div>
+                  <h3>Cliente</h3>
+                  <p>Identificação e contato</p>
+                </div>
+              </header>
+              <div class="client-details-fields">
+                <label class="client-details-field">Nome do cliente
+                  <input data-field="clientName" type="text" />
+                </label>
+
+                <div class="client-details-field">
+                  <span class="client-details-label">Documento</span>
+                  <div class="client-document-control">
+                    <div class="client-document-types" role="group" aria-label="Tipo de documento">
+                      <button type="button" data-client-choice-field="documentType" data-client-choice-value="cpf">CPF</button>
+                      <button type="button" data-client-choice-field="documentType" data-client-choice-value="cnpj">CNPJ</button>
+                    </div>
+                    <input data-field="cpf" type="text" inputmode="numeric" maxlength="18" aria-label="CPF ou CNPJ" />
+                  </div>
+                  <select class="client-control-value" data-field="documentType" aria-hidden="true" tabindex="-1">
+                    <option value="cpf">CPF</option>
+                    <option value="cnpj">CNPJ</option>
+                  </select>
+                </div>
+
+                <label class="client-details-field">Telefone / WhatsApp
+                  <input data-field="phone" type="text" inputmode="numeric" maxlength="15" placeholder="(63) 9 0000-0000" />
+                </label>
+
+                <label class="client-details-field">Responsável da obra
+                  <input data-field="workResponsible" type="text" placeholder="Engenheiro ou mestre de obras" />
+                </label>
+
+                <label class="client-details-field">Data do fechamento
+                  <input data-field="contractClosedDate" type="date" />
+                </label>
+              </div>
+            </section>
+
+            <section class="client-details-card client-work-card">
+              <header class="client-details-card-header">
+                <span class="client-details-card-icon"><i data-lucide="building-2"></i></span>
+                <div>
+                  <h3>Obra</h3>
+                  <p>Dados usados no cálculo</p>
+                </div>
+              </header>
+              <div class="client-details-fields">
+                <label class="client-details-field">Título da obra
+                  <input data-field="workTitle" type="text" placeholder="Ex.: Obra principal" />
+                </label>
+
+                <div class="client-details-field client-destination-field">
+                  <span class="client-details-label">Destinação</span>
+                  <div id="clientDestinationControl" class="client-destination-control">
+                    <div class="client-destination-selection">
+                      <div id="clientDestinationSelection" class="client-destination-chips"></div>
+                      <button id="clientDestinationToggle" class="client-destination-toggle" type="button" aria-label="Selecionar destinação" aria-controls="clientDestinationMenu" aria-expanded="false">
+                        <i data-lucide="chevron-down"></i>
+                      </button>
+                    </div>
+                    <fieldset id="clientDestinationMenu" class="client-destination-menu" hidden>
+                      <label><input type="checkbox" data-destination-option value="Residencial unifamiliar" /> Residencial unifamiliar</label>
+                      <label><input type="checkbox" data-destination-option value="Residencial multifamiliar" /> Residencial multifamiliar</label>
+                      <label><input type="checkbox" data-destination-option value="Comercial salas e lojas" /> Comercial salas e lojas</label>
+                      <label><input type="checkbox" data-destination-option value="Galpão industrial" /> Galpão industrial</label>
+                      <label><input type="checkbox" data-destination-option value="Casa popular" /> Casa popular</label>
+                      <label><input type="checkbox" data-destination-option value="Conjunto habitacional popular" /> Conjunto habitacional popular</label>
+                      <label><input type="checkbox" data-destination-option value="Edifício de garagens" /> Edifício de garagens</label>
+                    </fieldset>
+                  </div>
+                </div>
+
+                <label class="client-details-field">Área construída
+                  <span class="client-area-control">
+                    <input data-field="area" type="text" inputmode="decimal" placeholder="0,00" />
+                    <span>m²</span>
+                  </span>
+                </label>
+
+                <div class="client-details-field">
+                  <span class="client-details-label">Tipo de obra</span>
+                  <div class="client-choice-group client-work-type-options" role="group" aria-label="Tipo de obra">
+                    <button type="button" data-client-choice-field="workType" data-client-choice-value="Alvenaria">Alvenaria</button>
+                    <button type="button" data-client-choice-field="workType" data-client-choice-value="Madeira">Madeira</button>
+                    <button type="button" data-client-choice-field="workType" data-client-choice-value="Madeira ou mista">Mista</button>
+                    <button type="button" data-client-choice-field="workType" data-client-choice-value="Pré-moldada">Pré-moldada</button>
+                  </div>
+                  <select class="client-control-value" data-field="workType" aria-hidden="true" tabindex="-1">
+                    <option value="">Selecione</option>
+                    <option value="Alvenaria">Alvenaria</option>
+                    <option value="Madeira">Madeira</option>
+                    <option value="Madeira ou mista">Mista</option>
+                    <option value="Pré-moldada">Pré-moldada</option>
+                  </select>
+                </div>
+
+                <div class="client-details-row">
+                  <label class="client-details-field">Estado
+                    <select data-field="state">
+                      <option value="">Selecione</option>
+                      <option value="AC">AC</option>
+                      <option value="AL">AL</option>
+                      <option value="AP">AP</option>
+                      <option value="AM">AM</option>
+                      <option value="BA">BA</option>
+                      <option value="CE">CE</option>
+                      <option value="DF">DF</option>
+                      <option value="ES">ES</option>
+                      <option value="GO">GO</option>
+                      <option value="MA">MA</option>
+                      <option value="MT">MT</option>
+                      <option value="MS">MS</option>
+                      <option value="MG">MG</option>
+                      <option value="PA">PA</option>
+                      <option value="PB">PB</option>
+                      <option value="PR">PR</option>
+                      <option value="PE">PE</option>
+                      <option value="PI">PI</option>
+                      <option value="RJ">RJ</option>
+                      <option value="RN">RN</option>
+                      <option value="RS">RS</option>
+                      <option value="RO">RO</option>
+                      <option value="RR">RR</option>
+                      <option value="SC">SC</option>
+                      <option value="SP">SP</option>
+                      <option value="SE">SE</option>
+                      <option value="TO">TO</option>
+                    </select>
+                  </label>
+                  <div class="client-details-field">
+                    <span class="client-details-label">Concreto usinado</span>
+                    <div class="client-choice-group client-concrete-options" role="group" aria-label="Concreto usinado">
+                      <button type="button" data-client-choice-field="concrete" data-client-choice-value="Sim">Sim</button>
+                      <button type="button" data-client-choice-field="concrete" data-client-choice-value="Não">Não</button>
+                    </div>
+                    <select class="client-control-value" data-field="concrete" aria-hidden="true" tabindex="-1">
+                      <option value="">Selecione</option>
+                      <option value="Sim">Sim</option>
+                      <option value="Não">Não</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="client-details-row client-work-dates">
+                  <label class="client-details-field">Início da obra
+                    <input data-field="startDate" type="date" />
+                  </label>
+                  <label class="client-details-field">Fim da obra
+                    <input data-field="endDate" type="date" />
+                  </label>
+                </div>
+                <p id="clientWorkDuration" class="client-work-duration" hidden></p>
+              </div>
+            </section>
           </div>
         </section>
 
@@ -1299,7 +1378,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=181"></script>
+    <script src="./app.js?v=182"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

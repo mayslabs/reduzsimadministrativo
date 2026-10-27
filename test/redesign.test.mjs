@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=181/);
+  assert.match(indexHtml, /redesign\.css\?v=182/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=181/);
+  assert.match(indexHtml, /app\.js\?v=182/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -102,4 +102,20 @@ test("client summary exposes pending work in the redesigned dialog", () => {
   assert.match(redesignCss, /\.summary-status-chip\.tone-progress/);
   assert.match(redesignCss, /\.summary-status-chip\.tone-waiting/);
   assert.match(redesignCss, /\.summary-status-chip\.tone-complete/);
+});
+
+test("client and work tab uses the structured two-panel editor", () => {
+  assert.match(indexHtml, /id="clientTab"[\s\S]*class="client-details-layout"/);
+  assert.match(indexHtml, /Identificação e contato/);
+  assert.match(indexHtml, /Dados usados no cálculo/);
+  assert.match(indexHtml, /data-client-choice-field="documentType"/);
+  assert.match(indexHtml, /id="clientDestinationSelection"/);
+  assert.match(indexHtml, /data-client-choice-field="workType"[\s\S]*>Mista</);
+  assert.match(indexHtml, /data-client-choice-field="concrete"/);
+  assert.match(indexHtml, /id="clientWorkDuration"/);
+  assert.match(appJs, /function renderClientWorkControls/);
+  assert.match(appJs, /function renderClientWorkDuration/);
+  assert.match(appJs, /function renderDestinationSelection/);
+  assert.match(redesignCss, /\.client-details-layout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 0\.82fr\) minmax\(0, 1\.18fr\)/);
+  assert.match(redesignCss, /\.client-work-type-options\s*\{[\s\S]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 });
