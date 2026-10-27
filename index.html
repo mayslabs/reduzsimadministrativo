@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=184" />
+    <link rel="stylesheet" href="./redesign.css?v=185" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -811,73 +811,30 @@
         </section>
 
         <section id="monthlyTab" class="tab-panel">
-          <div class="mini-heading">
-            <h3>Controle mensal</h3>
+          <div class="monthly-tab-heading">
+            <div>
+              <h3>Controle mensal</h3>
+              <p id="monthlyRangeSummary" class="monthly-range-summary"></p>
+            </div>
             <div class="inline-actions">
               <button id="generateMonthsButton" class="small-button" type="button"><i data-lucide="calendar-plus"></i> Gerar pela obra</button>
-              <button id="addMonthButton" class="small-button" type="button"><i data-lucide="plus"></i> Adicionar mês</button>
+              <button id="addMonthButton" class="primary-button monthly-add-button" type="button"><i data-lucide="plus"></i> Adicionar mês</button>
             </div>
           </div>
-          <div class="table-wrap">
+          <div id="monthlyProgressList" class="monthly-summary-grid"></div>
+          <div class="table-wrap monthly-table-wrap">
             <table class="data-table" id="monthlyTable">
               <thead>
                 <tr>
                   <th>Competência</th>
-                  <th>
-                    <span class="monthly-column-heading">
-                      <span>Recibo enviado</span>
-                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
-                        <input type="checkbox" data-month-toggle-all="receiptSent" aria-label="Marcar Recibo enviado em todos os meses" />
-                        <span>Todos</span>
-                      </label>
-                    </span>
-                  </th>
-                  <th>
-                    <span class="monthly-column-heading">
-                      <span>Recibo assinado</span>
-                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
-                        <input type="checkbox" data-month-toggle-all="receiptSigned" aria-label="Marcar Recibo assinado em todos os meses" />
-                        <span>Todos</span>
-                      </label>
-                    </span>
-                  </th>
-                  <th>
-                    <span class="monthly-column-heading">
-                      <span>Remuneração enviada</span>
-                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
-                        <input type="checkbox" data-month-toggle-all="remunerationSent" aria-label="Marcar Remuneração enviada em todos os meses" />
-                        <span>Todos</span>
-                      </label>
-                    </span>
-                  </th>
-                  <th>
-                    <span class="monthly-column-heading">
-                      <span>Guia emitida</span>
-                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
-                        <input type="checkbox" data-month-toggle-all="guideIssued" aria-label="Marcar Guia emitida em todos os meses" />
-                        <span>Todos</span>
-                      </label>
-                    </span>
-                  </th>
-                  <th>
-                    <span class="monthly-column-heading">
-                      <span>Guia enviada</span>
-                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
-                        <input type="checkbox" data-month-toggle-all="guideSent" aria-label="Marcar Guia enviada em todos os meses" />
-                        <span>Todos</span>
-                      </label>
-                    </span>
-                  </th>
-                  <th>
-                    <span class="monthly-column-heading">
-                      <span>Guia paga</span>
-                      <label class="monthly-bulk-toggle" title="Marcar ou desmarcar todos os meses">
-                        <input type="checkbox" data-month-toggle-all="guidePaid" aria-label="Marcar Guia paga em todos os meses" />
-                        <span>Todos</span>
-                      </label>
-                    </span>
-                  </th>
-                  <th>Obs.</th>
+                  <th>Recibo<br />enviado</th>
+                  <th>Recibo<br />assinado</th>
+                  <th>Remuneração<br />enviada</th>
+                  <th>Guia emitida</th>
+                  <th>Guia enviada</th>
+                  <th>Guia paga</th>
+                  <th>Observação</th>
+                  <th>Etapas</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -1378,7 +1335,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=184"></script>
+    <script src="./app.js?v=185"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

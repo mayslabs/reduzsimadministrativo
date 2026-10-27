@@ -525,6 +525,7 @@ const el = {
   statusPicker: document.getElementById("statusPicker"),
   generateMonthsButton: document.getElementById("generateMonthsButton"),
   addMonthButton: document.getElementById("addMonthButton"),
+  monthlyRangeSummary: document.getElementById("monthlyRangeSummary"),
   monthlyProgressList: document.getElementById("monthlyProgressList"),
   monthlyTable: document.querySelector("#monthlyTable tbody"),
   addTaskButton: document.getElementById("addTaskButton"),
@@ -1959,13 +1960,7 @@ function bindEvents() {
     el.statusPicker.querySelector("[data-toggle-status]:not(:checked), #newStatusName")?.focus();
   });
   el.generateMonthsButton.addEventListener("click", generateMonthsFromWorkDates);
-  el.addMonthButton.addEventListener("click", () => {
-    activeClient.monthly.push(emptyMonth());
-    renderMonthlyTable();
-  });
-  document.querySelectorAll("[data-month-toggle-all]").forEach((input) => {
-    input.addEventListener("change", () => setAllMonthlyField(input.dataset.monthToggleAll, input.checked));
-  });
+  el.addMonthButton.addEventListener("click", addMonthlyRow);
   el.addTaskButton.addEventListener("click", () => {
     openClientTaskDialog();
   });
@@ -10216,34 +10211,103 @@ function renderStatusPicker() {
 }
 
 function renderMonthlyTable() {
-  el.monthlyTable.innerHTML = (activeClient.monthly || [])
-    .sort((a, b) => a.month.localeCompare(b.month))
-    .map(
-      (row) => `
-        <tr data-month-row="${row.id}">
-          <td><input type="month" value="${row.month || ""}" data-month-field="month" /></td>
-          ${MONTHLY_BOOLEAN_FIELDS
-            .map((field) => `<td><input type="checkbox" ${row[field] ? "checked" : ""} data-month-field="${field}" /></td>`)
-            .join("")}
-          <td><input type="text" value="${escapeAttr(row.notes || "")}" data-month-field="notes" /></td>
-        </tr>
-      `
-    )
-    .join("");
+  const rows = [...(activeClient.monthly || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const groups = new Map();
+  rows.forEach((row) => {
+    const year = /^\d{4}-\d{2}$/.test(row.month || "") ? row.month.slice(0, 4) : "Sem ano";
+    if (!groups.has(year)) groups.set(year, []);
+    groups.get(year).push(row);
+  });
+  el.monthlyTable.innerHTML = rows.length
+    ? Array.from(groups.entries()).map(([year, yearRows]) => {
+        const completedMonths = yearRows.filter((row) => monthlyStatusProgress(row).done).length;
+        const yearPercent = yearRows.length ? Math.round((completedMonths / yearRows.length) * 100) : 0;
+        const yearSummary = year === "Sem ano"
+          ? "Competências sem mês definido"
+          : `${completedMonths} de ${yearRows.length} ${yearRows.length === 1 ? "mês concluído" : "meses concluídos"}`;
+        return `
+          <tr class="monthly-year-row">
+            <th colspan="9" scope="rowgroup">
+              <span class="monthly-year-summary">
+                <strong>${escapeHtml(year)}</strong>
+                <span>${escapeHtml(yearSummary)}</span>
+                <i aria-hidden="true"><b style="width:${yearPercent}%"></b></i>
+              </span>
+            </th>
+          </tr>
+          ${yearRows.map(renderMonthlyRow).join("")}
+        `;
+      }).join("")
+    : '<tr class="monthly-empty-row"><td colspan="9">Nenhuma competência mensal cadastrada.</td></tr>';
 
   document.querySelectorAll("[data-month-row]").forEach((tr) => {
     const row = activeClient.monthly.find((item) => item.id === tr.dataset.monthRow);
     tr.querySelectorAll("[data-month-field]").forEach((input) => {
-      input.addEventListener("input", () => {
-        row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
-      });
+      if (input.dataset.monthField === "notes") {
+        input.addEventListener("input", () => {
+          row.notes = input.value;
+        });
+      }
       input.addEventListener("change", () => {
         row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
-        if (input.type === "checkbox") syncMonthlyBulkToggles();
+        if (input.type === "checkbox" || input.dataset.monthField === "month") renderMonthlyTable();
       });
     });
   });
+  renderMonthlyRangeSummary(rows);
+  renderMonthlyProgressList(rows);
   syncMonthlyBulkToggles();
+  refreshIcons();
+}
+
+function renderMonthlyRow(row) {
+  const progress = monthlyStatusProgress(row);
+  const monthLabel = monthlyMonthLabel(row.month);
+  const stageLabel = progress.done
+    ? '<span class="monthly-stage-badge complete">Concluído</span>'
+    : progress.doneCount
+      ? `<span class="monthly-stage-badge partial">${progress.doneCount} de ${progress.total}</span>`
+      : '<span class="monthly-stage-empty">—</span>';
+  return `
+    <tr class="monthly-data-row" data-month-row="${escapeAttr(row.id)}">
+      <td>
+        <label class="monthly-competency-control">
+          <span>${escapeHtml(monthLabel)}</span>
+          <input type="month" value="${escapeAttr(row.month || "")}" data-month-field="month" aria-label="Competência ${escapeAttr(monthLabel)}" />
+        </label>
+      </td>
+      ${MONTHLY_BOOLEAN_FIELDS.map((field) => `
+        <td>
+          <input class="monthly-stage-checkbox" type="checkbox" ${row[field] ? "checked" : ""} data-month-field="${field}" aria-label="${escapeAttr(monthlyFieldLabels()[field])} em ${escapeAttr(monthLabel)}" />
+        </td>
+      `).join("")}
+      <td><input class="monthly-note-field" type="text" value="${escapeAttr(row.notes || "")}" data-month-field="notes" placeholder="Adicionar nota" aria-label="Observação de ${escapeAttr(monthLabel)}" /></td>
+      <td>${stageLabel}</td>
+    </tr>
+  `;
+}
+
+function monthlyMonthLabel(value) {
+  if (!/^\d{4}-\d{2}$/.test(value || "")) return "Selecionar mês";
+  return monthName(value.slice(5, 7));
+}
+
+function monthlyShortMonthYear(value) {
+  if (!/^\d{4}-\d{2}$/.test(value || "")) return "";
+  return `${monthName(value.slice(5, 7)).slice(0, 3).toLocaleLowerCase("pt-BR")}/${value.slice(0, 4)}`;
+}
+
+function renderMonthlyRangeSummary(rows = []) {
+  if (!el.monthlyRangeSummary) return;
+  const datedRows = rows.filter((row) => /^\d{4}-\d{2}$/.test(row.month || ""));
+  if (!rows.length) {
+    el.monthlyRangeSummary.textContent = "Nenhuma competência cadastrada";
+    return;
+  }
+  const period = datedRows.length
+    ? `${monthlyShortMonthYear(datedRows[0].month)} a ${monthlyShortMonthYear(datedRows.at(-1).month)}`
+    : "período ainda não definido";
+  el.monthlyRangeSummary.textContent = `${rows.length} ${rows.length === 1 ? "competência" : "competências"} · ${period} · clique nas etapas para marcar`;
 }
 
 function setAllMonthlyField(field, checked) {
@@ -10257,51 +10321,41 @@ function setAllMonthlyField(field, checked) {
 function syncMonthlyBulkToggles() {
   const rows = activeClient?.monthly || [];
   const labels = monthlyFieldLabels();
-  document.querySelectorAll("[data-month-toggle-all]").forEach((input) => {
-    const field = input.dataset.monthToggleAll;
+  document.querySelectorAll("[data-month-summary-toggle]").forEach((button) => {
+    const field = button.dataset.monthSummaryToggle;
     const checkedCount = rows.filter((row) => row[field]).length;
     const allChecked = rows.length > 0 && checkedCount === rows.length;
     const partiallyChecked = checkedCount > 0 && checkedCount < rows.length;
-    input.disabled = rows.length === 0;
-    input.checked = allChecked;
-    input.indeterminate = partiallyChecked;
-    input.setAttribute("aria-label", `${allChecked ? "Desmarcar" : "Marcar"} ${labels[field] || "etapa"} em todos os meses`);
-    input.closest(".monthly-bulk-toggle")?.classList.toggle("is-partial", partiallyChecked);
+    button.disabled = rows.length === 0;
+    button.classList.toggle("complete", allChecked);
+    button.classList.toggle("partial", partiallyChecked);
+    button.setAttribute("aria-pressed", String(allChecked));
+    button.setAttribute("aria-label", `${allChecked ? "Desmarcar" : "Marcar"} ${labels[field] || "etapa"} em todos os meses`);
   });
 }
 
-function renderMonthlyProgressList() {
+function renderMonthlyProgressList(sourceRows = null) {
   if (!el.monthlyProgressList || !activeClient) return;
-  const rows = [...(activeClient.monthly || [])].sort((a, b) => a.month.localeCompare(b.month));
-  const current = currentMonthKey();
-  el.monthlyProgressList.innerHTML = rows.length
-    ? rows
-        .map((row) => {
-          const progress = monthlyStatusProgress(row);
-          return `
-            <article class="monthly-progress-card ${row.month === current ? "current" : ""} ${progress.done ? "done" : "pending"}">
-              <strong>${escapeHtml(row.month || "Sem competência")}</strong>
-              <span>${progress.doneCount}/${progress.total} etapas</span>
-              <div class="monthly-progress-bar"><span style="width:${Math.round((progress.doneCount / progress.total) * 100)}%"></span></div>
-              <small>${escapeHtml(monthlyMissingLabel(progress.missing))}</small>
-            </article>
-          `;
-        })
-        .join("")
-    : `<p class="empty-state compact">Nenhuma competência mensal cadastrada.</p>`;
-}
-
-function monthlyMissingLabel(missing = []) {
-  if (!missing.length) return "Tudo concluído";
-  const labels = {
-    receiptSent: "recibo enviado",
-    receiptSigned: "recibo assinado",
-    remunerationSent: "remuneração",
-    guideIssued: "guia emitida",
-    guideSent: "guia enviada",
-    guidePaid: "guia paga",
-  };
-  return `Pendente: ${missing.slice(0, 3).map((field) => labels[field]).join(", ")}${missing.length > 3 ? "..." : ""}`;
+  const rows = sourceRows || [...(activeClient.monthly || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const labels = monthlyFieldLabels();
+  el.monthlyProgressList.innerHTML = MONTHLY_BOOLEAN_FIELDS.map((field) => {
+    const completed = rows.filter((row) => row[field]).length;
+    const percent = rows.length ? Math.round((completed / rows.length) * 100) : 0;
+    return `
+      <button class="monthly-summary-card" type="button" data-month-summary-toggle="${field}" title="Marcar ou desmarcar ${escapeAttr(labels[field])} em todas as competências">
+        <span>${escapeHtml(labels[field])}</span>
+        <strong>${completed}<small>/ ${rows.length}</small></strong>
+        <i aria-hidden="true"><b style="width:${percent}%"></b></i>
+      </button>
+    `;
+  }).join("");
+  el.monthlyProgressList.querySelectorAll("[data-month-summary-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const field = button.dataset.monthSummaryToggle;
+      const allChecked = rows.length > 0 && rows.every((row) => row[field]);
+      setAllMonthlyField(field, !allChecked);
+    });
+  });
 }
 
 function renderTasks() {
@@ -11831,6 +11885,27 @@ function generateMonthsFromWorkDates() {
     if (!existing.has(month)) activeClient.monthly.push(emptyMonth(month));
   });
   renderMonthlyTable();
+}
+
+function addMonthlyRow() {
+  if (!activeClient) return;
+  const existingMonths = (activeClient.monthly || [])
+    .map((row) => row.month)
+    .filter((month) => /^\d{4}-\d{2}$/.test(month || ""))
+    .sort();
+  let nextMonth = existingMonths.length
+    ? nextMonthKey(existingMonths.at(-1))
+    : activeClient.startDate?.slice(0, 7) || currentMonthKey();
+  const existing = new Set(existingMonths);
+  while (existing.has(nextMonth)) nextMonth = nextMonthKey(nextMonth);
+  activeClient.monthly.push(emptyMonth(nextMonth));
+  renderMonthlyTable();
+}
+
+function nextMonthKey(month) {
+  const date = new Date(`${month}-01T00:00:00`);
+  date.setMonth(date.getMonth() + 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function monthRange(startDate, endDate) {
