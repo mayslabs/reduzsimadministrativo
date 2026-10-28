@@ -787,10 +787,12 @@ function migrateState(savedState = {}, persist = false) {
     feeValue: formatCurrencyValue(client.feeValue || ""),
     inssOriginalValue: formatCurrencyValue(client.inssOriginalValue || ""),
     inssReducedValue: formatCurrencyValue(client.inssReducedValue || ""),
-    paymentMethod: normalizeSelectValue(client.paymentMethod, financePaymentMethods()),
+    paymentMethod: normalizeFinancePaymentMethod(client.paymentMethod),
     installments: normalizeInstallmentsValue(client.installments),
-    financeStatus: normalizeFinanceStatus(client.financeStatus),
-    financePaidInstallments: normalizeFinancePaidInstallments(client.financePaidInstallments, client.installments, client.financeStatus),
+    financeStatus: isCreditCardPaymentMethod(client.paymentMethod) ? "Pago" : normalizeFinanceStatus(client.financeStatus),
+    financePaidInstallments: isCreditCardPaymentMethod(client.paymentMethod)
+      ? financeInstallmentCount(normalizeInstallmentsValue(client.installments))
+      : normalizeFinancePaidInstallments(client.financePaidInstallments, client.installments, client.financeStatus),
     clientOrigin: normalizeClientOrigin(client),
     hasReferralCommission: normalizeReferralCommissionChoice(client),
     referralCommission: formatCurrencyValue(client.referralCommission || ""),
@@ -2155,6 +2157,10 @@ function bindEvents() {
         activeClient.financePaidInstallments = formattedValue === "Pago"
           ? count
           : Math.min(normalizeFinancePaidInstallments(activeClient.financePaidInstallments, activeClient.installments, formattedValue), Math.max(0, count - 1));
+      }
+      if (["paymentMethod", "installments", "financeStatus"].includes(field) && applyAutomaticCreditCardPaymentState(activeClient)) {
+        const statusInput = document.querySelector('select[data-field="financeStatus"]');
+        if (statusInput) statusInput.value = "Pago";
       }
       if (["feeValue", "inssOriginalValue", "inssReducedValue", "paymentMethod", "installments", "financeStatus", "contractClosedDate"].includes(field)) renderInssReduction();
     };
@@ -10031,6 +10037,7 @@ function renderInssReduction() {
 
 function renderClientFinanceWorkspace(values) {
   if (!activeClient) return;
+  const automaticCardPayment = applyAutomaticCreditCardPaymentState(activeClient);
   const count = financeInstallmentCount(activeClient.installments);
   activeClient.financePaidInstallments = normalizeFinancePaidInstallments(
     activeClient.financePaidInstallments,
@@ -10058,6 +10065,8 @@ function renderClientFinanceWorkspace(values) {
     button.setAttribute("aria-pressed", String(active));
   });
   document.querySelector(".client-finance-status-select")?.setAttribute("data-status", normalize(activeClient.financeStatus || "em andamento").replace(/\s+/g, "-"));
+  const statusInput = document.querySelector('select[data-field="financeStatus"]');
+  if (statusInput && automaticCardPayment) statusInput.value = "Pago";
 
   if (installmentsList) {
     installmentsList.innerHTML = schedule.map((installment) => `
@@ -10065,7 +10074,7 @@ function renderClientFinanceWorkspace(values) {
         <span class="client-finance-installment-number">${installment.index + 1}ª</span>
         <strong class="client-finance-installment-amount">${escapeHtml(installment.amountLabel)}</strong>
         <time datetime="${escapeHtml(installment.dateKey || "")}">${escapeHtml(installment.dateLabel)}${installment.dateKey ? '<i data-lucide="calendar-days"></i>' : ""}</time>
-        <button class="client-finance-installment-status ${installment.statusClass}" type="button" data-finance-installment-index="${installment.index}" aria-pressed="${installment.paid}">
+        <button class="client-finance-installment-status ${installment.statusClass}" type="button" data-finance-installment-index="${installment.index}" aria-pressed="${installment.paid}" ${automaticCardPayment ? 'disabled title="Parcelas no cartão são consideradas pagas automaticamente"' : ""}>
           ${installment.paid ? '<i data-lucide="check"></i>' : ""}${escapeHtml(installment.statusLabel)}
         </button>
       </article>
@@ -12941,6 +12950,22 @@ function financePaymentMethods() {
   return ["Pix", "Boleto", "Dinheiro", "Cartão de crédito", "Transferência"];
 }
 
+function normalizeFinancePaymentMethod(value) {
+  const aliases = { cartao: "Cartão de crédito" };
+  return normalizeSelectValue(aliases[normalize(value)] || value, financePaymentMethods());
+}
+
+function isCreditCardPaymentMethod(value) {
+  return ["cartao", "cartao de credito"].includes(normalize(value));
+}
+
+function applyAutomaticCreditCardPaymentState(client = {}) {
+  if (!isCreditCardPaymentMethod(client.paymentMethod)) return false;
+  client.financePaidInstallments = financeInstallmentCount(client.installments);
+  client.financeStatus = "Pago";
+  return true;
+}
+
 function normalizeInstallmentsValue(value) {
   if (normalize(value) === "sem parcelas") return "Sem parcelas";
   const digits = onlyDigits(value);
@@ -13012,10 +13037,11 @@ function normalizeClientSelectValues(client) {
   client.feeValue = formatCurrencyValue(client.feeValue || "");
   client.inssOriginalValue = formatCurrencyValue(client.inssOriginalValue || "");
   client.inssReducedValue = formatCurrencyValue(client.inssReducedValue || "");
-  client.paymentMethod = normalizeSelectValue(client.paymentMethod, financePaymentMethods());
+  client.paymentMethod = normalizeFinancePaymentMethod(client.paymentMethod);
   client.installments = normalizeInstallmentsValue(client.installments);
   client.financeStatus = normalizeFinanceStatus(client.financeStatus);
   client.financePaidInstallments = normalizeFinancePaidInstallments(client.financePaidInstallments, client.installments, client.financeStatus);
+  applyAutomaticCreditCardPaymentState(client);
   client.clientOrigin = normalizeClientOrigin(client);
   client.hasReferralCommission = normalizeReferralCommissionChoice(client);
   client.referralCommission = formatCurrencyValue(client.referralCommission || "");

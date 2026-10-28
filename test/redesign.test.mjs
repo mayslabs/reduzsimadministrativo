@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=196/);
+  assert.match(indexHtml, /redesign\.css\?v=197/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=196/);
+  assert.match(indexHtml, /app\.js\?v=197/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -147,6 +147,8 @@ test("client history uses compact filters and date-grouped records", () => {
   assert.match(redesignCss, /\.client-history-row\s*\{[\s\S]*grid-template-columns:/);
   assert.match(redesignCss, /\.client-history-row\.category-manual\s*\{[\s\S]*background:/);
   assert.match(redesignCss, /body\.privacy-mode #historyTab \.client-history-description/);
+  assert.match(redesignCss, /#historyTab \.client-history-composer input\s*\{[\s\S]*font-size:\s*13px/);
+  assert.match(redesignCss, /\.client-history-description\s*\{[\s\S]*font-size:\s*12\.5px/);
 });
 
 test("client summary exposes pending work in the redesigned dialog", () => {
@@ -178,8 +180,12 @@ test("client finance tab follows the supplied financial workspace", () => {
   assert.match(indexHtml, /id="financeInstallmentsList"[\s\S]*id="financePaidSummary"/);
   assert.match(appJs, /function renderClientFinanceWorkspace[\s\S]*function financeInstallmentSchedule[\s\S]*function financeInstallmentDateKey/);
   assert.match(appJs, /financePaidInstallments/);
+  assert.match(appJs, /function isCreditCardPaymentMethod[\s\S]*function applyAutomaticCreditCardPaymentState/);
+  assert.match(appJs, /automaticCardPayment[\s\S]*Parcelas no cartão são consideradas pagas automaticamente/);
   assert.match(redesignCss, /\.client-finance-columns\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1\.45fr\) minmax\(300px, 0\.95fr\)/);
   assert.match(redesignCss, /@media \(max-width: 700px\)[\s\S]*\.client-finance-payment-methods/);
+  assert.match(redesignCss, /\.client-finance-payment-methods button\s*\{[\s\S]*font-size:\s*12px/);
+  assert.match(redesignCss, /\.client-finance-installment-amount\s*\{[\s\S]*font-size:\s*13px/);
 });
 
 test("client and work tab uses the structured two-panel editor", () => {

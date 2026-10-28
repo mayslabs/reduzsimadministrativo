@@ -5740,7 +5740,7 @@ body.privacy-mode #dataSection :is(
 .client-finance-notes-card > h3 {
   margin: 0;
   color: var(--green);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5751,12 +5751,12 @@ body.privacy-mode #dataSection :is(
   align-items: center;
   gap: 6px;
   color: #686868;
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 .client-finance-reduction-rate strong {
   color: var(--green-dark);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .client-finance-rate-ring {
@@ -5788,7 +5788,7 @@ body.privacy-mode #dataSection :is(
   display: grid;
   gap: 7px;
   color: #5c5c5c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -5810,7 +5810,7 @@ body.privacy-mode #dataSection :is(
 .client-finance-currency-field b {
   padding-left: 10px;
   color: #969696;
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 500;
 }
 
@@ -5823,7 +5823,7 @@ body.privacy-mode #dataSection :is(
   box-shadow: none;
   color: #2f2f2f;
   background: transparent;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -5840,12 +5840,12 @@ body.privacy-mode #dataSection :is(
 }
 
 .client-finance-economy span {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .client-finance-economy strong {
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .client-finance-reduction-track {
@@ -5876,7 +5876,7 @@ body.privacy-mode #dataSection :is(
   margin-top: 5px;
   justify-content: space-between;
   color: #949494;
-  font-size: 10px;
+  font-size: 11.5px;
 }
 
 .client-finance-columns {
@@ -5920,7 +5920,7 @@ body.privacy-mode #dataSection :is(
   border: 0;
   color: var(--green-dark);
   background-color: transparent;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -5974,7 +5974,7 @@ body.privacy-mode #dataSection :is(
   border-radius: 6px;
   color: #666666;
   background: transparent;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -6004,7 +6004,7 @@ body.privacy-mode #dataSection :is(
   justify-content: space-between;
   gap: 12px;
   color: #5c5c5c;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -6031,7 +6031,7 @@ body.privacy-mode #dataSection :is(
   min-width: 30px;
   color: var(--green-dark);
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .client-finance-installments {
@@ -6043,7 +6043,7 @@ body.privacy-mode #dataSection :is(
 .client-finance-installment {
   display: grid;
   grid-template-columns: 30px minmax(95px, 1fr) minmax(104px, auto) auto;
-  min-height: 44px;
+  min-height: 48px;
   padding: 7px 10px;
   align-items: center;
   gap: 9px;
@@ -6062,13 +6062,13 @@ body.privacy-mode #dataSection :is(
   border-radius: 6px;
   color: var(--green-dark);
   background: var(--green-soft);
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 700;
 }
 
 .client-finance-installment-amount {
   color: #202020;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .client-finance-installment time {
@@ -6077,7 +6077,7 @@ body.privacy-mode #dataSection :is(
   justify-content: flex-end;
   gap: 8px;
   color: #666666;
-  font-size: 10.5px;
+  font-size: 12px;
 }
 
 .client-finance-installment time svg {
@@ -6097,7 +6097,7 @@ body.privacy-mode #dataSection :is(
   border-radius: 999px;
   color: #5c5c5c;
   background: #ffffff;
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
@@ -6144,7 +6144,7 @@ body.privacy-mode #dataSection :is(
 .client-finance-paid-summary p {
   margin: 0;
   color: #777777;
-  font-size: 10px;
+  font-size: 11.5px;
   white-space: nowrap;
 }
 
@@ -6169,7 +6169,7 @@ body.privacy-mode #dataSection :is(
   justify-content: space-between;
   gap: 12px;
   color: #626262;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 400;
 }
 
@@ -6180,7 +6180,7 @@ body.privacy-mode #dataSection :is(
 .client-finance-overview-row strong {
   max-width: 58%;
   color: #2d2d2d;
-  font-size: 11.5px;
+  font-size: 13px;
   text-align: right;
 }
 
@@ -6190,7 +6190,7 @@ body.privacy-mode #dataSection :is(
   padding: 5px 28px 5px 10px;
   color: var(--green-dark);
   background-color: #ffffff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -6206,7 +6206,7 @@ body.privacy-mode #dataSection :is(
 #financeTab .client-finance-referral-fields select {
   min-height: 36px;
   padding: 7px 9px;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .client-finance-notes-card > h3 {
@@ -6222,7 +6222,7 @@ body.privacy-mode #dataSection :is(
   min-height: 82px;
   padding: 12px 12px 42px;
   resize: vertical;
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 .client-finance-note-composer .primary-button {
@@ -6232,7 +6232,7 @@ body.privacy-mode #dataSection :is(
   min-height: 30px;
   padding: 5px 11px;
   border-radius: 7px;
-  font-size: 10.5px;
+  font-size: 12px;
 }
 
 .client-finance-messages {
@@ -6272,19 +6272,19 @@ body.privacy-mode #dataSection :is(
   border-radius: 50%;
   color: #ffffff;
   background: var(--green-dark);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
 }
 
 .client-finance-message-author strong {
   color: #343434;
-  font-size: 10.5px;
+  font-size: 12px;
 }
 
 .client-finance-message-author time {
   overflow: hidden;
   color: #8a8a8a;
-  font-size: 9.5px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -6319,14 +6319,19 @@ body.privacy-mode #dataSection :is(
 .client-finance-message-text {
   margin: 5px 0 6px 28px;
   color: #333333;
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.45;
 }
 
 #financeTab .client-finance-message .note-edit-field {
   min-height: 72px;
   margin: 8px 0 6px;
-  font-size: 11px;
+  font-size: 13px;
+}
+
+.client-finance-installment-status:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
 .client-finance-empty-message {
@@ -10722,7 +10727,7 @@ body.privacy-mode :is(
   border-radius: 7px;
   color: #2e2e2e;
   background: #ffffff;
-  font-size: 11.5px;
+  font-size: 13px;
 }
 
 #historyTab .client-history-composer input::placeholder {
@@ -10733,7 +10738,7 @@ body.privacy-mode :is(
   min-height: 36px;
   padding: 7px 14px;
   border-radius: 7px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .client-history-filters {
@@ -10746,7 +10751,7 @@ body.privacy-mode :is(
 
 .client-history-filter {
   display: inline-flex;
-  min-height: 28px;
+  min-height: 30px;
   padding: 4px 10px;
   align-items: center;
   justify-content: center;
@@ -10755,7 +10760,7 @@ body.privacy-mode :is(
   border-radius: 999px;
   color: #414141;
   background: #ffffff;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
 }
@@ -10848,7 +10853,7 @@ body.privacy-mode :is(
   gap: 12px;
   color: #565656;
   background: #f1f2f2;
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .client-history-day-heading strong {
@@ -10865,14 +10870,14 @@ body.privacy-mode :is(
 
 .client-history-row {
   display: grid;
-  grid-template-columns: 52px 110px minmax(0, 1fr) 24px 45px;
-  min-height: 40px;
+  grid-template-columns: 60px 120px minmax(0, 1fr) 26px 45px;
+  min-height: 44px;
   padding: 6px 10px 6px 12px;
   align-items: center;
   gap: 5px;
   color: #4e4e4e;
   background: #ffffff;
-  font-size: 10.5px;
+  font-size: 12.5px;
 }
 
 .client-history-row + .client-history-row {
@@ -10885,7 +10890,7 @@ body.privacy-mode :is(
 
 .client-history-row > time {
   color: #5f5f5f;
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
@@ -10895,7 +10900,7 @@ body.privacy-mode :is(
   align-items: center;
   gap: 6px;
   color: #4f4f4f;
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
@@ -10904,7 +10909,7 @@ body.privacy-mode :is(
   margin: 0;
   overflow: hidden;
   color: #4b4b4b;
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -10918,7 +10923,7 @@ body.privacy-mode :is(
   border-radius: 50%;
   color: #ffffff;
   background: var(--green-dark);
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -10964,14 +10969,14 @@ body.privacy-mode :is(
   width: calc(100% - 20px);
   min-height: 32px;
   margin: 10px;
-  font-size: 10.5px;
+  font-size: 12px;
 }
 
 .client-history-empty {
   margin: 0;
   padding: 26px 18px;
   color: #8a8a8a;
-  font-size: 11px;
+  font-size: 12.5px;
   text-align: center;
 }
 
