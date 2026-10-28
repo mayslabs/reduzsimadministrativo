@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=198" />
+    <link rel="stylesheet" href="./redesign.css?v=199" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -206,10 +206,8 @@
               <option value="Aguardando terceiro">Aguardando terceiro</option>
             </select>
             <button id="taskMineFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="user-check"></i> Minhas tarefas</button>
-            <div class="segmented-control calendar-mode" role="group" aria-label="Modo de visualização das tarefas">
-              <button id="taskDayModeButton" class="active" type="button">Meu dia</button>
-              <button id="taskWeekModeButton" type="button">Semana</button>
-              <button id="taskMonthModeButton" type="button">Lista</button>
+            <div class="segmented-control calendar-mode single-mode" aria-label="Visualização atual das tarefas">
+              <span id="taskDayModeLabel" class="active" aria-current="page">Meu dia</span>
             </div>
           </div>
 
@@ -1448,7 +1446,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=198"></script>
+    <script src="./app.js?v=199"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

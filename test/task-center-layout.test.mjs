@@ -35,6 +35,15 @@ test("day view follows the redesigned task hierarchy", () => {
   assert.match(redesign, /\.task-return-group h4/);
 });
 
+test("task center keeps only the my day view", () => {
+  assert.match(indexHtml, /id="taskDayModeLabel"[^>]*>Meu dia<\/span>/);
+  assert.doesNotMatch(indexHtml, /taskWeekModeButton|taskMonthModeButton/);
+  assert.doesNotMatch(app, /activeTaskCalendarMode|setTaskCalendarMode/);
+  assert.match(app, /function renderTaskCalendar\(items\)\s*\{\s*el\.taskCenterList\.innerHTML = renderTaskDayBoard\(items\);\s*\}/);
+  assert.match(app, /function moveTaskPeriod\(direction\)[\s\S]*nextDate\.setDate\(nextDate\.getDate\(\) \+ direction\)/);
+  assert.match(redesign, /#tasksSection \.calendar-mode\.single-mode \.active/);
+});
+
 test("overdue and stalled task signals use the urgent red treatment", () => {
   assert.match(app, /task-work-panel \$\{key\} \$\{items\.length \? "has-items" : "is-empty"\}/);
   assert.match(redesign, /\.task-stat-heading em[\s\S]*?background:\s*var\(--red\)/);

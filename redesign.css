@@ -1052,8 +1052,23 @@ body.privacy-mode :is(
 }
 
 #tasksSection .calendar-mode {
-  flex: 0 0 240px;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 0 0 88px;
+  min-width: 88px;
   background: var(--soft);
+}
+
+#tasksSection .calendar-mode.single-mode .active {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--green-dark);
+  background: #e6f7f2;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .task-dashboard-board {

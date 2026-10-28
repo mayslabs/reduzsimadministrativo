@@ -310,7 +310,6 @@ let newClientNotePinned = false;
 let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
-let activeTaskCalendarMode = "day";
 let activeTaskDate = new Date();
 let activeMarketingView = "calendar";
 let activeMarketingDate = new Date();
@@ -380,9 +379,6 @@ const el = {
   nextTaskPeriodButton: document.getElementById("nextTaskPeriodButton"),
   todayTaskButton: document.getElementById("todayTaskButton"),
   taskPeriodLabel: document.getElementById("taskPeriodLabel"),
-  taskDayModeButton: document.getElementById("taskDayModeButton"),
-  taskWeekModeButton: document.getElementById("taskWeekModeButton"),
-  taskMonthModeButton: document.getElementById("taskMonthModeButton"),
   taskSearchInput: document.getElementById("taskSearchInput"),
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
   taskClientFilter: document.getElementById("taskClientFilter"),
@@ -1864,9 +1860,6 @@ function bindEvents() {
     activeTaskDate = new Date();
     renderTaskCenter();
   });
-  el.taskDayModeButton.addEventListener("click", () => setTaskCalendarMode("day"));
-  el.taskWeekModeButton.addEventListener("click", () => setTaskCalendarMode("week"));
-  el.taskMonthModeButton.addEventListener("click", () => setTaskCalendarMode("month"));
   el.searchInput.addEventListener("input", renderClients);
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
   el.regularizationStatusFilter.addEventListener("change", renderRegularizationClients);
@@ -6790,50 +6783,11 @@ function activityIcon(type) {
 }
 
 function renderTaskPeriodControls() {
-  el.taskDayModeButton.classList.toggle("active", activeTaskCalendarMode === "day");
-  el.taskWeekModeButton.classList.toggle("active", activeTaskCalendarMode === "week");
-  el.taskMonthModeButton.classList.toggle("active", activeTaskCalendarMode === "month");
-
-  if (activeTaskCalendarMode === "day") {
-    el.taskPeriodLabel.textContent = `Meu dia - ${formatShortDate(activeTaskDate)}`;
-    return;
-  }
-
-  if (activeTaskCalendarMode === "week") {
-    const days = weekDays(activeTaskDate);
-    el.taskPeriodLabel.textContent = `${formatShortDate(days[0])} a ${formatShortDate(days[6])}`;
-    return;
-  }
-
-  el.taskPeriodLabel.textContent = activeTaskDate.toLocaleDateString("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
+  el.taskPeriodLabel.textContent = `Meu dia - ${formatShortDate(activeTaskDate)}`;
 }
 
 function renderTaskCalendar(items) {
-  if (activeTaskCalendarMode === "day") {
-    el.taskCenterList.innerHTML = renderTaskDayBoard(items);
-    return;
-  }
-
-  if (activeTaskCalendarMode === "month") {
-    el.taskCenterList.innerHTML = renderTaskListBoard(items);
-    return;
-  }
-
-  const overdueItems = items.filter((item) => item.urgency === "overdue");
-  const waitingItems = items.filter((item) => item.urgency === "waiting");
-  const datedItems = items.filter((item) => item.date && !["overdue", "waiting"].includes(item.urgency));
-  const noDateItems = items.filter((item) => !item.date);
-  const calendarMarkup = renderTaskWeekBoard(datedItems);
-
-  el.taskCenterList.innerHTML = `
-    ${renderOverdueTasks(overdueItems)}
-    ${renderWaitingTasks(waitingItems)}
-    ${calendarMarkup}
-    ${renderNoDateTasks(noDateItems)}
-  `;
+  el.taskCenterList.innerHTML = renderTaskDayBoard(items);
 }
 
 function renderTaskDayBoard(items) {
@@ -7250,7 +7204,6 @@ function bindTaskCenterActions() {
   document.querySelectorAll("[data-task-status-jump]").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.taskStatusJump;
-      activeTaskCalendarMode = "month";
       if (key === "overdue" || key === "waiting") el.taskStatusFilter.value = key;
       else el.taskStatusFilter.value = "";
       renderTaskCenter();
@@ -9762,21 +9715,9 @@ function ensureStatusByName(name, color = "#009f7f") {
   return status;
 }
 
-function setTaskCalendarMode(mode) {
-  activeTaskCalendarMode = mode;
-  renderTaskCenter();
-}
-
 function moveTaskPeriod(direction) {
   const nextDate = new Date(activeTaskDate);
-  if (activeTaskCalendarMode === "day") {
-    nextDate.setDate(nextDate.getDate() + direction);
-  } else if (activeTaskCalendarMode === "week") {
-    nextDate.setDate(nextDate.getDate() + direction * 7);
-  } else {
-    nextDate.setDate(1);
-    nextDate.setMonth(nextDate.getMonth() + direction);
-  }
+  nextDate.setDate(nextDate.getDate() + direction);
   activeTaskDate = nextDate;
   renderTaskCenter();
 }
@@ -12681,7 +12622,6 @@ function switchSection(sectionId) {
   el.newClientButton.hidden = sectionId !== "clientsSection";
   positionPrivacyToolbar(sectionId);
   if (sectionId === "tasksSection") {
-    activeTaskCalendarMode = "day";
     activeTaskDate = new Date();
     markNewTaskActivitiesRead();
     renderTaskCenter();
