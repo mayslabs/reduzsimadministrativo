@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=197/);
+  assert.match(indexHtml, /redesign\.css\?v=198/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=197/);
+  assert.match(indexHtml, /app\.js\?v=198/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -117,6 +117,20 @@ test("client task and deadline actions use the compact choice-based editors", ()
   assert.match(redesignCss, /\.client-editor-settings\s*\{/);
   assert.match(redesignCss, /\.client-deadline-type\.active/);
   assert.match(redesignCss, /\.client-editor-choices\.owner \.client-editor-choice\.active/);
+});
+
+test("task center uses the redesigned task and meeting editors", () => {
+  assert.match(appJs, /function openInternalTaskDialog[\s\S]*openClientWorkEditor/);
+  assert.match(appJs, /function renderTaskCenterTaskEditorBody/);
+  assert.match(appJs, /O que precisa ser feito\?/);
+  assert.match(appJs, /Tarefa interna \(sem cliente\)/);
+  assert.match(appJs, /function openMeetingDialog[\s\S]*openClientWorkEditor/);
+  assert.match(appJs, /function renderTaskCenterMeetingEditorBody/);
+  assert.match(appJs, /Assunto da reunião[\s\S]*Videochamada[\s\S]*30 min/);
+  assert.match(appJs, /data-editor-choice-multiple="true"/);
+  assert.match(appJs, /function meetingDurationLabel/);
+  assert.match(redesignCss, /\.task-center-editor\.client-work-editor\s*\{[\s\S]*max-width:\s*700px/);
+  assert.match(redesignCss, /\.meeting-editor-time-control\s*\{/);
 });
 
 test("client notes separate pinned items from a searchable date-grouped history", () => {

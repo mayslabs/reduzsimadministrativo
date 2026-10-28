@@ -10262,6 +10262,242 @@ body.privacy-mode :is(
   }
 }
 
+/* Task center task and meeting editors */
+.task-center-editor.client-work-editor {
+  width: min(700px, calc(100vw - 24px));
+  max-width: 700px;
+  max-height: min(780px, calc(100vh - 20px));
+  overflow: clip;
+}
+
+.task-center-editor.client-work-editor .simple-form {
+  width: 100%;
+  min-width: 0;
+  max-height: min(780px, calc(100vh - 20px));
+  overflow: clip;
+}
+
+.task-center-editor.client-work-editor .dialog-header,
+.task-center-editor.client-work-editor .client-editor-body,
+.task-center-editor.client-work-editor .dialog-footer {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.task-center-editor.client-work-editor .dialog-header {
+  padding: 20px 24px 17px;
+}
+
+.task-center-editor.client-work-editor .dialog-header h2 {
+  gap: 12px;
+  font-size: 19px;
+}
+
+.task-center-editor .client-editor-title-icon {
+  width: 38px;
+  height: 38px;
+}
+
+.task-center-editor.client-work-editor #simpleDialogSubtitle {
+  margin-left: 50px;
+  font-size: 12.5px;
+}
+
+.task-center-editor.client-work-editor .client-editor-body {
+  gap: 18px;
+  padding: 22px 24px;
+}
+
+.task-center-editor-intro {
+  min-height: 94px;
+  padding: 2px 2px 12px;
+  align-content: start;
+  gap: 7px;
+}
+
+.task-center-editor .client-editor-intro .client-editor-title-input {
+  height: 34px;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.task-center-editor .client-editor-intro .client-editor-description-input {
+  min-height: 48px;
+  font-size: 14px;
+}
+
+.task-center-editor .client-editor-settings {
+  gap: 12px;
+  padding: 16px;
+  border-radius: 11px;
+}
+
+.task-center-editor .client-editor-setting-row {
+  grid-template-columns: 145px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.task-center-editor .client-editor-setting-label {
+  gap: 9px;
+  font-size: 13px;
+}
+
+.task-center-editor .client-editor-setting-label svg {
+  width: 15px;
+  height: 15px;
+}
+
+.task-center-editor .client-editor-choice,
+.task-center-editor .client-editor-date-shortcuts button {
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+}
+
+.task-center-editor .client-editor-choices.owner .client-editor-choice {
+  padding: 4px 12px 4px 5px;
+}
+
+.task-center-editor .client-editor-choices.owner .client-editor-choice i {
+  width: 25px;
+  height: 25px;
+  font-size: 11px;
+}
+
+.task-center-editor .client-editor-date-control > input[type="date"] {
+  width: 158px;
+  min-width: 150px;
+  min-height: 38px;
+  height: 38px;
+  font-size: 13px;
+}
+
+.client-editor-select,
+.client-editor-inline-input,
+.meeting-editor-time-control input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  height: 38px;
+  padding: 7px 11px;
+  border: 1px solid #dedede;
+  border-radius: 8px;
+  color: #3d3d3d;
+  background-color: #ffffff;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.client-editor-select:focus,
+.client-editor-inline-input:focus,
+.meeting-editor-time-control input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(0, 159, 127, 0.08);
+  outline: 0;
+}
+
+.meeting-editor-time-control {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: #8a8a8a;
+  font-size: 12px;
+}
+
+.meeting-editor-time-control input {
+  width: 112px;
+  flex: 0 1 112px;
+}
+
+.meeting-editor-time-control small {
+  color: #8a8a8a;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.task-center-editor .client-editor-notes-toggle {
+  font-size: 13px;
+}
+
+.task-center-editor .client-editor-notes textarea {
+  font-size: 13px;
+}
+
+.task-center-editor.client-work-editor .dialog-footer {
+  padding: 14px 18px;
+}
+
+.task-center-editor.client-work-editor .dialog-footer button {
+  min-height: 42px;
+  padding-inline: 17px;
+  font-size: 13px;
+}
+
+.task-center-editor .simple-dialog-footer-note {
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .task-center-editor.client-work-editor {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .task-center-editor.client-work-editor .simple-form {
+    max-height: calc(100vh - 16px);
+  }
+
+  .task-center-editor.client-work-editor .dialog-header,
+  .task-center-editor.client-work-editor .client-editor-body {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .task-center-editor .client-editor-setting-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .task-center-editor .client-editor-date-control {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .task-center-editor .client-editor-date-control > input[type="date"] {
+    width: 100%;
+  }
+
+  .meeting-editor-time-control {
+    flex-wrap: wrap;
+  }
+
+  .meeting-editor-time-control input {
+    width: calc(50% - 26px);
+    flex: 1 1 110px;
+  }
+}
+
+@media (max-width: 420px) {
+  .task-center-editor.client-work-editor .dialog-header h2 {
+    font-size: 17px;
+  }
+
+  .task-center-editor.client-work-editor #simpleDialogSubtitle {
+    max-width: calc(100vw - 120px);
+    font-size: 11.5px;
+  }
+
+  .task-center-editor-intro {
+    min-height: 82px;
+  }
+
+  .task-center-editor .client-editor-intro .client-editor-title-input {
+    font-size: 18px;
+  }
+}
+
 /* Client notes */
 #clientDialog #notesTab {
   padding: 24px 28px;

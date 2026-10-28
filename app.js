@@ -949,6 +949,9 @@ function normalizeMeeting(meeting) {
     ownerId: meeting.ownerId || "",
     date: meeting.date || meeting.meetingDate || "",
     time: meeting.time || "",
+    endTime: meeting.endTime || "",
+    format: meeting.format || "Videochamada",
+    reminderMinutes: String(meeting.reminderMinutes || ""),
     createdBy: meeting.createdBy || "",
     createdAt: meeting.createdAt || new Date().toISOString(),
     updatedAt: meeting.updatedAt || null,
@@ -7564,7 +7567,8 @@ function taskCenterItems() {
       kind: "Reunião",
       title: meeting.title || "Reunião sem título",
       description: [
-        meeting.time ? `Horário: ${meeting.time}` : "",
+        meeting.time ? `Horário: ${meeting.time}${meeting.endTime ? ` às ${meeting.endTime}` : ""}` : "",
+        meeting.format ? `Formato: ${meeting.format}` : "",
         meeting.participants ? `Participantes: ${meeting.participants}` : "",
         meeting.location ? `Local/link: ${meeting.location}` : "",
         meeting.description || "",
@@ -12019,11 +12023,11 @@ function openClientDeadlineDialog(deadlineId = null) {
   });
 }
 
-function openClientWorkEditor({ kind, title, icon, saveLabel, footerNote, body, onSave, updateFooterOnDate = false }) {
-  el.simpleDialog.className = `simple-dialog client-work-editor client-${kind}-editor`;
+function openClientWorkEditor({ kind, title, icon, saveLabel, footerNote, body, onSave, updateFooterOnDate = false, subtitle = clientWorkEditorSubtitle(), className = "" }) {
+  el.simpleDialog.className = `simple-dialog client-work-editor client-${kind}-editor ${className}`.trim();
   el.simpleDialogTitle.innerHTML = `<span class="client-editor-title-icon"><i data-lucide="${icon}"></i></span><span>${escapeHtml(title)}</span>`;
-  el.simpleDialogSubtitle.textContent = clientWorkEditorSubtitle();
-  el.simpleDialogSubtitle.hidden = false;
+  el.simpleDialogSubtitle.textContent = subtitle || "";
+  el.simpleDialogSubtitle.hidden = !subtitle;
   el.simpleDialogBody.className = "client-editor-body";
   el.simpleDialogBody.innerHTML = body;
   el.simpleDialogFooterNote.textContent = footerNote || "";
@@ -12152,11 +12156,50 @@ function clientEditorChoiceButtons(field, options, selectedValue, className = ""
   `;
 }
 
+function clientEditorMultiChoiceButtons(field, options, selectedValues = [], className = "") {
+  const selected = new Set((Array.isArray(selectedValues) ? selectedValues : String(selectedValues || "").split(","))
+    .map((value) => String(value).trim())
+    .filter(Boolean));
+  return `
+    <input type="hidden" value="${escapeAttr([...selected].join(", "))}" data-client-editor-field="${field}" />
+    <div class="client-editor-choices ${className}" role="group" aria-label="${escapeAttr(field)}">
+      ${options.map((option) => {
+        const active = selected.has(String(option.value));
+        return `
+          <button class="client-editor-choice ${active ? "active" : ""}" type="button" data-editor-choice-field="${field}" data-editor-choice-value="${escapeAttr(option.value)}" data-editor-choice-multiple="true" aria-pressed="${active}">
+            ${option.avatar ? `<i>${escapeHtml(option.avatar)}</i>` : ""}<span>${escapeHtml(option.label)}</span>
+          </button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function clientEditorSelectControl(field, options, selectedValue = "", className = "") {
+  return `
+    <select class="client-editor-select ${className}" data-client-editor-field="${field}">
+      ${options.map((option) => `<option value="${escapeAttr(option.value)}" ${String(option.value) === String(selectedValue) ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+    </select>
+  `;
+}
+
 function bindClientWorkEditorInteractions({ updateFooterOnDate = false } = {}) {
   el.simpleDialogBody.querySelectorAll("[data-editor-choice-field]").forEach((button) => {
     button.addEventListener("click", () => {
       const field = button.dataset.editorChoiceField;
       const input = el.simpleDialogBody.querySelector(`[data-client-editor-field="${field}"]`);
+      const multiple = button.dataset.editorChoiceMultiple === "true";
+      if (multiple) {
+        button.classList.toggle("active");
+        button.setAttribute("aria-pressed", String(button.classList.contains("active")));
+        if (input) {
+          input.value = [...el.simpleDialogBody.querySelectorAll(`[data-editor-choice-field="${field}"].active`)]
+            .map((choice) => choice.dataset.editorChoiceValue || "")
+            .filter(Boolean)
+            .join(", ");
+        }
+        return;
+      }
       if (input) input.value = button.dataset.editorChoiceValue || "";
       el.simpleDialogBody.querySelectorAll(`[data-editor-choice-field="${field}"]`).forEach((choice) => {
         const active = choice === button;
@@ -12245,30 +12288,51 @@ function openQuickInternalTaskDialog() {
 
 function openInternalTaskDialog(taskId = null) {
   const task = state.internalTasks.find((item) => item.id === taskId) || null;
+  const draft = task || normalizeInternalTask({
+    title: "",
+    description: "",
+    followUpNotes: "",
+    ownerId: currentUser.id,
+    dueDate: "",
+    priority: "Normal",
+    status: "Pendente",
+    visibility: "team",
+    createdBy: currentUser.id,
+  });
   const visibilityOptions = currentUser.role === "admin"
     ? [
         { value: "team", label: "Equipe" },
         { value: "admin", label: "Somente admin" },
       ]
     : [{ value: "team", label: "Equipe" }];
-  const clientOptions = linkedClientOptions();
-  const userOptions = state.users.map((user) => ({ value: user.id, label: user.name }));
+  const clientOptions = linkedClientOptions().map((option, index) => ({
+    ...option,
+    label: index === 0 ? "Tarefa interna (sem cliente)" : option.label,
+  }));
+  const statusChoices = [
+    { value: "Pendente", label: "Pendente" },
+    { value: "Em andamento", label: "Em andamento" },
+    { value: "Aguardando cliente", label: "Aguardando" },
+  ];
+  if (!statusChoices.some((option) => option.value === draft.status)) {
+    statusChoices.push({ value: draft.status, label: draft.status });
+  }
 
-  openSimpleDialog(task ? "Editar tarefa interna" : "Nova tarefa", [
-    { label: "1. Informações principais", type: "section" },
-    ...(task ? [] : [{ label: "Cliente vinculado", name: "clientId", type: "select", value: "", options: clientOptions }]),
-    { label: "Tarefa", name: "title", type: "text", value: task?.title || "", placeholder: "Ex.: Revisar contrato de prestação de serviço" },
-    { label: "Descrição", name: "description", type: "textarea", rows: 4, value: task?.description || "", placeholder: "Descreva o objetivo, contexto e detalhes da tarefa...", maxLength: 1000, span: 2 },
-    { label: "2. Acompanhamento", type: "section" },
-    { label: "Anotações de acompanhamento", name: "followUpNotes", type: "textarea", rows: 3, value: task?.followUpNotes || "", placeholder: "Registre observações, atualizações ou próximos passos...", maxLength: 1000, span: 2 },
-    { label: "3. Responsáveis e prazo", type: "section" },
-    { label: "Criada por", name: "createdByLabel", type: "readonly", value: ownerName(task?.createdBy || currentUser.id) },
-    { label: "Responsável", name: "ownerId", type: "select", value: task?.ownerId || currentUser.id, options: userOptions },
-    { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
-    { label: "Prioridade", name: "priority", type: "select", value: normalizeTaskPriority(task?.priority), options: taskPriorityValues().map((value) => ({ value, label: value })) },
-    { label: "Status", name: "status", type: "select", value: task?.status || "Pendente", options: taskStatusValues().map((value) => ({ value, label: value })) },
-    { label: "Visibilidade", name: "visibility", type: "select", value: task?.visibility || "team", options: visibilityOptions },
-  ], (values) => {
+  openClientWorkEditor({
+    kind: "center-task",
+    title: task ? "Editar tarefa" : "Nova tarefa",
+    icon: "list-checks",
+    saveLabel: task ? "Salvar tarefa" : "Criar tarefa",
+    footerNote: `Criada por ${ownerName(task?.createdBy || currentUser.id)}`,
+    subtitle: "Organize a demanda e defina quem ficará responsável.",
+    className: "task-center-editor task-center-task-editor",
+    body: renderTaskCenterTaskEditorBody(draft, {
+      includeClient: !task,
+      clientOptions,
+      visibilityOptions,
+      statusChoices,
+    }),
+    onSave: (values) => {
     if (!values.title) {
       alert("Informe o nome da tarefa.");
       return false;
@@ -12346,29 +12410,44 @@ function openInternalTaskDialog(taskId = null) {
     renderTaskCenter();
     renderUpdates();
     return true;
-  }, {
-    className: "task-form-dialog",
-    subtitle: "Organize demandas internas e vincule a um cliente quando fizer sentido.",
-    saveLabel: "Salvar tarefa",
-    saveIcon: "save",
+    },
   });
 }
 
 function openMeetingDialog(meetingId = null) {
   const meeting = state.meetings.find((item) => item.id === meetingId) || null;
-  const clientOptions = linkedClientOptions();
-  openSimpleDialog(meeting ? "Editar reunião" : "Nova reunião", [
-    { label: "1. Informações principais", type: "section" },
-    { label: "Cliente vinculado", name: "clientId", type: "select", value: meeting?.clientId ? linkedClientValue(meeting.clientSource || "inss", meeting.clientId) : "", options: clientOptions, span: 2 },
-    { label: "Reunião", name: "title", type: "text", value: meeting?.title || "", placeholder: "Ex.: Alinhamento semanal de projetos", span: 2 },
-    { label: "Pauta/descrição", name: "description", type: "textarea", rows: 4, value: meeting?.description || "", placeholder: "Descreva os principais pontos que serão discutidos na reunião...", maxLength: 1000, span: 2 },
-    { label: "2. Agendamento", type: "section" },
-    { label: "Responsável", name: "ownerId", type: "select", value: meeting?.ownerId || currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
-    { label: "Data", name: "date", type: "date", value: meeting?.date || "" },
-    { label: "Horário", name: "time", type: "time", value: meeting?.time || "" },
-    { label: "Participantes", name: "participants", type: "text", value: meeting?.participants || "", placeholder: "Ex.: Mayssa, Camilli, cliente" },
-    { label: "Local ou link", name: "location", type: "text", value: meeting?.location || "", placeholder: "Ex.: Sala de reuniões ou link da videochamada", span: 2 },
-  ], (values) => {
+  const draft = meeting || normalizeMeeting({
+    title: "",
+    description: "",
+    clientId: "",
+    clientSource: "inss",
+    ownerId: currentUser.id,
+    date: "",
+    time: "09:00",
+    endTime: "10:00",
+    format: "Videochamada",
+    participants: ownerName(currentUser.id),
+    location: "",
+    reminderMinutes: "30",
+    createdBy: currentUser.id,
+  });
+  const clientOptions = linkedClientOptions().map((option, index) => ({
+    ...option,
+    label: index === 0 ? "Reunião interna (sem cliente)" : option.label,
+  }));
+  const selectedClient = draft.clientId ? linkedClientValue(draft.clientSource || "inss", draft.clientId) : "";
+
+  openClientWorkEditor({
+    kind: "center-meeting",
+    title: meeting ? "Editar reunião" : "Nova reunião",
+    icon: "users-round",
+    saveLabel: meeting ? "Salvar reunião" : "Agendar reunião",
+    footerNote: draft.date ? `Data definida: ${formatDate(draft.date)}` : "Escolha a data",
+    updateFooterOnDate: true,
+    subtitle: "Fica na agenda e na lista de tarefas do responsável",
+    className: "task-center-editor task-center-meeting-editor",
+    body: renderTaskCenterMeetingEditorBody(draft, clientOptions, selectedClient),
+    onSave: (values) => {
     if (!values.title) {
       alert("Informe o título da reunião.");
       return false;
@@ -12386,8 +12465,11 @@ function openMeetingDialog(meetingId = null) {
       ownerId: values.ownerId || currentUser.id,
       date: values.date,
       time: values.time || "",
+      endTime: values.endTime || "",
+      format: values.format || "Videochamada",
       participants: values.participants || "",
       location: values.location || "",
+      reminderMinutes: values.reminderMinutes || "",
       updatedAt: new Date().toISOString(),
     };
 
@@ -12409,12 +12491,105 @@ function openMeetingDialog(meetingId = null) {
     renderTaskCenter();
     renderUpdates();
     return true;
-  }, {
-    className: "task-form-dialog meeting-form-dialog",
-    subtitle: "Agende encontros e organize alinhamentos da equipe.",
-    saveLabel: "Salvar reunião",
-    saveIcon: "calendar-check",
+    },
   });
+  bindTaskCenterMeetingEditorInteractions();
+}
+
+function renderTaskCenterTaskEditorBody(draft, options = {}) {
+  const ownerOptions = state.users.map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) }));
+  const clientRow = options.includeClient
+    ? clientEditorSettingRow("building-2", "Cliente", clientEditorSelectControl("clientId", options.clientOptions || [], "", "task-center-client-select"))
+    : "";
+  const visibilityRow = currentUser.role === "admin"
+    ? clientEditorSettingRow("eye", "Visibilidade", clientEditorChoiceButtons("visibility", options.visibilityOptions || [], draft.visibility || "team"))
+    : `<input type="hidden" value="team" data-client-editor-field="visibility" />`;
+  return `
+    <div class="client-editor-intro task-center-editor-intro">
+      <input class="client-editor-title-input" type="text" value="${escapeAttr(draft.title || "")}" placeholder="O que precisa ser feito?" aria-label="Tarefa" data-client-editor-field="title" />
+      <textarea class="client-editor-description-input" rows="2" maxlength="1000" placeholder="Adicionar descrição, objetivo ou contexto" aria-label="Descrição da tarefa" data-client-editor-field="description">${escapeHtml(draft.description || "")}</textarea>
+    </div>
+    <div class="client-editor-settings">
+      ${clientRow}
+      ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", ownerOptions, draft.ownerId || currentUser.id, "owner"))}
+      ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate || "")}
+      ${clientEditorSettingRow("flag", "Prioridade", clientEditorChoiceButtons("priority", taskPriorityValues().map((value) => ({ value, label: value })), normalizeTaskPriority(draft.priority)))}
+      ${clientEditorSettingRow("clock-3", "Status", clientEditorChoiceButtons("status", options.statusChoices || [], draft.status || "Pendente"))}
+      ${visibilityRow}
+    </div>
+    <button class="client-editor-notes-toggle" type="button" data-toggle-client-editor-notes aria-expanded="${Boolean(draft.followUpNotes)}">
+      <i data-lucide="plus"></i> Anotação de acompanhamento
+    </button>
+    <div class="client-editor-notes" ${draft.followUpNotes ? "" : "hidden"}>
+      <textarea rows="3" maxlength="1000" placeholder="Registre observações, atualizações ou próximos passos..." data-client-editor-field="followUpNotes">${escapeHtml(draft.followUpNotes || "")}</textarea>
+    </div>
+  `;
+}
+
+function renderTaskCenterMeetingEditorBody(draft, clientOptions, selectedClient) {
+  const participantNames = String(draft.participants || ownerName(draft.ownerId || currentUser.id))
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const participantOptions = state.users.map((user) => ({ value: user.name, label: user.name, avatar: userInitials(user.name) }));
+  return `
+    <input type="hidden" value="${escapeAttr(draft.ownerId || currentUser.id)}" data-client-editor-field="ownerId" />
+    <div class="client-editor-intro task-center-editor-intro">
+      <input class="client-editor-title-input" type="text" value="${escapeAttr(draft.title || "")}" placeholder="Assunto da reunião" aria-label="Assunto da reunião" data-client-editor-field="title" />
+      <textarea class="client-editor-description-input" rows="2" maxlength="1000" placeholder="Pauta: o que precisa ser tratado ou decidido" aria-label="Pauta da reunião" data-client-editor-field="description">${escapeHtml(draft.description || "")}</textarea>
+    </div>
+    <div class="client-editor-settings meeting-editor-settings">
+      ${clientEditorSettingRow("building-2", "Cliente", clientEditorSelectControl("clientId", clientOptions, selectedClient, "task-center-client-select"))}
+      ${clientEditorDateRow("Data", "date", draft.date || "")}
+      ${clientEditorSettingRow("clock-3", "Horário", renderMeetingTimeControl(draft.time || "09:00", draft.endTime || "10:00"))}
+      ${clientEditorSettingRow("video", "Formato", clientEditorChoiceButtons("format", [
+        { value: "Presencial", label: "Presencial" },
+        { value: "Videochamada", label: "Videochamada" },
+        { value: "Telefone", label: "Telefone" },
+      ], draft.format || "Videochamada"))}
+      ${clientEditorSettingRow("link", "Link", `<input class="client-editor-inline-input" type="url" value="${escapeAttr(draft.location || "")}" placeholder="https://meet.google.com/..." data-client-editor-field="location" />`)}
+      ${clientEditorSettingRow("users-round", "Participantes", clientEditorMultiChoiceButtons("participants", participantOptions, participantNames, "owner participants"))}
+      ${clientEditorSettingRow("bell", "Lembrete", clientEditorChoiceButtons("reminderMinutes", [
+        { value: "", label: "Nenhum" },
+        { value: "15", label: "15 min" },
+        { value: "30", label: "30 min" },
+        { value: "1440", label: "1 dia" },
+      ], String(draft.reminderMinutes ?? "")))}
+    </div>
+  `;
+}
+
+function renderMeetingTimeControl(startTime, endTime) {
+  return `
+    <div class="meeting-editor-time-control">
+      <input type="time" value="${escapeAttr(startTime)}" data-client-editor-field="time" data-meeting-time-start />
+      <span>até</span>
+      <input type="time" value="${escapeAttr(endTime)}" data-client-editor-field="endTime" data-meeting-time-end />
+      <small data-meeting-duration>${escapeHtml(meetingDurationLabel(startTime, endTime))}</small>
+    </div>
+  `;
+}
+
+function meetingDurationLabel(startTime, endTime) {
+  const [startHour, startMinute] = String(startTime || "").split(":").map(Number);
+  const [endHour, endMinute] = String(endTime || "").split(":").map(Number);
+  if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return "";
+  const duration = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+  if (duration <= 0) return "";
+  const hours = Math.floor(duration / 60);
+  const minutes = duration % 60;
+  return [hours ? `${hours}h` : "", minutes ? `${minutes}min` : ""].filter(Boolean).join(" ");
+}
+
+function bindTaskCenterMeetingEditorInteractions() {
+  const start = el.simpleDialogBody.querySelector("[data-meeting-time-start]");
+  const end = el.simpleDialogBody.querySelector("[data-meeting-time-end]");
+  const duration = el.simpleDialogBody.querySelector("[data-meeting-duration]");
+  const updateDuration = () => {
+    if (duration) duration.textContent = meetingDurationLabel(start?.value, end?.value);
+  };
+  start?.addEventListener("change", updateDuration);
+  end?.addEventListener("change", updateDuration);
 }
 
 function openSimpleDialog(title, fields, onSave, options = {}) {
