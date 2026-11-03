@@ -10526,6 +10526,7 @@ body.privacy-mode :is(
 
 .client-note-composer {
   position: relative;
+  display: grid;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -10535,8 +10536,8 @@ body.privacy-mode :is(
 .client-note-composer textarea {
   display: block;
   width: 100%;
-  min-height: 130px;
-  padding: 13px 14px 52px;
+  min-height: 104px;
+  padding: 13px 14px 10px;
   resize: vertical;
   border: 0;
   border-radius: 0;
@@ -10560,12 +10561,13 @@ body.privacy-mode :is(
 }
 
 .client-note-composer-actions {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
+  position: static;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 7px;
+  padding: 0 10px 10px;
+  background: #ffffff;
 }
 
 .client-note-pin-toggle {

@@ -10,7 +10,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 ]);
 
 test("the supplied redesign is loaded and shipped", () => {
-  assert.match(indexHtml, /redesign\.css\?v=199/);
+  assert.match(indexHtml, /redesign\.css\?v=200/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -144,7 +144,10 @@ test("client notes separate pinned items from a searchable date-grouped history"
   assert.match(appJs, /data-toggle-pin-note/);
   assert.match(appJs, /activeClientNoteSearch/);
   assert.match(appJs, /pinned: newClientNotePinned/);
-  assert.match(redesignCss, /\.client-note-composer\s*\{/);
+  assert.match(redesignCss, /\.client-note-composer\s*\{[^}]*display:\s*grid/s);
+  assert.match(redesignCss, /\.client-note-composer textarea\s*\{[^}]*padding:\s*13px 14px 10px/s);
+  assert.match(redesignCss, /\.client-note-composer-actions\s*\{[^}]*position:\s*static[^}]*justify-content:\s*flex-end/s);
+  assert.doesNotMatch(redesignCss, /\.client-note-composer-actions\s*\{[^}]*position:\s*absolute/s);
   assert.match(redesignCss, /\.client-pinned-notes-grid\s*\{/);
   assert.match(redesignCss, /\.client-note-day-group\s*\{/);
   assert.match(redesignCss, /\.client-note-entry\s*\{/);
