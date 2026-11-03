@@ -11307,3 +11307,570 @@ body.privacy-mode #historyTab .client-history-description {
     padding-inline: 10px;
   }
 }
+
+/* Marketing unified workspace v201 */
+#marketingSection .marketing-heading {
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+#marketingSection .marketing-toolbar {
+  grid-template-columns: minmax(320px, 1fr) 215px 170px;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+#marketingSection .marketing-workspace {
+  display: grid;
+  gap: 26px;
+  min-width: 0;
+}
+
+#marketingSection .marketing-board-panel {
+  overflow: visible;
+}
+
+#marketingSection .marketing-board-heading {
+  margin-bottom: 12px;
+}
+
+#marketingSection .marketing-board-heading h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#marketingSection .marketing-board-heading > span {
+  font-size: 12.5px;
+}
+
+#marketingSection .marketing-pipeline {
+  align-items: stretch;
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+#marketingSection .marketing-pipeline-column,
+#marketingSection .marketing-pipeline-column.status-planejado,
+#marketingSection .marketing-pipeline-column.status-roteiro,
+#marketingSection .marketing-pipeline-column.status-gravacao,
+#marketingSection .marketing-pipeline-column.status-edicao,
+#marketingSection .marketing-pipeline-column.status-aprovacao,
+#marketingSection .marketing-pipeline-column.status-agendado,
+#marketingSection .marketing-pipeline-column.status-publicado {
+  min-height: 430px;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+#marketingSection .marketing-pipeline-column > header {
+  min-height: 28px;
+  padding: 1px 2px 7px;
+}
+
+#marketingSection .marketing-pipeline-column > header span {
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#marketingSection .marketing-pipeline-column > header span small {
+  font-size: 9.5px;
+}
+
+#marketingSection .marketing-pipeline-column > header strong {
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  font-size: 10.5px;
+}
+
+#marketingSection .marketing-pipeline-column > div {
+  gap: 6px;
+}
+
+#marketingSection .marketing-pipeline-card {
+  gap: 6px;
+  padding: 9px;
+  border-radius: 8px;
+}
+
+#marketingSection .marketing-card-open {
+  gap: 4px;
+}
+
+#marketingSection .marketing-card-meta {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#marketingSection .marketing-card-open strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+#marketingSection .marketing-card-open small {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#marketingSection .marketing-card-footer {
+  min-height: 21px;
+  padding-top: 0;
+}
+
+#marketingSection .marketing-card-owner {
+  gap: 5px;
+  font-size: 10.5px;
+}
+
+#marketingSection .marketing-card-owner > i {
+  width: 19px;
+  height: 19px;
+  flex-basis: 19px;
+  font-size: 9.5px;
+}
+
+#marketingSection .marketing-column-empty {
+  padding: 15px 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+}
+
+#marketingSection .marketing-stage-more {
+  width: 100%;
+  min-height: 30px;
+  border: 1px dashed #8a8a8a;
+  border-radius: 7px;
+  color: var(--green-dark);
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+#marketingSection .marketing-stage-more:hover {
+  border-color: var(--green);
+  background: #ffffff;
+}
+
+#marketingSection .marketing-calendar-layout {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+  gap: 24px;
+}
+
+#marketingSection .marketing-calendar-heading {
+  min-height: 34px;
+  gap: 14px;
+}
+
+#marketingSection .marketing-calendar-title-row {
+  gap: 10px;
+}
+
+#marketingSection .marketing-calendar-title-row h3 {
+  font-size: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#marketingSection .marketing-month-controls .icon-button,
+#marketingSection .marketing-month-controls .secondary-button {
+  height: 32px;
+  min-height: 32px;
+  border-radius: 7px;
+}
+
+#marketingSection .marketing-month-controls .icon-button {
+  width: 32px;
+}
+
+#marketingSection .marketing-format-legend {
+  gap: 6px 12px;
+}
+
+#marketingSection .marketing-format-legend span {
+  font-size: 11px;
+}
+
+#marketingSection .marketing-format-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+#marketingSection .marketing-calendar-frame {
+  border-radius: 8px;
+}
+
+#marketingSection .marketing-calendar-weekdays span {
+  padding: 7px 9px;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+}
+
+#marketingSection .marketing-calendar-day {
+  min-height: 72px;
+  padding: 6px;
+}
+
+#marketingSection .marketing-calendar-day > header {
+  min-height: 20px;
+  margin-bottom: 2px;
+  padding: 0;
+}
+
+#marketingSection .marketing-calendar-day > header > span {
+  width: 21px;
+  height: 21px;
+  font-size: 10.5px;
+}
+
+#marketingSection .marketing-calendar-day > header small {
+  font-size: 9px;
+}
+
+#marketingSection .marketing-day-items {
+  gap: 3px;
+}
+
+#marketingSection .marketing-calendar-entry {
+  display: block;
+  min-height: 21px;
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+
+#marketingSection .marketing-calendar-entry strong {
+  display: block;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#marketingSection .marketing-more-items {
+  padding: 0 3px;
+  font-size: 9.5px;
+}
+
+#marketingSection .marketing-planning-sidebar {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+#marketingSection .marketing-upcoming-panel {
+  gap: 12px;
+  padding: 18px;
+  border-radius: 12px;
+}
+
+#marketingSection .marketing-upcoming-heading .eyebrow {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+#marketingSection .marketing-upcoming-heading h3 {
+  font-size: 15px;
+}
+
+#marketingSection .marketing-upcoming-list {
+  gap: 11px;
+}
+
+#marketingSection .marketing-upcoming-item {
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+#marketingSection .marketing-date-block {
+  width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
+}
+
+#marketingSection .marketing-date-block strong {
+  font-size: 15px;
+}
+
+#marketingSection .marketing-date-block small {
+  font-size: 9px;
+}
+
+#marketingSection .marketing-upcoming-copy strong {
+  font-size: 12px;
+}
+
+#marketingSection .marketing-upcoming-copy small {
+  font-size: 10px;
+}
+
+#marketingSection .marketing-ideas-rail {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+#marketingSection .marketing-ideas-rail .marketing-ideas-heading {
+  align-items: center;
+  flex-wrap: nowrap;
+  margin-bottom: 10px;
+}
+
+#marketingSection .marketing-ideas-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#marketingSection .marketing-ideas-title h3 {
+  font-size: 15px;
+}
+
+#marketingSection .marketing-ideas-title > span {
+  display: inline-flex;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+#marketingSection .marketing-ideas-heading > .icon-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 7px;
+}
+
+#marketingSection .marketing-idea-filters {
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+#marketingSection .marketing-idea-filters button {
+  min-height: 26px;
+  padding: 0 9px;
+  font-size: 10px;
+}
+
+#marketingSection .marketing-ideas-rail .marketing-ideas-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+#marketingSection .marketing-ideas-rail .marketing-idea-item {
+  min-height: 0;
+  padding: 13px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+#marketingSection .marketing-ideas-rail .marketing-idea-copy {
+  min-height: 0;
+  gap: 7px;
+}
+
+#marketingSection .marketing-idea-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#marketingSection .marketing-idea-open {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: #222222;
+  background: transparent;
+  text-align: left;
+}
+
+#marketingSection .marketing-idea-open strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+#marketingSection .marketing-idea-objective {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: var(--green-dark);
+  background: rgba(0, 155, 119, 0.1);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+#marketingSection .marketing-ideas-rail .marketing-idea-copy > p {
+  -webkit-line-clamp: 2;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+#marketingSection .marketing-ideas-rail .marketing-idea-footer {
+  align-items: center;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+#marketingSection .marketing-ideas-rail .marketing-idea-footer > small {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 9.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#marketingSection .marketing-idea-produce {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+#marketingSection .marketing-idea-produce svg {
+  width: 12px;
+  height: 12px;
+}
+
+#marketingSection .marketing-ideas-toggle {
+  width: 100%;
+  min-height: 35px;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--green-dark);
+  background: #ffffff;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+#marketingSection .marketing-ideas-toggle:hover,
+#marketingSection .marketing-idea-open:hover,
+#marketingSection .marketing-idea-produce:hover {
+  color: var(--green);
+}
+
+#marketingSection .marketing-ideas-rail .empty-state {
+  padding: 22px 8px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  font-size: 11px;
+}
+
+body.privacy-mode #marketingSection :is(
+  .marketing-idea-open strong,
+  .marketing-idea-copy > p,
+  .marketing-idea-footer > small
+) {
+  color: transparent !important;
+  text-shadow: none !important;
+  background-color: var(--privacy-mask) !important;
+  border-radius: 4px;
+  user-select: none;
+}
+
+@media (max-width: 1320px) {
+  #marketingSection .marketing-pipeline {
+    grid-template-columns: repeat(7, minmax(165px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+}
+
+@media (max-width: 1020px) {
+  #marketingSection .marketing-calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #marketingSection .marketing-planning-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  #marketingSection .marketing-heading {
+    align-items: flex-start;
+  }
+
+  #marketingSection .marketing-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #marketingSection .marketing-toolbar > * {
+    grid-column: auto;
+  }
+
+  #marketingSection .marketing-board-heading,
+  #marketingSection .marketing-calendar-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  #marketingSection .marketing-calendar-title-row {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #marketingSection .marketing-calendar-frame {
+    overflow-x: auto;
+  }
+
+  #marketingSection .marketing-calendar-scroll {
+    min-width: 720px;
+  }
+
+  #marketingSection .marketing-planning-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 460px) {
+  #marketingSection .marketing-calendar-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  #marketingSection .marketing-calendar-title-row h3 {
+    white-space: normal;
+  }
+}

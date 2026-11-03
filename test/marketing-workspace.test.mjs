@@ -13,12 +13,15 @@ const [indexHtml, appJs, stylesCss, redesignCss, stateApi, migration] = await Pr
 
 test("marketing is a complete team workspace", () => {
   assert.match(indexHtml, /data-section="marketingSection"/);
-  assert.match(indexHtml, /id="marketingCalendarViewButton"/);
-  assert.match(indexHtml, /id="marketingProductionViewButton"/);
-  assert.match(indexHtml, /id="marketingIdeasViewButton"/);
+  assert.doesNotMatch(indexHtml, /id="marketingSummary"/);
+  assert.doesNotMatch(indexHtml, /id="marketingCalendarViewButton"/);
+  assert.doesNotMatch(indexHtml, /id="marketingProductionViewButton"/);
+  assert.doesNotMatch(indexHtml, /id="marketingIdeasViewButton"/);
+  assert.doesNotMatch(indexHtml, /id="marketingStatusFilter"/);
   assert.match(indexHtml, /id="marketingDialog"/);
   assert.match(appJs, /function renderMarketingCalendar/);
   assert.match(appJs, /function renderMarketingProduction/);
+  assert.match(appJs, /\$\{renderMarketingProduction\(items\)\}[\s\S]*\$\{renderMarketingCalendar\(items\)\}/);
   assert.match(appJs, /function convertMarketingIdea/);
   assert.match(appJs, /function syncMarketingTask/);
 });
@@ -49,37 +52,40 @@ test("upcoming marketing panel follows the compact redesign", () => {
   assert.match(appJs, /class="marketing-upcoming-heading"/);
   assert.match(appJs, /marketing-upcoming-item format-\$\{marketingSlug\(item\.format \|\| "Outro"\)\}/);
   assert.match(appJs, /item\.status === "Agendado" \? "scheduled" : ""/);
-  assert.match(appJs, /\.slice\(0, 5\)/);
   assert.match(redesignCss, /\.marketing-upcoming-item\.scheduled \.marketing-date-block/);
-  assert.match(redesignCss, /grid-template-columns:\s*48px minmax\(0, 1fr\)/);
-  assert.match(redesignCss, /border:\s*1px dashed #8a8a8a/);
+  assert.match(redesignCss, /grid-template-columns:\s*44px minmax\(0, 1fr\)/);
+  assert.match(appJs, /\.slice\(0, 3\)/);
+  assert.match(appJs, /class="marketing-planning-sidebar"/);
   assert.match(redesignCss, /#marketingSection \.privacy-toolbar\s*\{\s*display:\s*none/);
 });
 
-test("marketing production and idea views follow the supplied workspace", () => {
+test("marketing production and idea rail follow the supplied workspace", () => {
   assert.match(appJs, /class="marketing-board-heading"/);
   assert.match(appJs, /arraste os cartões entre as etapas/);
   assert.match(appJs, /draggable="true" data-marketing-drag-item/);
   assert.match(appJs, /data-marketing-drop-stage/);
+  assert.match(appJs, /data-marketing-stage-expand/);
+  assert.match(appJs, /MARKETING_PIPELINE_PREVIEW_LIMIT = 9/);
   assert.match(appJs, /function bindMarketingPipelineDragAndDrop/);
   assert.doesNotMatch(appJs, /data-marketing-stage-shift/);
-  assert.match(appJs, /class="marketing-ideas-heading"/);
+  assert.match(appJs, /marketing-ideas-panel marketing-ideas-rail/);
   assert.match(appJs, /data-marketing-idea-objective/);
+  assert.match(appJs, /data-marketing-ideas-toggle/);
+  assert.match(appJs, /MARKETING_IDEA_PREVIEW_LIMIT = 3/);
   assert.match(redesignCss, /grid-template-columns:\s*repeat\(7, minmax\(0, 1fr\)\)/);
   assert.match(redesignCss, /marketing-pipeline-column\.is-drag-over/);
   assert.match(redesignCss, /marketing-pipeline-card\.is-dragging/);
-  assert.match(redesignCss, /grid-template-columns:\s*repeat\(auto-fill, minmax\(360px, 1fr\)\)/);
+  assert.match(redesignCss, /marketing-ideas-rail \.marketing-ideas-list/);
+  assert.match(redesignCss, /marketing-idea-produce/);
 });
 
-test("marketing production summary counts the same filtered items as the board", () => {
-  assert.match(appJs, /const items = filteredMarketingItems\(\);\s*renderMarketingSummary\(items\);/);
-  assert.match(appJs, /function renderMarketingSummary\(items = filteredMarketingItems\(\)\)/);
-  assert.match(appJs, /activeMarketingView !== "calendar" \|\| marketingItemMonth\(item\) === monthKey/);
-  assert.match(appJs, /value: contentItems\.filter\(\(item\) => \["Planejado", "Roteiro"\]\.includes\(item\.status\)\)\.length/);
-  assert.match(appJs, /value: contentItems\.filter\(\(item\) => \["Gravação", "Edição", "Aprovação"\]\.includes\(item\.status\)\)\.length/);
-  assert.match(appJs, /value: contentItems\.filter\(\(item\) => item\.status === "Agendado"\)\.length/);
-  assert.match(appJs, /value: contentItems\.filter\(\(item\) => item\.status === "Publicado"\)\.length/);
-  assert.doesNotMatch(appJs, /const monthItems = state\.marketingItems/);
+test("marketing uses one filtered source for production, calendar and ideas", () => {
+  assert.match(appJs, /const items = filteredMarketingItems\(\);/);
+  assert.match(appJs, /renderMarketingProduction\(items\)/);
+  assert.match(appJs, /renderMarketingCalendar\(items\)/);
+  assert.match(appJs, /renderMarketingIdeas\(items\)/);
+  assert.doesNotMatch(appJs, /function renderMarketingSummary/);
+  assert.doesNotMatch(appJs, /activeMarketingView/);
 });
 
 test("marketing editors use the content and compact idea layouts", () => {

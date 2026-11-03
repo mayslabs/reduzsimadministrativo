@@ -30,6 +30,8 @@ const MARKETING_CONTENT_STATUSES = ["Planejado", "Roteiro", "Gravação", "Ediç
 const MARKETING_DIALOG_FORMATS = ["Reels", "Stories", "Post", "Carrossel", "Vídeo"];
 const MARKETING_DIALOG_CHANNELS = ["Instagram", "TikTok", "YouTube", "LinkedIn"];
 const MARKETING_MAX_HISTORY = 100;
+const MARKETING_PIPELINE_PREVIEW_LIMIT = 9;
+const MARKETING_IDEA_PREVIEW_LIMIT = 3;
 const REGULARIZATION_FIXED_FIELD_KEYS = new Set([
   "clientName",
   "cpf",
@@ -313,12 +315,13 @@ let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
 let activeTaskDate = new Date();
-let activeMarketingView = "calendar";
 let activeMarketingDate = new Date();
 let activeMarketingItemId = "";
 let activeMarketingDraftKind = "content";
 let activeMarketingScriptMode = "structured";
 let activeMarketingIdeaObjective = "";
+let expandedMarketingIdeas = false;
+let expandedMarketingStages = new Set();
 let marketingDragSuppressClick = false;
 let activeDataDrilldown = null;
 let activeGoalsYear = String(new Date().getFullYear());
@@ -389,14 +392,9 @@ const el = {
   taskCenterList: document.getElementById("taskCenterList"),
   addMarketingIdeaButton: document.getElementById("addMarketingIdeaButton"),
   addMarketingContentButton: document.getElementById("addMarketingContentButton"),
-  marketingSummary: document.getElementById("marketingSummary"),
   marketingSearchInput: document.getElementById("marketingSearchInput"),
   marketingOwnerFilter: document.getElementById("marketingOwnerFilter"),
   marketingChannelFilter: document.getElementById("marketingChannelFilter"),
-  marketingStatusFilter: document.getElementById("marketingStatusFilter"),
-  marketingCalendarViewButton: document.getElementById("marketingCalendarViewButton"),
-  marketingProductionViewButton: document.getElementById("marketingProductionViewButton"),
-  marketingIdeasViewButton: document.getElementById("marketingIdeasViewButton"),
   marketingWorkspace: document.getElementById("marketingWorkspace"),
   tasksTodayBadge: document.getElementById("tasksTodayBadge"),
   tasksNewBadge: document.getElementById("tasksNewBadge"),
@@ -1820,12 +1818,9 @@ function bindEvents() {
   el.addMarketingIdeaButton?.addEventListener("click", () => openMarketingDialog("", "idea"));
   el.addMarketingContentButton?.addEventListener("click", () => openMarketingDialog("", "content"));
   el.marketingSearchInput?.addEventListener("input", renderMarketing);
-  [el.marketingOwnerFilter, el.marketingChannelFilter, el.marketingStatusFilter].forEach((input) => {
+  [el.marketingOwnerFilter, el.marketingChannelFilter].forEach((input) => {
     input?.addEventListener("change", renderMarketing);
   });
-  el.marketingCalendarViewButton?.addEventListener("click", () => setMarketingView("calendar"));
-  el.marketingProductionViewButton?.addEventListener("click", () => setMarketingView("production"));
-  el.marketingIdeasViewButton?.addEventListener("click", () => setMarketingView("ideas"));
   el.marketingForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     saveMarketingItem();
@@ -4786,17 +4781,11 @@ function renderMarketing() {
     ? state.marketingItems.map(normalizeMarketingItem)
     : [];
   renderMarketingFilters();
-  renderMarketingViewControls();
   const items = filteredMarketingItems();
-  renderMarketingSummary(items);
-
-  if (activeMarketingView === "production") {
-    el.marketingWorkspace.innerHTML = renderMarketingProduction(items);
-  } else if (activeMarketingView === "ideas") {
-    el.marketingWorkspace.innerHTML = renderMarketingIdeas(items);
-  } else {
-    el.marketingWorkspace.innerHTML = renderMarketingCalendar(items);
-  }
+  el.marketingWorkspace.innerHTML = `
+    ${renderMarketingProduction(items)}
+    ${renderMarketingCalendar(items)}
+  `;
 
   bindMarketingWorkspaceActions();
   refreshIcons();
@@ -4805,90 +4794,20 @@ function renderMarketing() {
 function renderMarketingFilters() {
   const ownerValue = el.marketingOwnerFilter.value;
   const channelValue = el.marketingChannelFilter.value;
-  const statusValue = el.marketingStatusFilter.value;
   el.marketingOwnerFilter.innerHTML = `<option value="">Todos os responsáveis</option>${state.users
     .map((user) => `<option value="${escapeAttr(user.id)}">${escapeHtml(user.name)}</option>`)
     .join("")}`;
   el.marketingChannelFilter.innerHTML = `<option value="">Todos os canais</option>${MARKETING_CHANNELS
     .map((channel) => `<option value="${escapeAttr(channel)}">${escapeHtml(channel)}</option>`)
     .join("")}`;
-  el.marketingStatusFilter.innerHTML = `<option value="">Todas as etapas</option><option value="Ideia">Ideias</option>${MARKETING_CONTENT_STATUSES
-    .map((status) => `<option value="${escapeAttr(status)}">${escapeHtml(status)}</option>`)
-    .join("")}`;
   el.marketingOwnerFilter.value = [...state.users.map((user) => user.id), ""].includes(ownerValue) ? ownerValue : "";
   el.marketingChannelFilter.value = [...MARKETING_CHANNELS, ""].includes(channelValue) ? channelValue : "";
-  el.marketingStatusFilter.value = ["Ideia", ...MARKETING_CONTENT_STATUSES, ""].includes(statusValue) ? statusValue : "";
-}
-
-function renderMarketingViewControls() {
-  [
-    [el.marketingCalendarViewButton, "calendar"],
-    [el.marketingProductionViewButton, "production"],
-    [el.marketingIdeasViewButton, "ideas"],
-  ].forEach(([button, view]) => {
-    button.classList.toggle("active", activeMarketingView === view);
-    button.setAttribute("aria-pressed", String(activeMarketingView === view));
-  });
-}
-
-function renderMarketingSummary(items = filteredMarketingItems()) {
-  const monthKey = marketingMonthKey(activeMarketingDate);
-  const contentItems = items.filter((item) => (
-    item.kind === "content"
-    && (activeMarketingView !== "calendar" || marketingItemMonth(item) === monthKey)
-  ));
-  const ideaItems = items.filter((item) => item.kind === "idea");
-  const stats = [
-    {
-      label: "Ideias no banco",
-      value: ideaItems.length,
-      icon: "lightbulb",
-      type: "ideas",
-      hint: "para desenvolver",
-    },
-    {
-      label: "Para produzir",
-      value: contentItems.filter((item) => ["Planejado", "Roteiro"].includes(item.status)).length,
-      icon: "notebook-pen",
-      type: "planned",
-      hint: "planejado e roteiro",
-    },
-    {
-      label: "Em produção",
-      value: contentItems.filter((item) => ["Gravação", "Edição", "Aprovação"].includes(item.status)).length,
-      icon: "clapperboard",
-      type: "production",
-      hint: "gravação a aprovação",
-    },
-    {
-      label: "Agendados",
-      value: contentItems.filter((item) => item.status === "Agendado").length,
-      icon: "calendar-clock",
-      type: "scheduled",
-      hint: "prontos para sair",
-    },
-    {
-      label: "Publicados",
-      value: contentItems.filter((item) => item.status === "Publicado").length,
-      icon: "circle-check-big",
-      type: "published",
-      hint: "neste período",
-    },
-  ];
-  el.marketingSummary.innerHTML = stats.map((stat, index) => `
-    <article class="marketing-summary-card ${stat.type}">
-      <div class="marketing-summary-label"><span>${String(index + 1).padStart(2, "0")}</span><small>${stat.label}</small></div>
-      <strong>${stat.value}</strong>
-      <p>${stat.hint}</p>
-    </article>
-  `).join("");
 }
 
 function filteredMarketingItems() {
   const query = normalize(el.marketingSearchInput.value);
   const ownerId = el.marketingOwnerFilter.value;
   const channel = el.marketingChannelFilter.value;
-  const status = el.marketingStatusFilter.value;
   return state.marketingItems
     .filter((item) => {
       const client = item.clientId ? findLinkedClientRecord(item.clientId, item.clientSource) : null;
@@ -4906,7 +4825,6 @@ function filteredMarketingItems() {
         (!query || haystack.includes(query))
         && (!ownerId || item.ownerId === ownerId)
         && (!channel || normalizeMarketingChannels(item).includes(channel))
-        && (!status || item.status === status)
       );
     })
     .sort((a, b) => marketingSortTimestamp(b) - marketingSortTimestamp(a));
@@ -4931,14 +4849,14 @@ function renderMarketingCalendar(items) {
   const upcoming = scheduled
     .filter((item) => item.publishDate >= localDateKey() && item.status !== "Publicado")
     .sort((a, b) => `${a.publishDate}T${a.publishTime || "23:59"}`.localeCompare(`${b.publishDate}T${b.publishTime || "23:59"}`))
-    .slice(0, 5);
+    .slice(0, 3);
 
   return `
     <div class="marketing-calendar-layout">
       <section class="marketing-calendar-panel">
         <header class="marketing-calendar-heading">
           <div class="marketing-calendar-title-row">
-            <h3>${escapeHtml(monthLabel)}</h3>
+            <h3>Calendário · ${escapeHtml(monthLabel)}</h3>
             <div class="marketing-month-controls">
               <button class="icon-button" type="button" data-marketing-month="-1" aria-label="Mês anterior"><i data-lucide="chevron-left"></i></button>
               <button class="secondary-button" type="button" data-marketing-today>Hoje</button>
@@ -4963,15 +4881,17 @@ function renderMarketingCalendar(items) {
           </div>
         </div>
       </section>
-      <aside class="marketing-upcoming-panel">
-        <header class="marketing-upcoming-heading">
-          <p class="eyebrow">Próximas postagens</p>
-          <h3>Programação</h3>
-        </header>
-        <div class="marketing-upcoming-list">
-          ${upcoming.length ? upcoming.map(renderMarketingUpcomingItem).join("") : `<p class="marketing-upcoming-empty">Nada programado.</p>`}
-        </div>
-        <button class="secondary-button marketing-aside-action" type="button" data-new-marketing-content><i data-lucide="plus"></i> Planejar conteúdo</button>
+      <aside class="marketing-planning-sidebar">
+        <section class="marketing-upcoming-panel">
+          <header class="marketing-upcoming-heading">
+            <p class="eyebrow">Próximas postagens</p>
+            <h3>Programação</h3>
+          </header>
+          <div class="marketing-upcoming-list">
+            ${upcoming.length ? upcoming.map(renderMarketingUpcomingItem).join("") : `<p class="marketing-upcoming-empty">Nada programado.</p>`}
+          </div>
+        </section>
+        ${renderMarketingIdeas(items)}
       </aside>
     </div>
   `;
@@ -4981,18 +4901,18 @@ function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
   const dateKey = localDateKey(date);
   const outside = date.getMonth() !== activeMonth || date.getFullYear() !== activeYear;
   const today = dateKey === localDateKey();
-  const visible = items.slice(0, 3);
+  const visible = items.slice(0, 2);
   return `
     <article class="marketing-calendar-day ${outside ? "outside" : ""} ${today ? "today" : ""}" data-new-marketing-date="${escapeAttr(dateKey)}">
       <header><span>${date.getDate()}</span>${today ? `<small>Hoje</small>` : ""}</header>
       <div class="marketing-day-items">
         ${visible.map((item) => `
           <button class="marketing-calendar-entry format-${marketingSlug(item.format || "Outro")}" type="button" data-open-marketing="${escapeAttr(item.id)}" title="${escapeAttr(`${item.format || "Conteúdo"}: ${item.title}`)}">
-            <span>${escapeHtml([item.format || "Sem formato", marketingChannelLabel(item)].filter(Boolean).join(" · "))}</span>
+            <span class="sr-only">${escapeHtml([item.format || "Sem formato", marketingChannelLabel(item)].filter(Boolean).join(" · "))}</span>
             <strong>${escapeHtml(item.title)}</strong>
           </button>
         `).join("")}
-        ${items.length > visible.length ? `<span class="marketing-more-items">+${items.length - visible.length} ${items.length - visible.length === 1 ? "conteúdo" : "conteúdos"}</span>` : ""}
+        ${items.length > visible.length ? `<span class="marketing-more-items">+${items.length - visible.length}</span>` : ""}
       </div>
     </article>
   `;
@@ -5015,17 +4935,25 @@ function renderMarketingProduction(items) {
   return `
     <section class="marketing-board-panel">
       <header class="marketing-board-heading">
-        <h3>Fluxo de produção</h3>
+        <h3>Produção</h3>
         <span>${contents.length} ${contents.length === 1 ? "conteúdo" : "conteúdos"} · arraste os cartões entre as etapas</span>
       </header>
       <div class="marketing-pipeline">
         ${MARKETING_CONTENT_STATUSES.map((status, index) => {
           const statusItems = contents.filter((item) => item.status === status);
+          const expanded = expandedMarketingStages.has(status);
+          const visibleItems = expanded ? statusItems : statusItems.slice(0, MARKETING_PIPELINE_PREVIEW_LIMIT);
+          const hiddenCount = Math.max(0, statusItems.length - visibleItems.length);
           return `
             <section class="marketing-pipeline-column status-${marketingSlug(status)}" data-marketing-drop-stage="${escapeAttr(status)}" aria-label="Etapa ${escapeAttr(status)}. Solte cartões aqui para alterar a etapa.">
               <header><span><small>${String(index + 1).padStart(2, "0")}</small>${escapeHtml(status)}</span><strong class="${statusItems.length ? "has-items" : ""}">${statusItems.length}</strong></header>
               <div class="marketing-pipeline-dropzone">
-                ${statusItems.length ? statusItems.map(renderMarketingPipelineCard).join("") : `<p class="marketing-column-empty">Nenhum conteúdo</p>`}
+                ${visibleItems.length ? visibleItems.map(renderMarketingPipelineCard).join("") : `<p class="marketing-column-empty">Vazio</p>`}
+                ${statusItems.length > MARKETING_PIPELINE_PREVIEW_LIMIT ? `
+                  <button class="marketing-stage-more" type="button" data-marketing-stage-expand="${escapeAttr(status)}" aria-expanded="${expanded}">
+                    ${expanded ? "Mostrar menos" : `+${hiddenCount} mais`}
+                  </button>
+                ` : ""}
               </div>
             </section>
           `;
@@ -5048,8 +4976,7 @@ function renderMarketingPipelineCard(item) {
         ${linked ? `<small>${escapeHtml(linked.clientName)}</small>` : ""}
       </button>
       <div class="marketing-card-footer">
-        <span class="marketing-card-owner"><i>${escapeHtml((owner || "?").charAt(0).toUpperCase())}</i>${escapeHtml(owner)} · ${escapeHtml(dateLabel)}</span>
-        <span class="marketing-card-drag-handle" aria-hidden="true" title="Arraste para outra etapa"><i data-lucide="grip-vertical"></i></span>
+        <span class="marketing-card-owner" title="${escapeAttr(owner)}"><i>${escapeHtml((owner || "?").charAt(0).toUpperCase())}</i><span>${escapeHtml(dateLabel)}</span></span>
       </div>
     </article>
   `;
@@ -5057,19 +4984,26 @@ function renderMarketingPipelineCard(item) {
 
 function renderMarketingIdeas(items) {
   const ideas = items.filter((item) => item.kind === "idea" && (!activeMarketingIdeaObjective || item.objective === activeMarketingIdeaObjective));
+  const visibleIdeas = expandedMarketingIdeas ? ideas : ideas.slice(0, MARKETING_IDEA_PREVIEW_LIMIT);
   return `
-    <section class="marketing-ideas-panel">
+    <section class="marketing-ideas-panel marketing-ideas-rail">
       <header class="marketing-ideas-heading">
-        <div><h3>Banco de ideias</h3><p>Temas para desenvolver. Transforme em conteúdo quando estiver pronto.</p></div>
-        <div class="marketing-idea-filters" role="group" aria-label="Filtrar ideias por objetivo">
-          ${[["", "Todas"], ...MARKETING_OBJECTIVES.map((objective) => [objective, objective])].map(([value, label]) => `
-            <button class="${activeMarketingIdeaObjective === value ? "active" : ""}" type="button" data-marketing-idea-objective="${escapeAttr(value)}" aria-pressed="${activeMarketingIdeaObjective === value}">${escapeHtml(label)}</button>
-          `).join("")}
-        </div>
+        <div class="marketing-ideas-title"><h3>Banco de ideias</h3><span>${ideas.length}</span></div>
+        <button class="icon-button" type="button" data-new-marketing-idea aria-label="Nova ideia" title="Nova ideia"><i data-lucide="plus"></i></button>
       </header>
-      <div class="marketing-ideas-list">
-        ${ideas.length ? ideas.map(renderMarketingIdeaItem).join("") : `<p class="empty-state">Nenhuma ideia neste filtro.</p>`}
+      <div class="marketing-idea-filters" role="group" aria-label="Filtrar ideias por objetivo">
+        ${[["", "Todas"], ...MARKETING_OBJECTIVES.map((objective) => [objective, objective])].map(([value, label]) => `
+          <button class="${activeMarketingIdeaObjective === value ? "active" : ""}" type="button" data-marketing-idea-objective="${escapeAttr(value)}" aria-pressed="${activeMarketingIdeaObjective === value}">${escapeHtml(label)}</button>
+        `).join("")}
       </div>
+      <div class="marketing-ideas-list">
+        ${visibleIdeas.length ? visibleIdeas.map(renderMarketingIdeaItem).join("") : `<p class="empty-state">Nenhuma ideia neste filtro.</p>`}
+      </div>
+      ${ideas.length > MARKETING_IDEA_PREVIEW_LIMIT ? `
+        <button class="marketing-ideas-toggle" type="button" data-marketing-ideas-toggle aria-expanded="${expandedMarketingIdeas}">
+          ${expandedMarketingIdeas ? "Mostrar menos" : `Ver todas as ${ideas.length} ideias`}
+        </button>
+      ` : ""}
     </section>
   `;
 }
@@ -5079,18 +5013,16 @@ function renderMarketingIdeaItem(item) {
   return `
     <article class="marketing-idea-item">
       <div class="marketing-idea-copy">
-        <div class="marketing-idea-meta">
-          ${item.objective ? `<span class="objective">${escapeHtml(item.objective)}</span>` : ""}
-          ${item.pillar ? `<span>${escapeHtml(item.pillar)}</span>` : ""}
+        <div class="marketing-idea-title-row">
+          <button class="marketing-idea-open" type="button" data-open-marketing="${escapeAttr(item.id)}">
+            <strong>${escapeHtml(item.title || "Ideia sem título")}</strong>
+          </button>
+          ${item.objective ? `<span class="marketing-idea-objective">${escapeHtml(item.objective)}</span>` : ""}
         </div>
-        <strong>${escapeHtml(item.title || "Ideia sem título")}</strong>
         ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ""}
         <div class="marketing-idea-footer">
           <small>Por ${escapeHtml(ownerName(item.createdBy))}${createdDate ? ` · ${escapeHtml(formatDate(createdDate))}` : ""}</small>
-          <div class="inline-actions">
-            <button class="icon-button" type="button" data-open-marketing="${escapeAttr(item.id)}" aria-label="Editar ${escapeAttr(item.title || "ideia")}" title="Editar"><i data-lucide="pencil"></i></button>
-            <button class="primary-button small-button" type="button" data-convert-marketing-idea="${escapeAttr(item.id)}">Transformar em conteúdo <i data-lucide="arrow-right"></i></button>
-          </div>
+          <button class="marketing-idea-produce" type="button" data-convert-marketing-idea="${escapeAttr(item.id)}">Produzir <i data-lucide="arrow-right"></i></button>
         </div>
       </div>
     </article>
@@ -5125,11 +5057,24 @@ function bindMarketingWorkspaceActions() {
     select.addEventListener("change", () => updateMarketingStatus(select.dataset.marketingStatus, select.value));
   });
   bindMarketingPipelineDragAndDrop();
+  el.marketingWorkspace.querySelectorAll("[data-marketing-stage-expand]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const status = button.dataset.marketingStageExpand || "";
+      if (expandedMarketingStages.has(status)) expandedMarketingStages.delete(status);
+      else expandedMarketingStages.add(status);
+      renderMarketing();
+    });
+  });
   el.marketingWorkspace.querySelectorAll("[data-marketing-idea-objective]").forEach((button) => {
     button.addEventListener("click", () => {
       activeMarketingIdeaObjective = button.dataset.marketingIdeaObjective || "";
+      expandedMarketingIdeas = false;
       renderMarketing();
     });
+  });
+  el.marketingWorkspace.querySelector("[data-marketing-ideas-toggle]")?.addEventListener("click", () => {
+    expandedMarketingIdeas = !expandedMarketingIdeas;
+    renderMarketing();
   });
   el.marketingWorkspace.querySelector("[data-new-marketing-content]")?.addEventListener("click", () => openMarketingDialog("", "content"));
   el.marketingWorkspace.querySelector("[data-new-marketing-idea]")?.addEventListener("click", () => openMarketingDialog("", "idea"));
@@ -5205,22 +5150,6 @@ function bindMarketingPipelineDragAndDrop() {
       }, 0);
     });
   });
-}
-
-function setMarketingView(view) {
-  activeMarketingView = ["calendar", "production", "ideas"].includes(view) ? view : "calendar";
-  renderMarketing();
-}
-
-function marketingMonthKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function marketingItemMonth(item) {
-  const explicitDate = item.publishDate || item.productionDate;
-  if (explicitDate) return explicitDate.slice(0, 7);
-  const fallback = new Date(item.createdAt || 0);
-  return Number.isNaN(fallback.getTime()) ? "" : marketingMonthKey(fallback);
 }
 
 function marketingSlug(value) {
