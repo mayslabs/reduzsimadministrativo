@@ -57,7 +57,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=199/);
+  assert.match(indexHtml, /app\.js\?v=200/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -210,11 +210,14 @@ test("client and work tab uses the structured two-panel editor", () => {
   assert.match(indexHtml, /Identificação e contato/);
   assert.match(indexHtml, /Dados usados no cálculo/);
   assert.match(indexHtml, /data-client-choice-field="documentType"/);
+  assert.match(indexHtml, /data-field="workResponsible"[\s\S]*data-field="workResponsiblePhone"/);
   assert.match(indexHtml, /id="clientDestinationSelection"/);
   assert.match(indexHtml, /data-client-choice-field="workType"[\s\S]*>Mista</);
   assert.match(indexHtml, /data-client-choice-field="concrete"/);
   assert.match(indexHtml, /id="clientWorkDuration"/);
   assert.match(appJs, /function renderClientWorkControls/);
+  assert.match(appJs, /"workResponsiblePhone"/);
+  assert.match(appJs, /field === "phone" \|\| field === "workResponsiblePhone"/);
   assert.match(appJs, /function renderClientWorkDuration/);
   assert.match(appJs, /function renderDestinationSelection/);
   assert.match(appJs, /Number\(integer \|\| "0"\)\.toLocaleString\("pt-BR"\)/);

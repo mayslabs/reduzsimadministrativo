@@ -126,6 +126,7 @@ const labelReplacements = {
 const workFields = [
   "workTitle",
   "workResponsible",
+  "workResponsiblePhone",
   "destination",
   "workType",
   "concrete",
@@ -183,6 +184,7 @@ const defaultClient = () => {
     ].filter(Boolean),
     workTitle: "Obra principal",
     workResponsible: "Engenheiro responsável",
+    workResponsiblePhone: "(63) 99999-9999",
     destination: "Residencial",
     workType: "Construção",
     concrete: "Sim",
@@ -747,6 +749,7 @@ function migrateState(savedState = {}, persist = false) {
     statusIds: [],
     workTitle: "",
     workResponsible: "",
+    workResponsiblePhone: "",
     destination: "",
     workType: "",
     concrete: "",
@@ -1368,6 +1371,7 @@ function normalizeClientWorks(client = {}, fallbackUserId = "") {
     title: work.title || work.workTitle || (index === 0 ? "Obra principal" : `Obra ${index + 1}`),
     workTitle: work.workTitle || work.title || (index === 0 ? "Obra principal" : `Obra ${index + 1}`),
     workResponsible: work.workResponsible || "",
+    workResponsiblePhone: formatPhoneNumber(work.workResponsiblePhone || ""),
     destination: localizeLabel(work.destination || ""),
     workType: localizeLabel(work.workType || ""),
     concrete: localizeLabel(work.concrete || ""),
@@ -9449,6 +9453,7 @@ function filteredClients() {
       client.workType,
       client.infoOwner,
       client.workResponsible,
+      client.workResponsiblePhone,
       client.folderPath,
     ].join(" "));
     const matchesQuery = !query || haystack.includes(query);
@@ -9737,6 +9742,7 @@ function openClient(client) {
   activeClient.documentType = documentTypeForClient(activeClient);
   activeClient.cpf = formatFieldValue("cpf", activeClient.cpf || "");
   activeClient.phone = formatFieldValue("phone", activeClient.phone || "");
+  activeClient.workResponsiblePhone = formatFieldValue("workResponsiblePhone", activeClient.workResponsiblePhone || "");
   activeClient.area = formatFieldValue("area", activeClient.area || "");
   normalizeClientSelectValues(activeClient);
   el.clientDialogTitle.textContent = compactClientDisplayName(client.clientName) || "Novo cliente";
@@ -11496,6 +11502,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     nextAction: "Próxima ação",
     workTitle: "Título da obra",
     workResponsible: "Responsável da obra",
+    workResponsiblePhone: "Telefone do responsável da obra",
     destination: "Destinação",
     workType: "Tipo de obra",
     concrete: "Concreto usinado",
@@ -12720,6 +12727,7 @@ function createEmptyClient() {
     statusIds: [],
     workTitle: "Obra principal",
     workResponsible: "",
+    workResponsiblePhone: "",
     destination: "",
     workType: "",
     concrete: "",
@@ -12956,7 +12964,7 @@ function documentStatusOptions(selected = "Pendente") {
 function formatFieldValue(field, value) {
   if (field === "clientName") return value;
   if (field === "cpf") return formatDocumentNumber(value, activeClient?.documentType || "cpf");
-  if (field === "phone") return formatPhoneNumber(value);
+  if (field === "phone" || field === "workResponsiblePhone") return formatPhoneNumber(value);
   if (field === "area") return formatAreaValue(value);
   if (field === "feeValue") return formatCurrencyValue(value);
   if (field === "inssOriginalValue" || field === "inssReducedValue") return formatCurrencyValue(value);
