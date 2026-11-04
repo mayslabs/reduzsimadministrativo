@@ -10,9 +10,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=179" />
+    <link rel="stylesheet" href="./styles.css?v=208" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=206" />
+    <link rel="stylesheet" href="./redesign.css?v=208" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -482,6 +482,7 @@
                   <option value="12">Dezembro</option>
                 </select>
               </label>
+              <button id="manageBillCategoriesButton" class="secondary-button" type="button"><i data-lucide="tags"></i> Categorias</button>
               <button id="exportBillsButton" class="secondary-button" type="button"><i data-lucide="download"></i> Exportar</button>
               <button id="copyPreviousBillsButton" class="secondary-button" type="button"><i data-lucide="copy"></i> Copiar mês anterior</button>
               <button id="addBillButton" class="primary-button" type="button"><i data-lucide="plus"></i> Adicionar conta</button>
@@ -524,9 +525,11 @@
 
             <section class="bills-category-card">
               <div class="mini-heading bills-category-heading">
-                <p class="eyebrow">Gastos por categoria</p>
-                <h3>Para onde vai o dinheiro</h3>
-                <button id="manageBillCategoriesButton" class="small-button" type="button" hidden aria-hidden="true"><i data-lucide="tags"></i> Categorias</button>
+                <div>
+                  <p class="eyebrow">Gastos por categoria</p>
+                  <h3>Para onde vai o dinheiro</h3>
+                </div>
+                <button id="manageBillCategoriesFromChartButton" class="icon-button" type="button" aria-label="Gerenciar categorias" title="Gerenciar categorias"><i data-lucide="palette"></i></button>
               </div>
               <div id="billsCategoryChart" class="bills-category-chart"></div>
             </section>
@@ -1425,6 +1428,40 @@
       </form>
     </dialog>
 
+    <dialog id="billCategoriesDialog" class="bill-categories-manager">
+      <div class="bill-categories-frame">
+        <header class="bill-categories-header">
+          <span class="bill-categories-header-icon"><i data-lucide="tags"></i></span>
+          <div>
+            <h2>Categorias</h2>
+            <p>Crie categorias, renomeie e escolha a cor de cada uma.</p>
+          </div>
+          <button id="closeBillCategoriesButton" class="icon-button" type="button" aria-label="Fechar"><i data-lucide="x"></i></button>
+        </header>
+        <section class="bill-category-create-section">
+          <p class="eyebrow">Nova categoria</p>
+          <div class="bill-category-create-row">
+            <button id="newBillCategoryColorButton" class="bill-category-color-button" type="button" aria-label="Escolher cor da nova categoria" aria-expanded="false"><i></i></button>
+            <input id="newBillCategoryName" type="text" maxlength="60" placeholder="Nome da categoria, ex.: Marketing" autocomplete="off" />
+            <button id="createBillCategoryButton" class="primary-button" type="button" disabled><i data-lucide="plus"></i> Criar</button>
+          </div>
+          <p id="newBillCategoryError" class="bill-category-error" hidden>Já existe uma categoria com esse nome.</p>
+          <div id="newBillCategoryPalette" class="bill-category-palette" hidden></div>
+        </section>
+        <section class="bill-categories-list-section">
+          <div class="bill-categories-list-heading">
+            <p class="eyebrow">Suas categorias</p>
+            <span id="billCategoriesCount"></span>
+          </div>
+          <div id="billCategoriesList" class="bill-categories-list"></div>
+        </section>
+        <footer class="bill-categories-footer">
+          <p>Só dá para excluir categorias sem lançamentos.</p>
+          <button id="finishBillCategoriesButton" class="primary-button" type="button">Concluir</button>
+        </footer>
+      </div>
+    </dialog>
+
     <dialog id="simpleDialog" class="simple-dialog">
       <form method="dialog" class="simple-form">
         <header class="dialog-header">
@@ -1446,7 +1483,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=207"></script>
+    <script src="./app.js?v=208"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

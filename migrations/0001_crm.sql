@@ -199,7 +199,7 @@ VALUES
   ),
   (
     'companyBillCategories',
-    '["Sistema","Serviço","Operacional","Fixo","Marketing","Imposto","Fornecedor","Pessoal","Outros"]',
+    '[{"id":"bill-category-pessoal","nome":"Pessoal","cor":"#074D40"},{"id":"bill-category-outros","nome":"Outros","cor":"#0A5C4D"},{"id":"bill-category-aluguel","nome":"Aluguel","cor":"#0E6E5B"},{"id":"bill-category-bni","nome":"BNI","cor":"#00876A"},{"id":"bill-category-imposto","nome":"Imposto","cor":"#009B77"},{"id":"bill-category-condominio","nome":"Condomínio","cor":"#2BAA8B"},{"id":"bill-category-energia","nome":"Energia","cor":"#55B9A0"},{"id":"bill-category-contabilidade","nome":"Contabilidade","cor":"#7FC8B5"},{"id":"bill-category-educacao","nome":"Educação","cor":"#A3D6C9"},{"id":"bill-category-sistema","nome":"Sistema","cor":"#5C5C5C"},{"id":"bill-category-internet","nome":"Internet","cor":"#8A8A8A"},{"id":"bill-category-acipa","nome":"ACIPA","cor":"#B0B0B0"}]',
     'admin',
     1,
     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),

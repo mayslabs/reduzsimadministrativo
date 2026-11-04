@@ -20,7 +20,26 @@ const DEFAULT_GOAL_SETTINGS = {
 };
 
 const BILL_YEAR = "2026";
-const DEFAULT_BILL_CATEGORIES = ["Sistema", "Serviço", "Operacional", "Fixo", "Marketing", "Imposto", "Fornecedor", "Pessoal", "Outros"];
+const BILL_CATEGORY_THEME_COLORS = [
+  "#074D40", "#0A5C4D", "#0E6E5B", "#00876A", "#009B77", "#2BAA8B", "#55B9A0",
+  "#7FC8B5", "#A3D6C9", "#5C5C5C", "#8A8A8A", "#B0B0B0", "#CFCFCF",
+];
+const DEFAULT_BILL_CATEGORIES = [
+  ["bill-category-pessoal", "Pessoal", "#074D40"],
+  ["bill-category-outros", "Outros", "#0A5C4D"],
+  ["bill-category-aluguel", "Aluguel", "#0E6E5B"],
+  ["bill-category-bni", "BNI", "#00876A"],
+  ["bill-category-imposto", "Imposto", "#009B77"],
+  ["bill-category-condominio", "Condomínio", "#2BAA8B"],
+  ["bill-category-energia", "Energia", "#55B9A0"],
+  ["bill-category-contabilidade", "Contabilidade", "#7FC8B5"],
+  ["bill-category-educacao", "Educação", "#A3D6C9"],
+  ["bill-category-sistema", "Sistema", "#5C5C5C"],
+  ["bill-category-internet", "Internet", "#8A8A8A"],
+  ["bill-category-acipa", "ACIPA", "#B0B0B0"],
+].map(([id, nome, cor]) => ({ id, nome, cor }));
+const BILL_CARD_INVOICE_OPTION = "__card_invoice__";
+const BILL_CARD_UNCATEGORIZED_FILTER = "__card_uncategorized__";
 const BILL_STATUS_OPTIONS = ["A pagar", "Pago"];
 const MONTHLY_BOOLEAN_FIELDS = ["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"];
 const MARKETING_CHANNELS = ["Instagram", "Facebook", "LinkedIn", "Site", "YouTube", "TikTok", "Outro"];
@@ -333,6 +352,11 @@ let activeBillsYear = BILL_YEAR;
 let activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 let activeBillsStatusFilter = "";
 let activeBillsCategoryFilter = "";
+const expandedBillInvoiceIds = new Set();
+const billInvoiceFilters = new Map();
+const billInvoiceDraftDates = new Map();
+let activeBillCategoryPalette = "";
+let newBillCategoryColor = BILL_CATEGORY_THEME_COLORS[4];
 let collapsedGuidanceIds = new Set(loadCollapsedGuidanceIds());
 let updatesImportantOnly = false;
 let taskMineOnly = false;
@@ -455,12 +479,23 @@ const el = {
   exportBillsButton: document.getElementById("exportBillsButton"),
   copyPreviousBillsButton: document.getElementById("copyPreviousBillsButton"),
   manageBillCategoriesButton: document.getElementById("manageBillCategoriesButton"),
+  manageBillCategoriesFromChartButton: document.getElementById("manageBillCategoriesFromChartButton"),
   addBillButton: document.getElementById("addBillButton"),
   billsSummary: document.getElementById("billsSummary"),
   billsAlert: document.getElementById("billsAlert"),
   billsSearchInput: document.getElementById("billsSearchInput"),
   billsTableBody: document.getElementById("billsTableBody"),
   billsCategoryChart: document.getElementById("billsCategoryChart"),
+  billCategoriesDialog: document.getElementById("billCategoriesDialog"),
+  closeBillCategoriesButton: document.getElementById("closeBillCategoriesButton"),
+  finishBillCategoriesButton: document.getElementById("finishBillCategoriesButton"),
+  newBillCategoryColorButton: document.getElementById("newBillCategoryColorButton"),
+  newBillCategoryName: document.getElementById("newBillCategoryName"),
+  createBillCategoryButton: document.getElementById("createBillCategoryButton"),
+  newBillCategoryError: document.getElementById("newBillCategoryError"),
+  newBillCategoryPalette: document.getElementById("newBillCategoryPalette"),
+  billCategoriesCount: document.getElementById("billCategoriesCount"),
+  billCategoriesList: document.getElementById("billCategoriesList"),
   searchInput: document.getElementById("searchInput"),
   regularizationSearchInput: document.getElementById("regularizationSearchInput"),
   regularizationMetricsGrid: document.getElementById("regularizationMetricsGrid"),
@@ -689,7 +724,7 @@ function loadState() {
     activities: [],
     goals: normalizeGoalSettings(),
     companyBills: [],
-    companyBillCategories: [...DEFAULT_BILL_CATEGORIES],
+    companyBillCategories: DEFAULT_BILL_CATEGORIES.map((category) => ({ ...category })),
     regularizationFieldDefinitions: normalizeRegularizationFieldDefinitions(),
     regularizationStatusDefinitions: [],
   };
@@ -960,12 +995,27 @@ function normalizeCompanyBill(bill = {}) {
   const dueMonth = dueDate.slice(5, 7);
   const year = String(bill.year || dueYear || BILL_YEAR);
   const month = String(bill.month || dueMonth || "01").padStart(2, "0");
+  const billId = bill.id || id();
+  const legacyCategoryName = normalizeBillCategoryName(bill.category || bill.categoria || "");
+  const legacyCategoryKey = normalize(legacyCategoryName);
+  const isCartao = bill.isCartao === true
+    || bill.isCreditCard === true
+    || ["cartao de credito", "fatura de cartao", "fatura do cartao"].includes(legacyCategoryKey);
+  const categoriaId = isCartao
+    ? null
+    : String(bill.categoriaId || bill.categoryId || billCategoryIdForName(legacyCategoryName || "Outros"));
+  const sourceItems = Array.isArray(bill.itensFatura)
+    ? bill.itensFatura
+    : Array.isArray(bill.invoiceItems) ? bill.invoiceItems : [];
   return {
-    id: bill.id || id(),
+    id: billId,
     year: year === BILL_YEAR ? BILL_YEAR : year,
     month: month >= "01" && month <= "12" ? month : "01",
     description: bill.description || bill.title || bill.name || "",
-    category: normalizeBillCategory(bill.category),
+    category: isCartao ? null : legacyCategoryName,
+    categoriaId,
+    isCartao,
+    itensFatura: sourceItems.map((item) => normalizeBillInvoiceItem(item, billId)),
     amount: formatFlexibleCurrencyValue(bill.amount || bill.value || ""),
     dueDate,
     status: normalizeSelectValue(bill.status, BILL_STATUS_OPTIONS) || "A pagar",
@@ -977,24 +1027,85 @@ function normalizeCompanyBill(bill = {}) {
   };
 }
 
-function normalizeBillCategory(value) {
+function normalizeBillInvoiceItem(item = {}, billId = "") {
+  const legacyCategoryName = normalizeBillCategoryName(item.categoria || item.category || "");
+  return {
+    id: item.id || id(),
+    contaId: billId || item.contaId || item.billId || "",
+    data: item.data || item.date || "",
+    descricao: String(item.descricao || item.description || "").trim(),
+    valor: formatFlexibleCurrencyValue(item.valor || item.amount || item.value || ""),
+    categoriaId: item.categoriaId || item.categoryId || (legacyCategoryName ? billCategoryIdForName(legacyCategoryName) : null),
+  };
+}
+
+function normalizeBillCategoryName(value) {
   const category = localizeLabel(String(value || "").trim());
-  return category || "Outros";
+  return category;
+}
+
+function billCategoryIdForName(value) {
+  const name = normalizeBillCategoryName(value) || "Outros";
+  const matchingDefault = DEFAULT_BILL_CATEGORIES.find((category) => normalize(category.nome) === normalize(name));
+  if (matchingDefault) return matchingDefault.id;
+  const slug = normalize(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "outros";
+  return `bill-category-${slug}`;
+}
+
+function normalizeBillCategoryColor(value, fallback = BILL_CATEGORY_THEME_COLORS[0]) {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : fallback;
+}
+
+function normalizeBillCategoryRecord(value, index = 0) {
+  const rawName = typeof value === "string" ? value : value?.nome || value?.name || "";
+  const nome = normalizeBillCategoryName(rawName);
+  if (!nome || ["cartao de credito", "fatura de cartao", "fatura do cartao"].includes(normalize(nome))) return null;
+  const defaultCategory = DEFAULT_BILL_CATEGORIES.find((category) => normalize(category.nome) === normalize(nome));
+  const idValue = typeof value === "object" && value ? value.id || value.categoriaId : "";
+  const colorValue = typeof value === "object" && value ? value.cor || value.color : "";
+  return {
+    id: String(idValue || defaultCategory?.id || billCategoryIdForName(nome)),
+    nome,
+    cor: normalizeBillCategoryColor(colorValue, defaultCategory?.cor || BILL_CATEGORY_THEME_COLORS[index % BILL_CATEGORY_THEME_COLORS.length]),
+  };
 }
 
 function normalizeBillCategories(categories = [], bills = []) {
-  const source = [
-    ...DEFAULT_BILL_CATEGORIES,
-    ...(Array.isArray(categories) ? categories : []),
-    ...(Array.isArray(bills) ? bills.map((bill) => bill.category) : []),
-  ];
-  const seen = new Set();
+  const categorySource = Array.isArray(categories) ? categories : [];
+  const hasStructuredCategories = categorySource.some((category) => category && typeof category === "object");
+  const source = hasStructuredCategories
+    ? [...categorySource]
+    : DEFAULT_BILL_CATEGORIES.map((category) => ({ ...category }));
+
+  (Array.isArray(bills) ? bills : []).forEach((bill) => {
+    if (bill.isCartao) return;
+    const categoriaId = String(bill.categoriaId || bill.categoryId || "");
+    const legacyName = normalizeBillCategoryName(bill.category || bill.categoria || "");
+    if (!categoriaId && !legacyName) return;
+    const existing = source.some((category) => {
+      const record = normalizeBillCategoryRecord(category);
+      return record && (record.id === categoriaId || (legacyName && normalize(record.nome) === normalize(legacyName)));
+    });
+    if (existing) return;
+    const defaultCategory = DEFAULT_BILL_CATEGORIES.find((category) => category.id === categoriaId);
+    source.push({
+      id: categoriaId || billCategoryIdForName(legacyName),
+      nome: legacyName || defaultCategory?.nome || "Outros",
+      cor: defaultCategory?.cor || BILL_CATEGORY_THEME_COLORS[source.length % BILL_CATEGORY_THEME_COLORS.length],
+    });
+  });
+
+  const seenIds = new Set();
+  const seenNames = new Set();
   return source
-    .map(normalizeBillCategory)
+    .map(normalizeBillCategoryRecord)
     .filter((category) => {
-      const key = normalize(category);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
+      if (!category) return false;
+      const nameKey = normalize(category.nome);
+      if (seenIds.has(category.id) || seenNames.has(nameKey)) return false;
+      seenIds.add(category.id);
+      seenNames.add(nameKey);
       return true;
     });
 }
@@ -1002,6 +1113,24 @@ function normalizeBillCategories(categories = [], bills = []) {
 function billCategories() {
   state.companyBillCategories = normalizeBillCategories(state.companyBillCategories, state.companyBills);
   return state.companyBillCategories;
+}
+
+function billCategoryById(categoryId) {
+  return billCategories().find((category) => category.id === categoryId) || null;
+}
+
+function billCategoryName(categoryId, fallback = "Sem categoria") {
+  return billCategoryById(categoryId)?.nome || fallback;
+}
+
+function billCategoryColor(categoryId, fallback = "#CFCFCF") {
+  return billCategoryById(categoryId)?.cor || fallback;
+}
+
+function defaultBillCategoryId() {
+  return billCategories().find((category) => normalize(category.nome) === "outros")?.id
+    || billCategories()[0]?.id
+    || null;
 }
 
 function normalizeGoalSettings(goals = {}) {
@@ -1984,6 +2113,16 @@ function bindEvents() {
   el.exportBillsButton.addEventListener("click", exportBillsCsv);
   el.copyPreviousBillsButton.addEventListener("click", copyPreviousMonthBills);
   el.manageBillCategoriesButton?.addEventListener("click", openBillCategoriesDialog);
+  el.manageBillCategoriesFromChartButton?.addEventListener("click", openBillCategoriesDialog);
+  el.closeBillCategoriesButton?.addEventListener("click", closeBillCategoriesDialog);
+  el.finishBillCategoriesButton?.addEventListener("click", closeBillCategoriesDialog);
+  el.newBillCategoryColorButton?.addEventListener("click", () => toggleBillCategoryPalette("new"));
+  el.newBillCategoryName?.addEventListener("input", updateNewBillCategoryState);
+  el.createBillCategoryButton?.addEventListener("click", createBillCategory);
+  el.newBillCategoryPalette?.addEventListener("click", handleBillCategoryPaletteClick);
+  el.newBillCategoryPalette?.addEventListener("input", handleBillCategoryCustomColor);
+  el.billCategoriesList?.addEventListener("click", handleBillCategoryListClick);
+  el.billCategoriesList?.addEventListener("change", handleBillCategoryListChange);
   el.addBillButton.addEventListener("click", () => openBillDialog());
   document.querySelectorAll("[data-bill-filter]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -3696,7 +3835,7 @@ function renderBillsDashboard() {
   if (el.billsPeriodLabel) el.billsPeriodLabel.textContent = `${monthName(activeBillsMonth)} ${activeBillsYear}`;
 
   const monthBills = currentMonthBills();
-  if (activeBillsCategoryFilter && !monthBills.some((bill) => normalize(bill.category) === normalize(activeBillsCategoryFilter))) {
+  if (activeBillsCategoryFilter && !monthBills.some((bill) => billMatchesCategoryFilter(bill, activeBillsCategoryFilter))) {
     activeBillsCategoryFilter = "";
   }
   const summary = companyBillsSummary(monthBills);
@@ -3731,10 +3870,31 @@ function filteredCompanyBills(bills) {
     const status = billEffectiveStatus(bill);
     const statusKey = billStatusKey(status);
     if (activeBillsStatusFilter && statusKey !== activeBillsStatusFilter) return false;
-    if (activeBillsCategoryFilter && normalize(bill.category) !== normalize(activeBillsCategoryFilter)) return false;
+    if (activeBillsCategoryFilter && !billMatchesCategoryFilter(bill, activeBillsCategoryFilter)) return false;
     if (!query) return true;
-    return normalize([bill.description, bill.category, bill.notes, bill.amount, status].join(" ")).includes(query);
+    const itemSearch = (bill.itensFatura || []).flatMap((item) => [
+      item.descricao,
+      billCategoryName(item.categoriaId, "Sem categoria"),
+      item.valor,
+    ]);
+    return normalize([
+      bill.description,
+      bill.isCartao ? "Fatura do cartão" : billCategoryName(bill.categoriaId, "Outros"),
+      bill.notes,
+      bill.amount,
+      status,
+      ...itemSearch,
+    ].join(" ")).includes(query);
   });
+}
+
+function billMatchesCategoryFilter(bill, categoryFilter) {
+  if (!categoryFilter) return true;
+  if (categoryFilter === BILL_CARD_UNCATEGORIZED_FILTER) {
+    return bill.isCartao && billCardUncategorizedAmount(bill) > 0;
+  }
+  if (!bill.isCartao) return bill.categoriaId === categoryFilter;
+  return (bill.itensFatura || []).some((item) => item.categoriaId === categoryFilter);
 }
 
 function companyBillsSummary(bills) {
@@ -3747,6 +3907,8 @@ function companyBillsSummary(bills) {
     pendingCount: 0,
     overdueCount: 0,
     categoryTotals: new Map(),
+    cardUncategorized: 0,
+    hasCardInvoices: false,
     count: bills.length,
     nextPending: null,
   };
@@ -3765,8 +3927,18 @@ function companyBillsSummary(bills) {
       summary.pending += amount;
       summary.pendingCount += 1;
     }
-    const current = summary.categoryTotals.get(bill.category) || 0;
-    summary.categoryTotals.set(bill.category, current + amount);
+    if (bill.isCartao) {
+      summary.hasCardInvoices = true;
+      (bill.itensFatura || []).forEach((item) => {
+        if (!item.categoriaId || !billCategoryById(item.categoriaId)) return;
+        const itemAmount = currencyAmount(item.valor) || 0;
+        summary.categoryTotals.set(item.categoriaId, (summary.categoryTotals.get(item.categoriaId) || 0) + itemAmount);
+      });
+      summary.cardUncategorized += billCardUncategorizedAmount(bill);
+    } else {
+      const categoryId = bill.categoriaId || defaultBillCategoryId();
+      summary.categoryTotals.set(categoryId, (summary.categoryTotals.get(categoryId) || 0) + amount);
+    }
   });
 
   summary.nextPending = bills
@@ -3816,19 +3988,18 @@ function renderBillsSummary(summary) {
         </div>
       </div>
     </section>
-    ${tiles
-      .map(
-        (tile) => `
-          <button class="bill-summary-card tone-${tile.tone}" type="button" data-bill-summary-filter="${tile.filter}">
-            <span>${escapeHtml(tile.label)}</span>
-            <div>
-              <strong>${escapeHtml(calculatedCurrency(tile.value))}</strong>
-              <small>${escapeHtml(tile.hint)}</small>
-            </div>
-          </button>
-        `
-      )
-      .join("")}
+    <div class="bill-summary-status-stack">
+      ${tiles.map((tile) => `
+        <button class="bill-summary-card tone-${tile.tone}" type="button" data-bill-summary-filter="${tile.filter}">
+          <span class="bill-summary-status-copy">
+            <b>${escapeHtml(tile.label)}</b>
+            <small>${escapeHtml(tile.hint)}</small>
+          </span>
+          ${tile.tone === "overdue" && summary.overdueCount ? `<em>Requer ação</em>` : ""}
+          <strong>${escapeHtml(calculatedCurrency(tile.value))}</strong>
+        </button>
+      `).join("")}
+    </div>
   `;
 }
 
@@ -3874,8 +4045,9 @@ function renderBillRow(bill) {
   const isPaid = status === "Pago";
   const statusLabel = isPaid ? "Paga" : status;
   const dueHint = billDueHint(bill, status);
+  const invoiceExpanded = bill.isCartao && expandedBillInvoiceIds.has(bill.id);
   return `
-    <tr class="bill-row ${billStatusKey(status)}">
+    <tr class="bill-row ${billStatusKey(status)} ${bill.isCartao ? "card-invoice" : ""} ${invoiceExpanded ? "invoice-expanded" : ""}">
       <td class="bill-check-cell">
         <button class="bill-paid-toggle ${isPaid ? "paid" : ""}" type="button" data-toggle-bill-paid="${bill.id}" aria-label="${isPaid ? "Marcar como a pagar" : "Marcar como paga"}">
           ${isPaid ? `<i data-lucide="check"></i>` : ""}
@@ -3883,19 +4055,138 @@ function renderBillRow(bill) {
       </td>
       <td title="${escapeAttr(bill.notes || "")}">
         <span class="bill-account-title"><strong>${escapeHtml(bill.description || "Conta sem nome")}</strong>${bill.recurring ? `<i data-lucide="refresh-cw" aria-label="Conta recorrente"></i>` : ""}</span>
-        <small>${escapeHtml(bill.category || "Outros")}</small>
+        <small>${escapeHtml(bill.isCartao ? "Fatura do cartão" : billCategoryName(bill.categoriaId, "Outros"))}</small>
+        ${bill.isCartao ? `
+          <button class="bill-invoice-toggle ${invoiceExpanded ? "active" : ""}" type="button" data-toggle-bill-invoice="${escapeAttr(bill.id)}" aria-expanded="${invoiceExpanded}">
+            <i data-lucide="list"></i>
+            ${escapeHtml(billInvoiceToggleLabel(bill))}
+            <i data-lucide="chevron-${invoiceExpanded ? "up" : "down"}"></i>
+          </button>
+        ` : ""}
       </td>
       <td><span class="bill-due-date">${bill.dueDate ? escapeHtml(formatDate(bill.dueDate)) : "Sem vencimento"}</span><small class="bill-due-hint ${billStatusKey(status)}">${escapeHtml(dueHint)}</small></td>
       <td><strong>${escapeHtml(bill.amount || calculatedCurrency(0))}</strong></td>
       <td><span class="bill-status-pill ${billStatusKey(status)}"><i></i>${escapeHtml(statusLabel)}</span></td>
       <td>
         <div class="bill-row-actions">
+          ${bill.isCartao ? `<button class="icon-button" type="button" data-toggle-bill-invoice="${escapeAttr(bill.id)}" aria-label="${invoiceExpanded ? "Fechar itens da fatura" : "Lançar itens da fatura"}" aria-expanded="${invoiceExpanded}"><i data-lucide="credit-card"></i></button>` : ""}
           <button class="icon-button" type="button" data-edit-bill="${bill.id}" aria-label="Editar conta"><i data-lucide="pencil"></i></button>
           <button class="icon-button danger-icon" type="button" data-delete-bill="${bill.id}" aria-label="Remover conta"><i data-lucide="trash-2"></i></button>
         </div>
       </td>
     </tr>
+    ${invoiceExpanded ? `
+      <tr class="bill-invoice-detail-row">
+        <td colspan="6">${renderBillInvoicePanel(bill)}</td>
+      </tr>
+    ` : ""}
   `;
+}
+
+function billInvoiceStats(bill) {
+  const items = Array.isArray(bill.itensFatura) ? bill.itensFatura : [];
+  const invoiceTotal = currencyAmount(bill.amount) || 0;
+  const launchedTotal = items.reduce((total, item) => total + (currencyAmount(item.valor) || 0), 0);
+  const categorizedTotal = items.reduce((total, item) => (
+    item.categoriaId && billCategoryById(item.categoriaId)
+      ? total + (currencyAmount(item.valor) || 0)
+      : total
+  ), 0);
+  const uncategorizedCount = items.filter((item) => !item.categoriaId || !billCategoryById(item.categoriaId)).length;
+  return { items, invoiceTotal, launchedTotal, categorizedTotal, uncategorizedCount };
+}
+
+function billCardUncategorizedAmount(bill) {
+  if (!bill.isCartao) return 0;
+  const { invoiceTotal, categorizedTotal } = billInvoiceStats(bill);
+  return Math.max(0, invoiceTotal - categorizedTotal);
+}
+
+function billInvoiceToggleLabel(bill) {
+  const { items, uncategorizedCount } = billInvoiceStats(bill);
+  if (!items.length) return "Lançar itens da fatura";
+  if (uncategorizedCount) {
+    return `${items.length} ${items.length === 1 ? "item" : "itens"} · ${uncategorizedCount} sem categoria`;
+  }
+  return items.length === 1 ? "1 item categorizado" : `${items.length} itens categorizados`;
+}
+
+function renderBillInvoicePanel(bill) {
+  const stats = billInvoiceStats(bill);
+  const filter = billInvoiceFilters.get(bill.id) || "all";
+  const visibleItems = filter === "uncategorized"
+    ? stats.items.filter((item) => !item.categoriaId || !billCategoryById(item.categoriaId))
+    : stats.items;
+  const difference = stats.invoiceTotal - stats.launchedTotal;
+  const differenceLabel = difference >= 0 ? "Falta lançar" : "Lançado a mais";
+  const draftDate = billInvoiceDraftDates.get(bill.id) || bill.dueDate || localDateKey();
+  const categories = billCategories();
+  const categoryOptions = [
+    `<option value="">Sem categoria</option>`,
+    ...categories.map((category) => `<option value="${escapeAttr(category.id)}">${escapeHtml(category.nome)}</option>`),
+  ].join("");
+
+  return `
+    <section class="bill-invoice-panel" data-bill-invoice-panel="${escapeAttr(bill.id)}">
+      <header class="bill-invoice-overview">
+        <div class="bill-invoice-metrics">
+          <span><small>Fatura</small><strong>${escapeHtml(calculatedCurrency(stats.invoiceTotal))}</strong></span>
+          <span><small>Lançado</small><strong>${escapeHtml(calculatedCurrency(stats.launchedTotal))}</strong></span>
+          <span><small>${differenceLabel}</small><strong>${escapeHtml(calculatedCurrency(Math.abs(difference)))}</strong></span>
+        </div>
+        <div class="bill-invoice-filters" role="group" aria-label="Filtrar itens da fatura">
+          <button class="${filter === "all" ? "active" : ""}" type="button" data-bill-invoice-filter="all" data-bill-id="${escapeAttr(bill.id)}">Todos <span>${stats.items.length}</span></button>
+          <button class="${filter === "uncategorized" ? "active" : ""}" type="button" data-bill-invoice-filter="uncategorized" data-bill-id="${escapeAttr(bill.id)}">Sem categoria <span>${stats.uncategorizedCount}</span></button>
+        </div>
+      </header>
+      <div class="bill-invoice-entry-head" aria-hidden="true">
+        <span>Data</span><span>Item</span><span>Categoria</span><span>Valor</span><span></span>
+      </div>
+      <div class="bill-invoice-entry-row">
+        <input type="date" value="${escapeAttr(draftDate)}" data-bill-invoice-new="data" data-bill-id="${escapeAttr(bill.id)}" aria-label="Data da compra" />
+        <input type="text" maxlength="140" placeholder="O que foi comprado" data-bill-invoice-new="descricao" data-bill-id="${escapeAttr(bill.id)}" aria-label="Item comprado" />
+        <select data-bill-invoice-new="categoriaId" data-bill-id="${escapeAttr(bill.id)}" aria-label="Categoria do item">${categoryOptions}</select>
+        <label class="bill-invoice-money"><span>R$</span><input type="text" inputmode="decimal" placeholder="0,00" data-bill-invoice-new="valor" data-bill-id="${escapeAttr(bill.id)}" aria-label="Valor do item" /></label>
+        <button class="bill-invoice-add" type="button" data-add-bill-invoice-item="${escapeAttr(bill.id)}" aria-label="Adicionar item" disabled><i data-lucide="plus"></i></button>
+      </div>
+      <div class="bill-invoice-items">
+        ${visibleItems.length ? visibleItems.map((item) => renderBillInvoiceItem(bill, item, categories)).join("") : `<p class="bill-invoice-empty">${filter === "uncategorized" ? "Nenhum item sem categoria." : "Nenhum item lançado ainda."}</p>`}
+      </div>
+      <footer class="bill-invoice-check ${Math.abs(difference) < 0.005 && !stats.uncategorizedCount ? "complete" : ""}">
+        ${escapeHtml(billInvoiceCheckMessage(stats))}
+      </footer>
+    </section>
+  `;
+}
+
+function renderBillInvoiceItem(bill, item, categories) {
+  const category = categories.find((entry) => entry.id === item.categoriaId) || null;
+  const categoryOptions = [
+    `<option value="" ${category ? "" : "selected"}>Sem categoria</option>`,
+    ...categories.map((entry) => `<option value="${escapeAttr(entry.id)}" ${entry.id === item.categoriaId ? "selected" : ""}>${escapeHtml(entry.nome)}</option>`),
+  ].join("");
+  return `
+    <article class="bill-invoice-item ${category ? "" : "uncategorized"}">
+      <span class="bill-invoice-item-date">${item.data ? escapeHtml(formatShortDate(item.data)) : "—"}</span>
+      <strong>${escapeHtml(item.descricao || "Item sem descrição")}</strong>
+      <label class="bill-invoice-category-select" style="--bill-item-color:${category?.cor || "#CFCFCF"}">
+        <i></i>
+        <select data-bill-invoice-item-category="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Categoria de ${escapeAttr(item.descricao || "item")}">${categoryOptions}</select>
+      </label>
+      <b>${escapeHtml(item.valor || calculatedCurrency(0))}</b>
+      <button class="icon-button" type="button" data-remove-bill-invoice-item="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Remover ${escapeAttr(item.descricao || "item")}"><i data-lucide="x"></i></button>
+    </article>
+  `;
+}
+
+function billInvoiceCheckMessage(stats) {
+  const difference = stats.invoiceTotal - stats.launchedTotal;
+  if (difference > 0.005) return `Faltam ${calculatedCurrency(difference)} para fechar com o valor da fatura`;
+  if (difference < -0.005) return `Itens somam ${calculatedCurrency(Math.abs(difference))} a mais que a fatura`;
+  if (stats.uncategorizedCount) {
+    return `Valores conferem · ${stats.uncategorizedCount} ${stats.uncategorizedCount === 1 ? "item sem categoria" : "itens sem categoria"}`;
+  }
+  return "Fatura conferida e toda categorizada";
 }
 
 function billDueHint(bill, status) {
@@ -3912,9 +4203,22 @@ function billDueHint(bill, status) {
 
 function renderBillsCategoryChart(summary) {
   const rows = [...summary.categoryTotals.entries()]
-    .map(([category, amount]) => ({ category, amount }))
+    .map(([categoryId, amount]) => ({
+      id: categoryId,
+      name: billCategoryName(categoryId, "Sem categoria"),
+      color: billCategoryColor(categoryId),
+      amount,
+    }))
     .filter((row) => row.amount > 0)
     .sort((a, b) => b.amount - a.amount);
+  if (summary.cardUncategorized > 0) {
+    rows.push({
+      id: BILL_CARD_UNCATEGORIZED_FILTER,
+      name: "Cartão · a categorizar",
+      color: "#CFCFCF",
+      amount: summary.cardUncategorized,
+    });
+  }
   if (!rows.length) {
     el.billsCategoryChart.innerHTML = `<p class="empty-state compact">Sem valores cadastrados neste mês.</p>`;
     return;
@@ -3922,21 +4226,22 @@ function renderBillsCategoryChart(summary) {
 
   el.billsCategoryChart.innerHTML = `
     <div class="bill-category-list">
-      ${rows.map((row, index) => renderBillCategoryRow(row, summary.total, billCategoryColor(row.category, index))).join("")}
+      ${rows.map((row) => renderBillCategoryRow(row, summary.total)).join("")}
     </div>
     <div class="bill-category-total"><span>Total</span><strong>${escapeHtml(calculatedCurrency(summary.total))}</strong></div>
+    ${summary.hasCardInvoices ? `<p class="bill-category-note">A fatura do cartão não tem categoria própria: cada item lançado entra na sua categoria. O que ainda não foi categorizado aparece como “Cartão · a categorizar”.</p>` : ""}
   `;
 }
 
-function renderBillCategoryRow(row, total, color) {
+function renderBillCategoryRow(row, total) {
   const percent = total ? (row.amount / total) * 100 : 0;
   return `
-    <button class="bill-category-row ${normalize(row.category) === normalize(activeBillsCategoryFilter) ? "active" : ""}" type="button" data-bill-category-filter="${escapeAttr(row.category)}">
+    <button class="bill-category-row ${row.id === activeBillsCategoryFilter ? "active" : ""}" type="button" data-bill-category-filter="${escapeAttr(row.id)}">
       <span class="bill-category-line">
-        <span class="bill-category-name"><i style="background:${color}"></i>${escapeHtml(row.category)}</span>
+        <span class="bill-category-name"><i style="background:${row.color}"></i>${escapeHtml(row.name)}</span>
         <span><strong>${escapeHtml(calculatedCurrency(row.amount))}</strong> · ${percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
       </span>
-      <span class="bill-category-track"><i style="width:${percent}%;background:${color}"></i></span>
+      <span class="bill-category-track"><i style="width:${Math.min(percent, 100)}%;background:${row.color}"></i></span>
     </button>
   `;
 }
@@ -3951,9 +4256,33 @@ function bindBillDashboardActions() {
   el.billsCategoryChart.querySelectorAll("[data-bill-category-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       const category = button.dataset.billCategoryFilter || "";
-      activeBillsCategoryFilter = normalize(category) === normalize(activeBillsCategoryFilter) ? "" : category;
+      activeBillsCategoryFilter = category === activeBillsCategoryFilter ? "" : category;
       renderBillsDashboard();
     });
+  });
+  el.billsTableBody.querySelectorAll("[data-toggle-bill-invoice]").forEach((button) => {
+    button.addEventListener("click", () => toggleBillInvoice(button.dataset.toggleBillInvoice));
+  });
+  el.billsTableBody.querySelectorAll("[data-bill-invoice-new]").forEach((input) => {
+    input.addEventListener("input", () => updateBillInvoiceAddState(input.dataset.billId));
+    if (input.dataset.billInvoiceNew === "data") {
+      input.addEventListener("change", () => billInvoiceDraftDates.set(input.dataset.billId, input.value));
+    }
+  });
+  el.billsTableBody.querySelectorAll("[data-add-bill-invoice-item]").forEach((button) => {
+    button.addEventListener("click", () => addBillInvoiceItem(button.dataset.addBillInvoiceItem));
+  });
+  el.billsTableBody.querySelectorAll("[data-bill-invoice-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      billInvoiceFilters.set(button.dataset.billId, button.dataset.billInvoiceFilter || "all");
+      renderBillsDashboard();
+    });
+  });
+  el.billsTableBody.querySelectorAll("[data-bill-invoice-item-category]").forEach((select) => {
+    select.addEventListener("change", () => updateBillInvoiceItemCategory(select.dataset.billId, select.dataset.billInvoiceItemCategory, select.value));
+  });
+  el.billsTableBody.querySelectorAll("[data-remove-bill-invoice-item]").forEach((button) => {
+    button.addEventListener("click", () => removeBillInvoiceItem(button.dataset.billId, button.dataset.removeBillInvoiceItem));
   });
   el.billsTableBody.querySelectorAll("[data-edit-bill]").forEach((button) => {
     button.addEventListener("click", () => openBillDialog(button.dataset.editBill));
@@ -3972,6 +4301,79 @@ function bindBillDashboardActions() {
   });
 }
 
+function toggleBillInvoice(billId) {
+  const bill = state.companyBills.find((item) => item.id === billId);
+  if (!bill?.isCartao) return;
+  if (expandedBillInvoiceIds.has(billId)) expandedBillInvoiceIds.delete(billId);
+  else expandedBillInvoiceIds.add(billId);
+  renderBillsDashboard();
+}
+
+function billInvoicePanelElement(billId) {
+  return [...el.billsTableBody.querySelectorAll("[data-bill-invoice-panel]")]
+    .find((panel) => panel.dataset.billInvoicePanel === billId) || null;
+}
+
+function updateBillInvoiceAddState(billId) {
+  const panel = billInvoicePanelElement(billId);
+  if (!panel) return;
+  const description = panel.querySelector('[data-bill-invoice-new="descricao"]')?.value.trim() || "";
+  const value = panel.querySelector('[data-bill-invoice-new="valor"]')?.value || "";
+  const button = panel.querySelector("[data-add-bill-invoice-item]");
+  if (button) button.disabled = !description || !((currencyAmount(value) || 0) > 0);
+}
+
+function addBillInvoiceItem(billId) {
+  const bill = state.companyBills.find((item) => item.id === billId);
+  const panel = billInvoicePanelElement(billId);
+  if (!bill?.isCartao || !panel || currentUser?.role !== "admin") return;
+  const dateInput = panel.querySelector('[data-bill-invoice-new="data"]');
+  const descriptionInput = panel.querySelector('[data-bill-invoice-new="descricao"]');
+  const categoryInput = panel.querySelector('[data-bill-invoice-new="categoriaId"]');
+  const valueInput = panel.querySelector('[data-bill-invoice-new="valor"]');
+  const description = descriptionInput?.value.trim() || "";
+  const amount = currencyAmount(valueInput?.value || "") || 0;
+  if (!description || amount <= 0) return;
+  const date = dateInput?.value || bill.dueDate || localDateKey();
+  billInvoiceDraftDates.set(billId, date);
+  bill.itensFatura = Array.isArray(bill.itensFatura) ? bill.itensFatura : [];
+  bill.itensFatura.push(normalizeBillInvoiceItem({
+    id: id(),
+    contaId: bill.id,
+    data: date,
+    descricao: description,
+    valor: calculatedCurrency(amount),
+    categoriaId: categoryInput?.value || null,
+  }, bill.id));
+  bill.updatedAt = new Date().toISOString();
+  recordActivity("finance", `Lançou item na fatura: ${bill.description}.`, `${description} | ${calculatedCurrency(amount)}`, billActivityOptions(bill));
+  saveState();
+  renderBillsDashboard();
+  renderUpdates();
+}
+
+function updateBillInvoiceItemCategory(billId, itemId, categoryId) {
+  const bill = state.companyBills.find((item) => item.id === billId);
+  const item = bill?.itensFatura?.find((entry) => entry.id === itemId);
+  if (!bill?.isCartao || !item || currentUser?.role !== "admin") return;
+  item.categoriaId = billCategoryById(categoryId)?.id || null;
+  bill.updatedAt = new Date().toISOString();
+  saveState();
+  renderBillsDashboard();
+}
+
+function removeBillInvoiceItem(billId, itemId) {
+  const bill = state.companyBills.find((item) => item.id === billId);
+  const item = bill?.itensFatura?.find((entry) => entry.id === itemId);
+  if (!bill?.isCartao || !item || currentUser?.role !== "admin") return;
+  bill.itensFatura = bill.itensFatura.filter((entry) => entry.id !== itemId);
+  bill.updatedAt = new Date().toISOString();
+  recordActivity("finance", `Removeu item da fatura: ${bill.description}.`, item.descricao, billActivityOptions(bill));
+  saveState();
+  renderBillsDashboard();
+  renderUpdates();
+}
+
 function openBillDialog(billId) {
   if (currentUser?.role !== "admin") return;
   const existing = state.companyBills.find((bill) => bill.id === billId);
@@ -3988,7 +4390,16 @@ function openBillDialog(billId) {
 
   openSimpleDialog(existing ? "Editar conta" : "Adicionar conta", [
     { label: "Conta", name: "description", type: "text", value: current.description },
-    { label: "Categoria", name: "category", type: "select", value: current.category, options: categories.map((value) => ({ value, label: value })) },
+    {
+      label: "Categoria",
+      name: "category",
+      type: "select",
+      value: current.isCartao ? BILL_CARD_INVOICE_OPTION : current.categoriaId || defaultBillCategoryId(),
+      options: [
+        { value: BILL_CARD_INVOICE_OPTION, label: "Fatura de cartão (sem categoria)" },
+        ...categories.map((category) => ({ value: category.id, label: category.nome })),
+      ],
+    },
     { label: "Valor", name: "amount", type: "money", value: current.amount },
     { label: "Vencimento", name: "dueDate", type: "date", value: current.dueDate },
     { label: "Status", name: "status", type: "select", value: current.status, options: BILL_STATUS_OPTIONS.map((value) => ({ value, label: value })) },
@@ -4013,10 +4424,18 @@ function openBillDialog(billId) {
     }
 
     const status = normalizeSelectValue(values.status, BILL_STATUS_OPTIONS) || "A pagar";
+    const isCartao = values.category === BILL_CARD_INVOICE_OPTION;
+    if (current.isCartao && !isCartao && current.itensFatura.length) {
+      const shouldRemoveItems = confirm("Ao deixar de ser fatura de cartão, os itens lançados serão removidos. Deseja continuar?");
+      if (!shouldRemoveItems) return false;
+    }
     const payload = normalizeCompanyBill({
       ...current,
       description,
-      category: normalizeBillCategory(values.category),
+      category: "",
+      categoriaId: isCartao ? null : billCategoryById(values.category)?.id || defaultBillCategoryId(),
+      isCartao,
+      itensFatura: isCartao ? current.itensFatura : [],
       amount,
       dueDate,
       year: BILL_YEAR,
@@ -4050,33 +4469,168 @@ function openBillDialog(billId) {
 
 function openBillCategoriesDialog() {
   if (currentUser?.role !== "admin") return;
-  const currentCategories = billCategories();
-  openSimpleDialog("Categorias", [
-    {
-      label: "Categorias de contas",
-      name: "categories",
-      type: "textarea",
-      rows: 9,
-      value: currentCategories.join("\n"),
-      placeholder: "Uma categoria por linha",
-      span: 2,
-    },
-  ], (values) => {
-    const nextCategories = normalizeBillCategories(String(values.categories || "").split(/\n+/), state.companyBills);
-    if (!nextCategories.length) {
-      alert("Informe pelo menos uma categoria.");
-      return false;
-    }
-    state.companyBillCategories = nextCategories;
+  billCategories();
+  activeBillCategoryPalette = "";
+  newBillCategoryColor = BILL_CATEGORY_THEME_COLORS[4];
+  el.newBillCategoryName.value = "";
+  renderBillCategoriesManager();
+  el.billCategoriesDialog.showModal();
+  window.setTimeout(() => el.newBillCategoryName.focus(), 0);
+}
+
+function closeBillCategoriesDialog() {
+  activeBillCategoryPalette = "";
+  if (el.billCategoriesDialog?.open) el.billCategoriesDialog.close();
+}
+
+function renderBillCategoriesManager() {
+  if (!el.billCategoriesList) return;
+  const categories = billCategories();
+  el.billCategoriesCount.textContent = `${categories.length} no total`;
+  el.newBillCategoryColorButton.style.setProperty("--bill-category-color", newBillCategoryColor);
+  el.newBillCategoryColorButton.setAttribute("aria-expanded", String(activeBillCategoryPalette === "new"));
+  el.newBillCategoryPalette.hidden = activeBillCategoryPalette !== "new";
+  el.newBillCategoryPalette.innerHTML = activeBillCategoryPalette === "new"
+    ? billCategoryPaletteMarkup("new", newBillCategoryColor)
+    : "";
+  el.billCategoriesList.innerHTML = categories.map((category) => {
+    const usage = billCategoryUsage(category.id);
+    const usageLabel = usage === 0 ? "sem uso" : `${usage} ${usage === 1 ? "lançamento" : "lançamentos"}`;
+    const paletteOpen = activeBillCategoryPalette === category.id;
+    return `
+      <article class="bill-category-manager-row ${paletteOpen ? "palette-open" : ""}">
+        <div class="bill-category-manager-main">
+          <button class="bill-category-color-button" type="button" data-toggle-bill-category-color="${escapeAttr(category.id)}" aria-label="Alterar cor de ${escapeAttr(category.nome)}" aria-expanded="${paletteOpen}" style="--bill-category-color:${category.cor}"><i></i></button>
+          <input class="bill-category-name-input" type="text" value="${escapeAttr(category.nome)}" maxlength="60" data-bill-category-name="${escapeAttr(category.id)}" aria-label="Nome da categoria" />
+          <span>${escapeHtml(usageLabel)}</span>
+          <button class="icon-button" type="button" data-delete-bill-category="${escapeAttr(category.id)}" ${usage ? "disabled" : ""} aria-label="Excluir ${escapeAttr(category.nome)}" title="${usage ? "Em uso: mude os lançamentos para outra categoria antes de excluir" : `Excluir ${escapeAttr(category.nome)}`}"><i data-lucide="trash-2"></i></button>
+        </div>
+        ${paletteOpen ? billCategoryPaletteMarkup(category.id, category.cor) : ""}
+      </article>
+    `;
+  }).join("");
+  updateNewBillCategoryState();
+  refreshIcons();
+}
+
+function billCategoryPaletteMarkup(targetId, selectedColor) {
+  return `
+    <div class="bill-category-swatches" role="group" aria-label="Cores do tema">
+      ${BILL_CATEGORY_THEME_COLORS.map((color) => `
+        <button class="${color.toUpperCase() === selectedColor.toUpperCase() ? "active" : ""}" type="button" data-bill-category-color="${color}" data-category-target="${escapeAttr(targetId)}" aria-label="Usar cor ${color}" style="--swatch:${color}"><i></i></button>
+      `).join("")}
+    </div>
+    <label class="bill-category-custom-color">Outra cor <input type="color" value="${escapeAttr(selectedColor)}" data-bill-custom-color="${escapeAttr(targetId)}" /></label>
+  `;
+}
+
+function toggleBillCategoryPalette(targetId) {
+  activeBillCategoryPalette = activeBillCategoryPalette === targetId ? "" : targetId;
+  renderBillCategoriesManager();
+}
+
+function updateNewBillCategoryState() {
+  if (!el.newBillCategoryName || !el.createBillCategoryButton) return;
+  const name = el.newBillCategoryName.value.trim();
+  const duplicate = name && billCategories().some((category) => normalize(category.nome) === normalize(name));
+  el.createBillCategoryButton.disabled = !name || duplicate;
+  el.newBillCategoryError.hidden = !duplicate;
+}
+
+function createBillCategory() {
+  const name = el.newBillCategoryName.value.trim();
+  const duplicate = billCategories().some((category) => normalize(category.nome) === normalize(name));
+  if (!name || duplicate) {
+    updateNewBillCategoryState();
+    return;
+  }
+  state.companyBillCategories.push({ id: `bill-category-${id()}`, nome: name, cor: newBillCategoryColor });
+  el.newBillCategoryName.value = "";
+  activeBillCategoryPalette = "";
+  saveState();
+  renderBillCategoriesManager();
+  renderBillsDashboard();
+}
+
+function handleBillCategoryPaletteClick(event) {
+  const button = event.target.closest("[data-bill-category-color]");
+  if (!button) return;
+  applyBillCategoryColor(button.dataset.categoryTarget, button.dataset.billCategoryColor);
+}
+
+function handleBillCategoryCustomColor(event) {
+  const input = event.target.closest("[data-bill-custom-color]");
+  if (!input) return;
+  applyBillCategoryColor(input.dataset.billCustomColor, input.value);
+}
+
+function applyBillCategoryColor(targetId, color) {
+  const normalizedColor = normalizeBillCategoryColor(color, newBillCategoryColor);
+  if (targetId === "new") {
+    newBillCategoryColor = normalizedColor;
+  } else {
+    const category = billCategoryById(targetId);
+    if (!category) return;
+    category.cor = normalizedColor;
     saveState();
     renderBillsDashboard();
-    return true;
-  }, {
-    className: "bill-form-dialog bill-categories-dialog",
-    subtitle: "Edite uma categoria por linha. Categorias já usadas em contas continuam preservadas.",
-    saveLabel: "Salvar categorias",
-    saveIcon: "save",
-  });
+  }
+  renderBillCategoriesManager();
+}
+
+function handleBillCategoryListClick(event) {
+  const colorButton = event.target.closest("[data-toggle-bill-category-color]");
+  if (colorButton) {
+    toggleBillCategoryPalette(colorButton.dataset.toggleBillCategoryColor);
+    return;
+  }
+  const paletteButton = event.target.closest("[data-bill-category-color]");
+  if (paletteButton) {
+    applyBillCategoryColor(paletteButton.dataset.categoryTarget, paletteButton.dataset.billCategoryColor);
+    return;
+  }
+  const deleteButton = event.target.closest("[data-delete-bill-category]");
+  if (!deleteButton || deleteButton.disabled) return;
+  const categoryId = deleteButton.dataset.deleteBillCategory;
+  const category = billCategoryById(categoryId);
+  if (!category || billCategoryUsage(categoryId)) return;
+  state.companyBillCategories = billCategories().filter((entry) => entry.id !== categoryId);
+  if (activeBillsCategoryFilter === categoryId) activeBillsCategoryFilter = "";
+  activeBillCategoryPalette = "";
+  saveState();
+  renderBillCategoriesManager();
+  renderBillsDashboard();
+}
+
+function handleBillCategoryListChange(event) {
+  const colorInput = event.target.closest("[data-bill-custom-color]");
+  if (colorInput) {
+    applyBillCategoryColor(colorInput.dataset.billCustomColor, colorInput.value);
+    return;
+  }
+  const nameInput = event.target.closest("[data-bill-category-name]");
+  if (!nameInput) return;
+  const categories = billCategories();
+  const category = categories.find((entry) => entry.id === nameInput.dataset.billCategoryName) || null;
+  const nextName = nameInput.value.trim();
+  const duplicate = categories.some((entry) => entry.id !== category?.id && normalize(entry.nome) === normalize(nextName));
+  if (!category || !nextName || duplicate) {
+    alert(duplicate ? "Já existe uma categoria com esse nome." : "Informe o nome da categoria.");
+    renderBillCategoriesManager();
+    return;
+  }
+  category.nome = nextName;
+  saveState();
+  renderBillCategoriesManager();
+  renderBillsDashboard();
+}
+
+function billCategoryUsage(categoryId) {
+  return state.companyBills.reduce((count, bill) => {
+    const billUsage = !bill.isCartao && bill.categoriaId === categoryId ? 1 : 0;
+    const itemUsage = (bill.itensFatura || []).filter((item) => item.categoriaId === categoryId).length;
+    return count + billUsage + itemUsage;
+  }, 0);
 }
 
 function toggleBillPaid(billId) {
@@ -4135,6 +4689,7 @@ function copyPreviousMonthBills() {
         dueDate,
         status: "A pagar",
         paidAt: "",
+        itensFatura: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -4159,7 +4714,7 @@ function exportBillsCsv() {
     ["Conta", "Categoria", "Vencimento", "Valor", "Status", "Recorrente", "Data de pagamento", "Observação"],
     ...bills.map((bill) => [
       bill.description,
-      bill.category,
+      bill.isCartao ? "Fatura do cartão" : billCategoryName(bill.categoriaId, "Outros"),
       bill.dueDate ? formatDate(bill.dueDate) : "",
       bill.amount,
       billEffectiveStatus(bill),
@@ -4208,7 +4763,8 @@ function shiftBillDueDate(dueDate, year, month) {
 
 function billDuplicateKey(bill) {
   const dueDay = (bill.dueDate || "").slice(8, 10);
-  return normalize([bill.description, bill.category, bill.amount, dueDay].join("|"));
+  const categoryKey = bill.isCartao ? BILL_CARD_INVOICE_OPTION : bill.categoriaId;
+  return normalize([bill.description, categoryKey, bill.amount, dueDay].join("|"));
 }
 
 function monthName(month) {
@@ -4226,40 +4782,6 @@ function monthName(month) {
     "11": "Novembro",
     "12": "Dezembro",
   }[month] || month;
-}
-
-function billCategoryColor(category, index = 0) {
-  const themeTones = [
-    "#074d40",
-    "#0a5a49",
-    "#0d6752",
-    "#10745b",
-    "#138164",
-    "#008f70",
-    "#009b77",
-    "#19a482",
-    "#35ad8f",
-    "#52b69c",
-    "#6fbeaa",
-    "#8bc7b7",
-    "#a8d0c5",
-  ];
-  const categoryTone = {
-    pessoal: 0,
-    outros: 6,
-    aluguel: 1,
-    "cartao de credito": 7,
-    bni: 2,
-    imposto: 8,
-    condominio: 3,
-    energia: 9,
-    contabilidade: 4,
-    educacao: 10,
-    sistema: 5,
-    internet: 11,
-    acipa: 12,
-  }[normalize(category)];
-  return themeTones[Number.isInteger(categoryTone) ? categoryTone : index % themeTones.length];
 }
 
 function renderGoalsDashboard() {
