@@ -75,6 +75,12 @@ test("credit-card accounts use inline itemized invoices", () => {
   assert.match(redesignCss, /\.bill-invoice-detail-row > td/);
 });
 
+test("card-invoice values receive a live Brazilian decimal mask", () => {
+  assert.match(appJs, /input\.dataset\.billInvoiceNew === "valor"/);
+  assert.match(appJs, /input\.value = formatCurrencyDecimalInput\(input\.value\)/);
+  assert.match(appJs, /function formatCurrencyDecimalInput\(value\)/);
+});
+
 test("category manager supports create, rename, recolor and guarded deletion", () => {
   assert.match(indexHtml, /id="billCategoriesDialog"/);
   assert.match(indexHtml, /id="newBillCategoryName"/);

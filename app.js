@@ -4264,7 +4264,12 @@ function bindBillDashboardActions() {
     button.addEventListener("click", () => toggleBillInvoice(button.dataset.toggleBillInvoice));
   });
   el.billsTableBody.querySelectorAll("[data-bill-invoice-new]").forEach((input) => {
-    input.addEventListener("input", () => updateBillInvoiceAddState(input.dataset.billId));
+    input.addEventListener("input", () => {
+      if (input.dataset.billInvoiceNew === "valor") {
+        input.value = formatCurrencyDecimalInput(input.value);
+      }
+      updateBillInvoiceAddState(input.dataset.billId);
+    });
     if (input.dataset.billInvoiceNew === "data") {
       input.addEventListener("change", () => billInvoiceDraftDates.set(input.dataset.billId, input.value));
     }
@@ -13778,6 +13783,10 @@ function areaInputValue(value) {
 
 function currencyInputValue(value) {
   return String(value || "").replace(/^R\$\s*/i, "").trim();
+}
+
+function formatCurrencyDecimalInput(value) {
+  return currencyInputValue(formatCurrencyValue(value));
 }
 
 function formatCurrencyValue(value) {
