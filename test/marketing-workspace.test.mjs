@@ -122,7 +122,7 @@ test("marketing history timeline can be hidden and shown", () => {
   assert.match(indexHtml, /aria-label="Ocultar linha do tempo"/);
   assert.match(appJs, /function setMarketingHistoryExpanded\(expanded\)/);
   assert.match(appJs, /marketingHistoryList\.hidden = !activeMarketingHistoryExpanded/);
-  assert.match(appJs, /data-lucide="\$\{activeMarketingHistoryExpanded \? "eye-off" : "eye"\}"/);
+  assert.match(appJs, /data-lucide="chevron-\$\{activeMarketingHistoryExpanded \? "up" : "down"\}"/);
   assert.match(redesignCss, /\.marketing-history-heading/);
   assert.match(redesignCss, /\.marketing-history-toggle/);
 });

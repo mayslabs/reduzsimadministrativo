@@ -5600,7 +5600,7 @@ function setMarketingHistoryExpanded(expanded) {
   el.toggleMarketingHistoryButton.setAttribute("aria-label", actionLabel);
   el.toggleMarketingHistoryButton.setAttribute("title", actionLabel);
   el.toggleMarketingHistoryButton.setAttribute("aria-expanded", String(activeMarketingHistoryExpanded));
-  el.toggleMarketingHistoryButton.innerHTML = `<i data-lucide="${activeMarketingHistoryExpanded ? "eye-off" : "eye"}"></i>`;
+  el.toggleMarketingHistoryButton.innerHTML = `<i data-lucide="chevron-${activeMarketingHistoryExpanded ? "up" : "down"}"></i>`;
   refreshIcons();
 }
 
