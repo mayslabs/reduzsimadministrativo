@@ -7206,7 +7206,7 @@ function renderTaskSideRow(item) {
 
 function taskItemContext(item) {
   if (item.internalMeetingId) return item.clientName && item.clientName !== "Reunião" ? item.clientName : "Agenda";
-  if (item.marketingItemId) return "Marketing";
+  if (item.marketingItemId) return item.clientName || "Conteúdo de marketing";
   if (item.internalTaskId) return item.visibility === "admin" ? "Somente admin" : "Equipe interna";
   return item.clientName || "Cliente não informado";
 }

@@ -37,6 +37,7 @@ test("marketing content manages production tasks in the central task source", ()
   assert.match(appJs, /function syncMarketingTasks\(item\)/);
   assert.match(appJs, /marketingItemId: item\.id/);
   assert.match(appJs, /state\.internalTasks\.unshift\(\.\.\.createdTasks\)/);
+  assert.match(appJs, /if \(item\.marketingItemId\) return item\.clientName \|\| "Conteúdo de marketing"/);
   assert.match(appJs, /Salvar conteúdo e \$\{count\}/);
   assert.match(redesignCss, /\.marketing-task-card\.expanded/);
   assert.match(redesignCss, /\.marketing-task-control-row/);
