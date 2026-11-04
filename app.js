@@ -4784,15 +4784,16 @@ function copyPreviousMonthBills() {
   const copies = sourceBills
     .map((bill) => {
       const dueDate = shiftBillDueDate(bill.dueDate, activeBillsYear, activeBillsMonth);
+      const copyId = id();
       return normalizeCompanyBill({
         ...bill,
-        id: id(),
+        id: copyId,
         year: activeBillsYear,
         month: activeBillsMonth,
         dueDate,
         status: "A pagar",
         paidAt: "",
-        itensFatura: [],
+        itensFatura: copyCategorizedBillInvoiceItems(bill, copyId, dueDate),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -4805,10 +4806,28 @@ function copyPreviousMonthBills() {
   }
 
   state.companyBills.unshift(...copies);
-  recordActivity("finance", `Copiou contas internas para ${monthName(activeBillsMonth)}/${activeBillsYear}.`, `${copies.length} conta(s) copiadas.`, { visibility: "admin" });
+  const copiedInvoiceItems = copies.reduce((total, bill) => total + (bill.itensFatura?.length || 0), 0);
+  const itemDetail = copiedInvoiceItems
+    ? ` ${copiedInvoiceItems} item(ns) categorizado(s) do cartão incluído(s).`
+    : "";
+  recordActivity("finance", `Copiou contas internas para ${monthName(activeBillsMonth)}/${activeBillsYear}.`, `${copies.length} conta(s) copiadas.${itemDetail}`, { visibility: "admin" });
   saveState();
   renderBillsDashboard();
   renderUpdates();
+}
+
+function copyCategorizedBillInvoiceItems(bill, copyBillId, copiedDueDate) {
+  if (!bill?.isCartao) return [];
+  return (bill.itensFatura || [])
+    .filter((item) => item.categoriaId && billCategoryById(item.categoriaId))
+    .map((item) => normalizeBillInvoiceItem({
+      ...item,
+      id: id(),
+      contaId: copyBillId,
+      data: item.data
+        ? shiftBillDueDate(item.data, activeBillsYear, activeBillsMonth)
+        : copiedDueDate,
+    }, copyBillId));
 }
 
 function exportBillsCsv() {

@@ -70,9 +70,16 @@ test("credit-card accounts use inline itemized invoices", () => {
   assert.match(appJs, /function renderBillInvoicePanel/);
   assert.match(appJs, /data-bill-invoice-new="descricao"/);
   assert.match(appJs, /data-bill-invoice-item-category/);
-  assert.match(appJs, /itensFatura:\s*\[\]/);
   assert.match(redesignCss, /\.bill-invoice-entry-row/);
   assert.match(redesignCss, /\.bill-invoice-detail-row > td/);
+});
+
+test("copying the previous month carries categorized card items independently", () => {
+  assert.match(appJs, /function copyCategorizedBillInvoiceItems/);
+  assert.match(appJs, /\.filter\(\(item\) => item\.categoriaId && billCategoryById\(item\.categoriaId\)\)/);
+  assert.match(appJs, /itensFatura: copyCategorizedBillInvoiceItems\(bill, copyId, dueDate\)/);
+  assert.match(appJs, /contaId: copyBillId/);
+  assert.match(appJs, /data: item\.data[\s\S]*?shiftBillDueDate\(item\.data, activeBillsYear, activeBillsMonth\)/);
 });
 
 test("card-invoice values receive a live Brazilian decimal mask", () => {
