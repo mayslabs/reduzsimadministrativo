@@ -30,7 +30,7 @@ const MARKETING_CONTENT_STATUSES = ["Planejado", "Roteiro", "Gravação", "Ediç
 const MARKETING_DIALOG_FORMATS = ["Reels", "Stories", "Post", "Carrossel", "Vídeo"];
 const MARKETING_DIALOG_CHANNELS = ["Instagram", "TikTok", "YouTube", "LinkedIn"];
 const MARKETING_MAX_HISTORY = 100;
-const MARKETING_PIPELINE_PREVIEW_LIMIT = 9;
+const MARKETING_PIPELINE_PREVIEW_LIMIT = 5;
 const MARKETING_IDEA_PREVIEW_LIMIT = 3;
 const REGULARIZATION_FIXED_FIELD_KEYS = new Set([
   "clientName",
@@ -4916,7 +4916,7 @@ function renderMarketingCalendarDay(date, items, activeMonth, activeYear) {
   const dateKey = localDateKey(date);
   const outside = date.getMonth() !== activeMonth || date.getFullYear() !== activeYear;
   const today = dateKey === localDateKey();
-  const visible = items.slice(0, 2);
+  const visible = items.slice(0, 3);
   return `
     <article class="marketing-calendar-day ${outside ? "outside" : ""} ${today ? "today" : ""}" data-new-marketing-date="${escapeAttr(dateKey)}">
       <header><span>${date.getDate()}</span>${today ? `<small>Hoje</small>` : ""}</header>

@@ -63,6 +63,8 @@ test("marketing calendar distinguishes content formats with pastel colors", () =
   assert.match(redesignCss, /\.marketing-format-legend/);
   assert.match(redesignCss, /\.marketing-calendar-entry\.format-reels,\s*\.marketing-calendar-entry\.format-video/);
   assert.match(redesignCss, /background:\s*rgba\(7, 77, 64, 0\.08\)/);
+  assert.match(appJs, /const visible = items\.slice\(0, 3\)/);
+  assert.match(redesignCss, /#marketingSection \.marketing-calendar-day\s*\{[\s\S]*?min-height:\s*104px/);
 });
 
 test("upcoming marketing panel follows the compact redesign", () => {
@@ -82,7 +84,7 @@ test("marketing production and idea rail follow the supplied workspace", () => {
   assert.match(appJs, /draggable="true" data-marketing-drag-item/);
   assert.match(appJs, /data-marketing-drop-stage/);
   assert.match(appJs, /data-marketing-stage-expand/);
-  assert.match(appJs, /MARKETING_PIPELINE_PREVIEW_LIMIT = 9/);
+  assert.match(appJs, /MARKETING_PIPELINE_PREVIEW_LIMIT = 5/);
   assert.match(appJs, /function bindMarketingPipelineDragAndDrop/);
   assert.doesNotMatch(appJs, /data-marketing-stage-shift/);
   assert.match(appJs, /marketing-ideas-panel marketing-ideas-rail/);
