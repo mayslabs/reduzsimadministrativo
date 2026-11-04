@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=205" />
+    <link rel="stylesheet" href="./redesign.css?v=206" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -1371,21 +1371,9 @@
 
           <div id="marketingContentDetails" class="marketing-form-column">
             <section class="marketing-form-section">
-              <div class="marketing-form-section-header">
-                <h3>03 · Roteiro</h3>
-                <div class="segmented-control marketing-script-mode" role="group" aria-label="Formato do roteiro">
-                  <button id="marketingStructuredScriptButton" class="active" type="button">Estruturado</button>
-                  <button id="marketingFreeScriptButton" type="button">Texto livre</button>
-                </div>
-              </div>
-              <div id="marketingStructuredScriptFields" class="marketing-script-fields">
-                <label>Gancho inicial<textarea id="marketingHookInput" rows="2" maxlength="1000" placeholder="Como prender a atenção nos primeiros segundos?"></textarea></label>
-                <label>Problema<textarea id="marketingProblemInput" rows="2" maxlength="1600" placeholder="Qual dúvida ou dor será apresentada?"></textarea></label>
-                <label>Explicação<textarea id="marketingExplanationInput" rows="3" maxlength="2600" placeholder="Os principais pontos do conteúdo"></textarea></label>
-                <label>Conclusão e chamada para ação<textarea id="marketingConclusionInput" rows="2" maxlength="1200" placeholder="Qual o próximo passo para quem assiste?"></textarea></label>
-              </div>
-              <div id="marketingFreeScriptFields" class="marketing-script-fields" hidden>
-                <label>Roteiro completo<textarea id="marketingFreeScriptInput" rows="12" maxlength="6000" placeholder="Escreva o roteiro livremente."></textarea></label>
+              <h3>03 · Roteiro</h3>
+              <div class="marketing-script-fields">
+                <label>Texto livre<textarea id="marketingFreeScriptInput" class="marketing-free-script-input" rows="14" maxlength="10000" placeholder="Escreva o roteiro completo livremente."></textarea></label>
               </div>
             </section>
 
@@ -1458,7 +1446,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=205"></script>
+    <script src="./app.js?v=206"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

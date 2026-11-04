@@ -318,7 +318,6 @@ let activeTaskDate = new Date();
 let activeMarketingDate = new Date();
 let activeMarketingItemId = "";
 let activeMarketingDraftKind = "content";
-let activeMarketingScriptMode = "structured";
 let activeMarketingIdeaObjective = "";
 let activeMarketingTaskDrafts = [];
 let activeMarketingExpandedTaskId = "";
@@ -603,14 +602,6 @@ const el = {
   marketingPublishDateInput: document.getElementById("marketingPublishDateInput"),
   marketingPublishTimeInput: document.getElementById("marketingPublishTimeInput"),
   marketingContentDetails: document.getElementById("marketingContentDetails"),
-  marketingStructuredScriptButton: document.getElementById("marketingStructuredScriptButton"),
-  marketingFreeScriptButton: document.getElementById("marketingFreeScriptButton"),
-  marketingStructuredScriptFields: document.getElementById("marketingStructuredScriptFields"),
-  marketingFreeScriptFields: document.getElementById("marketingFreeScriptFields"),
-  marketingHookInput: document.getElementById("marketingHookInput"),
-  marketingProblemInput: document.getElementById("marketingProblemInput"),
-  marketingExplanationInput: document.getElementById("marketingExplanationInput"),
-  marketingConclusionInput: document.getElementById("marketingConclusionInput"),
   marketingFreeScriptInput: document.getElementById("marketingFreeScriptInput"),
   marketingCaptionInput: document.getElementById("marketingCaptionInput"),
   marketingAssetLinkInput: document.getElementById("marketingAssetLinkInput"),
@@ -1055,7 +1046,7 @@ function normalizeMarketingItem(item = {}) {
     productionDate: String(item.productionDate || ""),
     publishDate: String(item.publishDate || ""),
     publishTime: String(item.publishTime || ""),
-    scriptMode: item.scriptMode === "free" ? "free" : "structured",
+    scriptMode: "free",
     hook: String(item.hook || ""),
     problem: String(item.problem || ""),
     explanation: String(item.explanation || ""),
@@ -1837,8 +1828,6 @@ function bindEvents() {
   el.cancelMarketingDialogButton?.addEventListener("click", closeMarketingDialog);
   el.deleteMarketingItemButton?.addEventListener("click", deleteMarketingItem);
   el.saveMarketingDraftButton?.addEventListener("click", () => saveMarketingItem({ draft: true }));
-  el.marketingStructuredScriptButton?.addEventListener("click", () => setMarketingScriptMode("structured"));
-  el.marketingFreeScriptButton?.addEventListener("click", () => setMarketingScriptMode("free"));
   el.marketingFormatChoices?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-marketing-format-choice]");
     if (!button) return;
@@ -5208,11 +5197,7 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   el.marketingProductionDateInput.value = item.productionDate;
   el.marketingPublishDateInput.value = item.publishDate;
   el.marketingPublishTimeInput.value = item.publishTime;
-  el.marketingHookInput.value = item.hook;
-  el.marketingProblemInput.value = item.problem;
-  el.marketingExplanationInput.value = item.explanation;
-  el.marketingConclusionInput.value = item.conclusion;
-  el.marketingFreeScriptInput.value = item.freeScript;
+  el.marketingFreeScriptInput.value = marketingFreeScriptValue(item);
   el.marketingCaptionInput.value = item.caption;
   el.marketingAssetLinkInput.value = item.assetLink;
   activeMarketingTaskDrafts = item.kind === "content" ? marketingTasksForItem(item) : [];
@@ -5227,7 +5212,6 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   document.querySelectorAll('input[name="marketingObjective"]').forEach((input) => {
     input.checked = input.value === item.objective;
   });
-  setMarketingScriptMode(item.scriptMode);
   renderMarketingTasksEditor();
   renderMarketingDialogHistory(item, Boolean(existing));
   el.marketingDialog.showModal();
@@ -5562,12 +5546,14 @@ function marketingSelectOptions(options, selected, placeholder) {
   return `<option value="">${escapeHtml(placeholder)}</option>${options.map((option) => `<option value="${escapeAttr(option)}" ${option === selected ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}`;
 }
 
-function setMarketingScriptMode(mode) {
-  activeMarketingScriptMode = mode === "free" ? "free" : "structured";
-  el.marketingStructuredScriptButton.classList.toggle("active", activeMarketingScriptMode === "structured");
-  el.marketingFreeScriptButton.classList.toggle("active", activeMarketingScriptMode === "free");
-  el.marketingStructuredScriptFields.hidden = activeMarketingScriptMode !== "structured";
-  el.marketingFreeScriptFields.hidden = activeMarketingScriptMode !== "free";
+function marketingFreeScriptValue(item = {}) {
+  if (item.freeScript.trim()) return item.freeScript;
+  return [
+    item.hook && `Gancho inicial\n${item.hook}`,
+    item.problem && `Problema\n${item.problem}`,
+    item.explanation && `Explicação\n${item.explanation}`,
+    item.conclusion && `Conclusão e chamada para ação\n${item.conclusion}`,
+  ].filter(Boolean).join("\n\n");
 }
 
 function renderMarketingDialogHistory(item, existing) {
@@ -5627,11 +5613,7 @@ function collectMarketingForm() {
     productionDate: el.marketingProductionDateInput.value,
     publishDate: el.marketingPublishDateInput.value,
     publishTime: el.marketingPublishTimeInput.value,
-    scriptMode: activeMarketingScriptMode,
-    hook: el.marketingHookInput.value.trim(),
-    problem: el.marketingProblemInput.value.trim(),
-    explanation: el.marketingExplanationInput.value.trim(),
-    conclusion: el.marketingConclusionInput.value.trim(),
+    scriptMode: "free",
     freeScript: el.marketingFreeScriptInput.value.trim(),
     caption: el.marketingCaptionInput.value.trim(),
     assetLink: el.marketingAssetLinkInput.value.trim(),

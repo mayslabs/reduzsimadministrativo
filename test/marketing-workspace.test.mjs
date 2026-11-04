@@ -115,6 +115,10 @@ test("marketing editors use the content and compact idea layouts", () => {
   assert.match(appJs, /classList\.toggle\("idea-dialog", item\.kind === "idea"\)/);
   assert.match(appJs, /function renderMarketingFormatChoices/);
   assert.match(appJs, /function renderMarketingPriorityChoices/);
+  assert.match(indexHtml, /id="marketingFreeScriptInput" class="marketing-free-script-input"/);
+  assert.doesNotMatch(indexHtml, /marketingStructuredScriptButton|marketingStructuredScriptFields|Estruturado/);
+  assert.doesNotMatch(appJs, /activeMarketingScriptMode|setMarketingScriptMode/);
+  assert.match(appJs, /function marketingFreeScriptValue\(item = \{\}\)/);
   assert.match(redesignCss, /marketing-dialog\.idea-dialog\s*\{\s*width:\s*min\(640px/);
   assert.match(redesignCss, /marketing-dialog-body\s*\{\s*grid-template-columns:\s*repeat\(2/);
 });

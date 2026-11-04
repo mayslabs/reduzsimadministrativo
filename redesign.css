@@ -9405,18 +9405,6 @@ body.privacy-mode :is(
   text-transform: uppercase;
 }
 
-#marketingDialog .marketing-form-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-#marketingDialog .marketing-form-section-header h3 {
-  margin: 0;
-}
-
 #marketingDialog .marketing-field-grid {
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
@@ -9587,58 +9575,14 @@ body.privacy-mode :is(
   background: #ffffff;
 }
 
-#marketingDialog .marketing-script-mode {
-  width: auto;
-  min-width: 200px;
-  margin: 0;
-  padding: 4px;
-  border-radius: 10px;
-  background: #ffffff;
-}
-
-#marketingDialog .marketing-script-mode button {
-  min-height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-#marketingDialog .marketing-script-mode button.active {
-  color: #ffffff;
-  background: var(--green-dark);
-}
-
 #marketingDialog .marketing-script-fields {
   gap: 10px;
 }
 
-#marketingDialog #marketingStructuredScriptFields {
-  counter-reset: marketing-script-step;
-}
-
-#marketingDialog #marketingStructuredScriptFields > label {
-  position: relative;
-  padding-left: 38px;
-  color: #222222;
-}
-
-#marketingDialog #marketingStructuredScriptFields > label::before {
-  position: absolute;
-  top: 28px;
-  left: 0;
-  display: inline-flex;
-  width: 26px;
-  height: 26px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: #ffffff;
-  background: var(--green-dark);
-  content: counter(marketing-script-step);
-  counter-increment: marketing-script-step;
-  font-size: 12px;
-  font-weight: 700;
+#marketingDialog .marketing-form .marketing-free-script-input {
+  min-height: 320px;
+  resize: vertical;
+  line-height: 1.6;
 }
 
 #marketingDialog .marketing-checkbox-row {
@@ -10186,6 +10130,10 @@ body.privacy-mode #marketingDialog :is(
 
   #marketingDialog .marketing-form {
     max-height: calc(100vh - 16px);
+  }
+
+  #marketingDialog .marketing-form .marketing-free-script-input {
+    min-height: 240px;
   }
 
   #marketingDialog .marketing-dialog-header,
