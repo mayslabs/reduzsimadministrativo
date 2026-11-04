@@ -81,6 +81,17 @@ test("card-invoice values receive a live Brazilian decimal mask", () => {
   assert.match(appJs, /function formatCurrencyDecimalInput\(value\)/);
 });
 
+test("card-invoice expenses can be edited inline", () => {
+  assert.match(appJs, /data-edit-bill-invoice-item/);
+  assert.match(appJs, /data-bill-invoice-item-edit="descricao"/);
+  assert.match(appJs, /data-bill-invoice-item-edit="valor"/);
+  assert.match(appJs, /function saveBillInvoiceItemEdit/);
+  assert.match(appJs, /item\.descricao = description/);
+  assert.match(appJs, /item\.valor = calculatedCurrency\(amount\)/);
+  assert.match(redesignCss, /\.bill-invoice-item\.editing/);
+  assert.match(redesignCss, /\.bill-invoice-item-actions/);
+});
+
 test("category manager supports create, rename, recolor and guarded deletion", () => {
   assert.match(indexHtml, /id="billCategoriesDialog"/);
   assert.match(indexHtml, /id="newBillCategoryName"/);

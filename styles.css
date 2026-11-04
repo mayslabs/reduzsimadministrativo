@@ -427,6 +427,8 @@ body.privacy-mode :is(
   #simpleDialog.bill-form-dialog input[name="amount"],
   #simpleDialog.bill-form-dialog textarea[name="notes"],
   #billsSection .bill-invoice-entry-row input,
+  #billsSection .bill-invoice-item-edit-description,
+  #billsSection .bill-invoice-item-edit-money input,
   #simpleDialog input[name="floor"],
   #simpleDialog input[name="target"],
   #simpleDialog input[name="stretch"]

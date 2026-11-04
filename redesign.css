@@ -9122,7 +9122,7 @@ body.privacy-mode :is(
 #billsSection .bill-invoice-entry-row,
 #billsSection .bill-invoice-item {
   display: grid;
-  grid-template-columns: 132px minmax(180px, 1fr) 170px 120px 34px;
+  grid-template-columns: 132px minmax(180px, 1fr) 170px 120px 68px;
   gap: 10px;
   align-items: center;
 }
@@ -9225,11 +9225,77 @@ body.privacy-mode :is(
   white-space: nowrap;
 }
 
+#billsSection .bill-invoice-item.editing {
+  background: #f6fbf9;
+  box-shadow: inset 0 0 0 1px rgba(0, 155, 119, 0.35);
+}
+
+#billsSection .bill-invoice-item-edit-description,
+#billsSection .bill-invoice-item-edit-money {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 11.5px;
+}
+
+#billsSection .bill-invoice-item-edit-description {
+  padding: 0 9px;
+  color: #222222;
+  font-weight: 600;
+}
+
+#billsSection .bill-invoice-item-edit-money {
+  align-items: center;
+  display: flex;
+  overflow: hidden;
+}
+
+#billsSection .bill-invoice-item-edit-money > span {
+  padding-left: 9px;
+  color: #8a8a8a;
+  font-size: 10.5px;
+}
+
+#billsSection .bill-invoice-item-edit-money > input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  color: #222222;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: right;
+}
+
+#billsSection .bill-invoice-item-actions {
+  align-items: center;
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
 #billsSection .bill-invoice-item .icon-button {
   width: 30px;
   height: 30px;
   min-height: 30px;
   color: #8a8a8a;
+}
+
+#billsSection .bill-invoice-item .bill-invoice-item-save {
+  color: #ffffff;
+  border-color: var(--green-dark);
+  background: var(--green-dark);
+}
+
+#billsSection .bill-invoice-item .bill-invoice-item-save:disabled {
+  border-color: #9db8b1;
+  background: #9db8b1;
+  cursor: not-allowed;
 }
 
 #billsSection .bill-invoice-category-select {
@@ -9259,6 +9325,11 @@ body.privacy-mode :is(
   color: #333333;
   background: #ffffff;
   font-size: 11.5px;
+}
+
+#billsSection .bill-invoice-category-select > select:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
 }
 
 #billsSection .bill-invoice-item.uncategorized .bill-invoice-category-select > select {
@@ -9634,7 +9705,7 @@ body.privacy-mode :is(
   #billsSection .bill-invoice-entry-head,
   #billsSection .bill-invoice-entry-row,
   #billsSection .bill-invoice-item {
-    grid-template-columns: 120px minmax(170px, 1fr) 150px 110px 34px;
+    grid-template-columns: 120px minmax(170px, 1fr) 150px 110px 68px;
   }
 }
 

@@ -355,6 +355,7 @@ let activeBillsCategoryFilter = "";
 const expandedBillInvoiceIds = new Set();
 const billInvoiceFilters = new Map();
 const billInvoiceDraftDates = new Map();
+let activeBillInvoiceItemEditKey = "";
 let activeBillCategoryPalette = "";
 let newBillCategoryColor = BILL_CATEGORY_THEME_COLORS[4];
 let collapsedGuidanceIds = new Set(loadCollapsedGuidanceIds());
@@ -4161,22 +4162,39 @@ function renderBillInvoicePanel(bill) {
 
 function renderBillInvoiceItem(bill, item, categories) {
   const category = categories.find((entry) => entry.id === item.categoriaId) || null;
+  const isEditing = activeBillInvoiceItemEditKey === billInvoiceItemEditKey(bill.id, item.id);
   const categoryOptions = [
     `<option value="" ${category ? "" : "selected"}>Sem categoria</option>`,
     ...categories.map((entry) => `<option value="${escapeAttr(entry.id)}" ${entry.id === item.categoriaId ? "selected" : ""}>${escapeHtml(entry.nome)}</option>`),
   ].join("");
   return `
-    <article class="bill-invoice-item ${category ? "" : "uncategorized"}">
+    <article class="bill-invoice-item ${category ? "" : "uncategorized"} ${isEditing ? "editing" : ""}" data-bill-invoice-item-row="${escapeAttr(item.id)}">
       <span class="bill-invoice-item-date">${item.data ? escapeHtml(formatShortDate(item.data)) : "—"}</span>
-      <strong>${escapeHtml(item.descricao || "Item sem descrição")}</strong>
+      ${isEditing
+        ? `<input class="bill-invoice-item-edit-description" type="text" maxlength="140" value="${escapeAttr(item.descricao || "")}" data-bill-invoice-item-edit="descricao" data-bill-id="${escapeAttr(bill.id)}" data-item-id="${escapeAttr(item.id)}" aria-label="Descrição do gasto" />`
+        : `<strong>${escapeHtml(item.descricao || "Item sem descrição")}</strong>`}
       <label class="bill-invoice-category-select" style="--bill-item-color:${category?.cor || "#CFCFCF"}">
         <i></i>
-        <select data-bill-invoice-item-category="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Categoria de ${escapeAttr(item.descricao || "item")}">${categoryOptions}</select>
+        <select data-bill-invoice-item-category="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Categoria de ${escapeAttr(item.descricao || "item")}" ${isEditing ? "disabled" : ""}>${categoryOptions}</select>
       </label>
-      <b>${escapeHtml(item.valor || calculatedCurrency(0))}</b>
-      <button class="icon-button" type="button" data-remove-bill-invoice-item="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Remover ${escapeAttr(item.descricao || "item")}"><i data-lucide="x"></i></button>
+      ${isEditing
+        ? `<label class="bill-invoice-item-edit-money"><span>R$</span><input type="text" inputmode="numeric" value="${escapeAttr(currencyInputValue(item.valor || ""))}" data-bill-invoice-item-edit="valor" data-bill-id="${escapeAttr(bill.id)}" data-item-id="${escapeAttr(item.id)}" aria-label="Valor do gasto" /></label>`
+        : `<b>${escapeHtml(item.valor || calculatedCurrency(0))}</b>`}
+      <span class="bill-invoice-item-actions">
+        ${isEditing ? `
+          <button class="icon-button bill-invoice-item-save" type="button" data-save-bill-invoice-item="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Salvar alterações"><i data-lucide="check"></i></button>
+          <button class="icon-button" type="button" data-cancel-bill-invoice-item-edit="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Cancelar edição"><i data-lucide="x"></i></button>
+        ` : `
+          <button class="icon-button" type="button" data-edit-bill-invoice-item="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Editar ${escapeAttr(item.descricao || "item")}"><i data-lucide="pencil"></i></button>
+          <button class="icon-button" type="button" data-remove-bill-invoice-item="${escapeAttr(item.id)}" data-bill-id="${escapeAttr(bill.id)}" aria-label="Remover ${escapeAttr(item.descricao || "item")}"><i data-lucide="x"></i></button>
+        `}
+      </span>
     </article>
   `;
+}
+
+function billInvoiceItemEditKey(billId, itemId) {
+  return `${billId}:${itemId}`;
 }
 
 function billInvoiceCheckMessage(stats) {
@@ -4286,6 +4304,23 @@ function bindBillDashboardActions() {
   el.billsTableBody.querySelectorAll("[data-bill-invoice-item-category]").forEach((select) => {
     select.addEventListener("change", () => updateBillInvoiceItemCategory(select.dataset.billId, select.dataset.billInvoiceItemCategory, select.value));
   });
+  el.billsTableBody.querySelectorAll("[data-bill-invoice-item-edit]").forEach((input) => {
+    input.addEventListener("input", () => {
+      if (input.dataset.billInvoiceItemEdit === "valor") {
+        input.value = formatCurrencyDecimalInput(input.value);
+      }
+      updateBillInvoiceItemEditState(input.dataset.billId, input.dataset.itemId);
+    });
+  });
+  el.billsTableBody.querySelectorAll("[data-edit-bill-invoice-item]").forEach((button) => {
+    button.addEventListener("click", () => startBillInvoiceItemEdit(button.dataset.billId, button.dataset.editBillInvoiceItem));
+  });
+  el.billsTableBody.querySelectorAll("[data-cancel-bill-invoice-item-edit]").forEach((button) => {
+    button.addEventListener("click", () => cancelBillInvoiceItemEdit(button.dataset.billId, button.dataset.cancelBillInvoiceItemEdit));
+  });
+  el.billsTableBody.querySelectorAll("[data-save-bill-invoice-item]").forEach((button) => {
+    button.addEventListener("click", () => saveBillInvoiceItemEdit(button.dataset.billId, button.dataset.saveBillInvoiceItem));
+  });
   el.billsTableBody.querySelectorAll("[data-remove-bill-invoice-item]").forEach((button) => {
     button.addEventListener("click", () => removeBillInvoiceItem(button.dataset.billId, button.dataset.removeBillInvoiceItem));
   });
@@ -4367,10 +4402,73 @@ function updateBillInvoiceItemCategory(billId, itemId, categoryId) {
   renderBillsDashboard();
 }
 
+function startBillInvoiceItemEdit(billId, itemId) {
+  const bill = state.companyBills.find((entry) => entry.id === billId);
+  const item = bill?.itensFatura?.find((entry) => entry.id === itemId);
+  if (!bill?.isCartao || !item || currentUser?.role !== "admin") return;
+  activeBillInvoiceItemEditKey = billInvoiceItemEditKey(billId, itemId);
+  renderBillsDashboard();
+  window.setTimeout(() => {
+    const row = billInvoiceItemRowElement(billId, itemId);
+    const input = row?.querySelector('[data-bill-invoice-item-edit="descricao"]');
+    input?.focus();
+    input?.select();
+  }, 0);
+}
+
+function cancelBillInvoiceItemEdit(billId, itemId) {
+  if (activeBillInvoiceItemEditKey !== billInvoiceItemEditKey(billId, itemId)) return;
+  activeBillInvoiceItemEditKey = "";
+  renderBillsDashboard();
+}
+
+function billInvoiceItemRowElement(billId, itemId) {
+  const panel = billInvoicePanelElement(billId);
+  return [...(panel?.querySelectorAll("[data-bill-invoice-item-row]") || [])]
+    .find((row) => row.dataset.billInvoiceItemRow === itemId) || null;
+}
+
+function updateBillInvoiceItemEditState(billId, itemId) {
+  const row = billInvoiceItemRowElement(billId, itemId);
+  if (!row) return;
+  const description = row.querySelector('[data-bill-invoice-item-edit="descricao"]')?.value.trim() || "";
+  const amount = currencyAmount(row.querySelector('[data-bill-invoice-item-edit="valor"]')?.value || "") || 0;
+  const button = row.querySelector("[data-save-bill-invoice-item]");
+  if (button) button.disabled = !description || amount <= 0;
+}
+
+function saveBillInvoiceItemEdit(billId, itemId) {
+  const bill = state.companyBills.find((entry) => entry.id === billId);
+  const item = bill?.itensFatura?.find((entry) => entry.id === itemId);
+  const row = billInvoiceItemRowElement(billId, itemId);
+  if (!bill?.isCartao || !item || !row || currentUser?.role !== "admin") return;
+  const description = row.querySelector('[data-bill-invoice-item-edit="descricao"]')?.value.trim() || "";
+  const amount = currencyAmount(row.querySelector('[data-bill-invoice-item-edit="valor"]')?.value || "") || 0;
+  if (!description || amount <= 0) return;
+  const previousDescription = item.descricao;
+  const previousValue = item.valor;
+  item.descricao = description;
+  item.valor = calculatedCurrency(amount);
+  bill.updatedAt = new Date().toISOString();
+  activeBillInvoiceItemEditKey = "";
+  recordActivity(
+    "finance",
+    `Atualizou item da fatura: ${bill.description}.`,
+    `${previousDescription} (${previousValue}) para ${description} (${item.valor})`,
+    billActivityOptions(bill),
+  );
+  saveState();
+  renderBillsDashboard();
+  renderUpdates();
+}
+
 function removeBillInvoiceItem(billId, itemId) {
   const bill = state.companyBills.find((item) => item.id === billId);
   const item = bill?.itensFatura?.find((entry) => entry.id === itemId);
   if (!bill?.isCartao || !item || currentUser?.role !== "admin") return;
+  if (activeBillInvoiceItemEditKey === billInvoiceItemEditKey(billId, itemId)) {
+    activeBillInvoiceItemEditKey = "";
+  }
   bill.itensFatura = bill.itensFatura.filter((entry) => entry.id !== itemId);
   bill.updatedAt = new Date().toISOString();
   recordActivity("finance", `Removeu item da fatura: ${bill.description}.`, item.descricao, billActivityOptions(bill));
