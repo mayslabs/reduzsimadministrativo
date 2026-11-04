@@ -320,6 +320,9 @@ let activeMarketingItemId = "";
 let activeMarketingDraftKind = "content";
 let activeMarketingScriptMode = "structured";
 let activeMarketingIdeaObjective = "";
+let activeMarketingTaskDrafts = [];
+let activeMarketingExpandedTaskId = "";
+let activeMarketingTaskNoteIds = new Set();
 let expandedMarketingIdeas = false;
 let expandedMarketingStages = new Set();
 let marketingDragSuppressClick = false;
@@ -610,7 +613,10 @@ const el = {
   marketingFreeScriptInput: document.getElementById("marketingFreeScriptInput"),
   marketingCaptionInput: document.getElementById("marketingCaptionInput"),
   marketingAssetLinkInput: document.getElementById("marketingAssetLinkInput"),
-  marketingGenerateTaskInput: document.getElementById("marketingGenerateTaskInput"),
+  marketingTasksSection: document.getElementById("marketingTasksSection"),
+  marketingTaskCount: document.getElementById("marketingTaskCount"),
+  marketingTaskList: document.getElementById("marketingTaskList"),
+  addMarketingTaskButton: document.getElementById("addMarketingTaskButton"),
   marketingHistorySection: document.getElementById("marketingHistorySection"),
   marketingHistoryList: document.getElementById("marketingHistoryList"),
   simpleDialog: document.getElementById("simpleDialog"),
@@ -1853,6 +1859,10 @@ function bindEvents() {
   el.marketingChannelDoneButton?.addEventListener("click", () => {
     el.marketingChannelPicker.open = false;
   });
+  el.addMarketingTaskButton?.addEventListener("click", addMarketingTaskDraft);
+  el.marketingTaskList?.addEventListener("click", handleMarketingTaskClick);
+  el.marketingTaskList?.addEventListener("input", handleMarketingTaskInput);
+  el.marketingTaskList?.addEventListener("change", handleMarketingTaskChange);
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
   el.nextTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(1));
   el.todayTaskButton.addEventListener("click", () => {
@@ -5200,16 +5210,19 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   el.marketingFreeScriptInput.value = item.freeScript;
   el.marketingCaptionInput.value = item.caption;
   el.marketingAssetLinkInput.value = item.assetLink;
-  el.marketingGenerateTaskInput.checked = Boolean(item.taskId);
+  activeMarketingTaskDrafts = item.kind === "content" ? marketingTasksForItem(item) : [];
+  activeMarketingExpandedTaskId = "";
+  activeMarketingTaskNoteIds = new Set(activeMarketingTaskDrafts.filter((task) => task.followUpNotes).map((task) => task.id));
   el.marketingProductionSection.hidden = item.kind === "idea";
   el.marketingContentDetails.hidden = item.kind === "idea";
+  el.marketingTasksSection.hidden = item.kind === "idea";
   el.saveMarketingDraftButton.hidden = item.kind === "idea";
-  el.saveMarketingItemButton.textContent = item.kind === "idea" ? "Salvar ideia" : "Salvar conteúdo";
   el.deleteMarketingItemButton.hidden = !existing || currentUser.role !== "admin";
   document.querySelectorAll('input[name="marketingObjective"]').forEach((input) => {
     input.checked = input.value === item.objective;
   });
   setMarketingScriptMode(item.scriptMode);
+  renderMarketingTasksEditor();
   renderMarketingDialogHistory(item, Boolean(existing));
   el.marketingDialog.showModal();
   refreshIcons();
@@ -5259,6 +5272,284 @@ function renderMarketingPriorityChoices(selectedPriority = "Normal") {
     const active = priority === selectedPriority;
     return `<button class="${active ? "active" : ""}" type="button" data-marketing-priority-choice="${escapeAttr(priority)}" aria-pressed="${active}">${escapeHtml(priority)}</button>`;
   }).join("");
+}
+
+function marketingTasksForItem(item = {}) {
+  if (!item.id) return [];
+  return state.internalTasks
+    .filter((task) => task.marketingItemId === item.id || (item.taskId && task.id === item.taskId))
+    .map((task) => normalizeInternalTask({ ...task, marketingItemId: item.id }));
+}
+
+function createMarketingTaskDraft(overrides = {}) {
+  return normalizeInternalTask({
+    id: id(),
+    title: "",
+    description: "",
+    followUpNotes: "",
+    ownerId: el.marketingOwnerInput.value || currentUser.id,
+    dueDate: el.marketingProductionDateInput.value || el.marketingPublishDateInput.value || "",
+    status: "Pendente",
+    priority: el.marketingPriorityInput.value || "Normal",
+    visibility: "team",
+    createdBy: currentUser.id,
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  });
+}
+
+function marketingTaskStatusLabel(status = "Pendente") {
+  return String(status).startsWith("Aguardando") ? "Aguardando" : status;
+}
+
+function marketingTaskDueLabel(dueDate = "") {
+  if (!dueDate) return "Sem data";
+  if (dueDate === localDateKey()) return "Hoje";
+  if (dueDate === localDateKey(addDays(new Date(), 1))) return "Amanhã";
+  return formatDate(dueDate);
+}
+
+function marketingTaskOwner(task = {}) {
+  const name = task.ownerId ? ownerName(task.ownerId) : "Sem responsável";
+  return {
+    name,
+    initial: name === "Sem responsável" ? "?" : name.trim().charAt(0).toUpperCase(),
+  };
+}
+
+function renderMarketingTaskEditor(task) {
+  const today = localDateKey();
+  const tomorrow = localDateKey(addDays(new Date(), 1));
+  const sevenDays = localDateKey(addDays(new Date(), 7));
+  const statusChoices = [
+    { value: "Pendente", label: "Pendente" },
+    { value: "Em andamento", label: "Em andamento" },
+    { value: "Aguardando cliente", label: "Aguardando" },
+  ];
+  const showFollowUp = activeMarketingTaskNoteIds.has(task.id) || Boolean(task.followUpNotes);
+  const optionButton = (field, value, label, active) => `
+    <button class="marketing-task-option ${active ? "active" : ""}" type="button" data-marketing-task-option="${escapeAttr(field)}" data-task-id="${escapeAttr(task.id)}" data-task-value="${escapeAttr(value)}" aria-pressed="${active}">${escapeHtml(label)}</button>
+  `;
+  const ownerButtons = state.users.map((user) => {
+    const active = task.ownerId === user.id;
+    const initial = user.name.trim().charAt(0).toUpperCase() || "?";
+    return `
+      <button class="marketing-task-option marketing-task-owner-option ${active ? "active" : ""}" type="button" data-marketing-task-option="ownerId" data-task-id="${escapeAttr(task.id)}" data-task-value="${escapeAttr(user.id)}" aria-pressed="${active}">
+        <span>${escapeHtml(initial)}</span>${escapeHtml(user.name)}
+      </button>
+    `;
+  }).join("");
+  return `
+    <div class="marketing-task-editor">
+      <label class="marketing-task-title-field">
+        <span class="sr-only">Título da tarefa</span>
+        <input data-marketing-task-field="title" data-task-id="${escapeAttr(task.id)}" value="${escapeAttr(task.title)}" maxlength="160" placeholder="Título da tarefa" required />
+      </label>
+      <label class="marketing-task-description-field">
+        <span class="sr-only">Descrição da tarefa</span>
+        <textarea data-marketing-task-field="description" data-task-id="${escapeAttr(task.id)}" rows="3" maxlength="1800" placeholder="Descrição, objetivo ou contexto">${escapeHtml(task.description)}</textarea>
+      </label>
+      <div class="marketing-task-controls">
+        <div class="marketing-task-control-row">
+          <span class="marketing-task-control-label"><i data-lucide="user-round"></i> Responsável</span>
+          <div class="marketing-task-options marketing-task-owner-options">
+            ${ownerButtons}
+          </div>
+        </div>
+        <div class="marketing-task-control-row">
+          <span class="marketing-task-control-label"><i data-lucide="calendar-days"></i> Prazo</span>
+          <div class="marketing-task-options marketing-task-date-options">
+            <input class="marketing-task-date-input" type="date" data-marketing-task-field="dueDate" data-task-id="${escapeAttr(task.id)}" value="${escapeAttr(task.dueDate)}" />
+            ${optionButton("dueDate", today, "Hoje", task.dueDate === today)}
+            ${optionButton("dueDate", tomorrow, "Amanhã", task.dueDate === tomorrow)}
+            ${optionButton("dueDate", sevenDays, "+7 dias", task.dueDate === sevenDays)}
+          </div>
+        </div>
+        <div class="marketing-task-control-row">
+          <span class="marketing-task-control-label"><i data-lucide="flag"></i> Prioridade</span>
+          <div class="marketing-task-options">
+            ${taskPriorityValues().map((priority) => optionButton("priority", priority, priority, task.priority === priority)).join("")}
+          </div>
+        </div>
+        <div class="marketing-task-control-row">
+          <span class="marketing-task-control-label"><i data-lucide="clock-3"></i> Status</span>
+          <div class="marketing-task-options">
+            ${statusChoices.map(({ value, label }) => optionButton("status", value, label, marketingTaskStatusLabel(task.status) === label)).join("")}
+          </div>
+        </div>
+        <div class="marketing-task-control-row">
+          <span class="marketing-task-control-label"><i data-lucide="eye"></i> Visibilidade</span>
+          <div class="marketing-task-options">
+            ${optionButton("visibility", "team", "Equipe", task.visibility !== "admin")}
+            ${optionButton("visibility", "admin", "Somente admin", task.visibility === "admin")}
+          </div>
+        </div>
+      </div>
+      <div class="marketing-task-editor-footer">
+        <button class="marketing-task-follow-up ${showFollowUp ? "active" : ""}" type="button" data-marketing-task-note="${escapeAttr(task.id)}"><i data-lucide="plus"></i> Anotação de acompanhamento</button>
+        <button class="primary-button marketing-task-save" type="button" data-marketing-task-save="${escapeAttr(task.id)}"><i data-lucide="check"></i> Salvar tarefa</button>
+      </div>
+      ${showFollowUp ? `
+        <label class="marketing-task-follow-up-field">
+          <span>Anotação de acompanhamento</span>
+          <textarea data-marketing-task-field="followUpNotes" data-task-id="${escapeAttr(task.id)}" rows="2" maxlength="1200" placeholder="Registre uma orientação ou observação">${escapeHtml(task.followUpNotes)}</textarea>
+        </label>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderMarketingTasksEditor() {
+  if (!el.marketingTaskList || !el.marketingTaskCount) return;
+  el.marketingTaskCount.textContent = String(activeMarketingTaskDrafts.length);
+  el.marketingTaskList.innerHTML = activeMarketingTaskDrafts.map((task, index) => {
+    const expanded = task.id === activeMarketingExpandedTaskId;
+    const owner = marketingTaskOwner(task);
+    return `
+      <article class="marketing-task-card ${expanded ? "expanded" : ""}" data-marketing-task-card="${escapeAttr(task.id)}">
+        <div class="marketing-task-card-header">
+          <span class="marketing-task-index">${index + 1}</span>
+          <div class="marketing-task-card-copy">
+            <strong data-marketing-task-title-summary="${escapeAttr(task.id)}">${escapeHtml(task.title || "Nova tarefa")}</strong>
+            <div class="marketing-task-meta">
+              <span class="marketing-task-owner-avatar ${taskOwnerClass(task.ownerId)}">${escapeHtml(owner.initial)}</span>
+              <span>${escapeHtml(owner.name)}</span>
+              <span aria-hidden="true">·</span>
+              <span>${escapeHtml(marketingTaskDueLabel(task.dueDate))}</span>
+              <span class="marketing-task-meta-pill">${escapeHtml(marketingTaskStatusLabel(task.status))}</span>
+              <span class="marketing-task-meta-pill priority-${marketingSlug(task.priority)}">${escapeHtml(task.priority)}</span>
+            </div>
+          </div>
+          <button class="icon-button marketing-task-toggle" type="button" data-marketing-task-toggle="${escapeAttr(task.id)}" aria-label="${expanded ? "Recolher" : "Editar"} tarefa" aria-expanded="${expanded}"><i data-lucide="chevron-${expanded ? "up" : "down"}"></i></button>
+          <button class="icon-button marketing-task-delete" type="button" data-marketing-task-delete="${escapeAttr(task.id)}" aria-label="Excluir tarefa"><i data-lucide="trash-2"></i></button>
+        </div>
+        ${expanded ? renderMarketingTaskEditor(task) : ""}
+      </article>
+    `;
+  }).join("");
+  updateMarketingSaveButtonLabel();
+  refreshIcons();
+}
+
+function updateMarketingSaveButtonLabel() {
+  if (!el.saveMarketingItemButton) return;
+  if (activeMarketingDraftKind === "idea") {
+    el.saveMarketingItemButton.textContent = "Salvar ideia";
+    return;
+  }
+  const count = activeMarketingTaskDrafts.length;
+  el.saveMarketingItemButton.textContent = count
+    ? `Salvar conteúdo e ${count} ${count === 1 ? "tarefa" : "tarefas"}`
+    : "Salvar conteúdo";
+}
+
+function addMarketingTaskDraft() {
+  const unfinished = activeMarketingTaskDrafts.find((task) => !task.title.trim());
+  if (unfinished) {
+    activeMarketingExpandedTaskId = unfinished.id;
+    renderMarketingTasksEditor();
+    focusMarketingTaskTitle(unfinished.id);
+    return;
+  }
+  const task = createMarketingTaskDraft();
+  activeMarketingTaskDrafts.push(task);
+  activeMarketingExpandedTaskId = task.id;
+  renderMarketingTasksEditor();
+  focusMarketingTaskTitle(task.id);
+}
+
+function focusMarketingTaskTitle(taskId) {
+  window.setTimeout(() => {
+    const input = el.marketingTaskList?.querySelector(`[data-marketing-task-field="title"][data-task-id="${CSS.escape(taskId)}"]`);
+    input?.focus();
+  }, 0);
+}
+
+function marketingTaskDraft(taskId) {
+  return activeMarketingTaskDrafts.find((task) => task.id === taskId) || null;
+}
+
+function handleMarketingTaskClick(event) {
+  const toggle = event.target.closest("[data-marketing-task-toggle]");
+  if (toggle) {
+    const taskId = toggle.dataset.marketingTaskToggle;
+    activeMarketingExpandedTaskId = activeMarketingExpandedTaskId === taskId ? "" : taskId;
+    renderMarketingTasksEditor();
+    return;
+  }
+  const remove = event.target.closest("[data-marketing-task-delete]");
+  if (remove) {
+    const taskId = remove.dataset.marketingTaskDelete;
+    activeMarketingTaskDrafts = activeMarketingTaskDrafts.filter((task) => task.id !== taskId);
+    activeMarketingTaskNoteIds.delete(taskId);
+    if (activeMarketingExpandedTaskId === taskId) activeMarketingExpandedTaskId = "";
+    renderMarketingTasksEditor();
+    return;
+  }
+  const option = event.target.closest("[data-marketing-task-option]");
+  if (option) {
+    const task = marketingTaskDraft(option.dataset.taskId);
+    const field = option.dataset.marketingTaskOption;
+    if (!task || !["ownerId", "dueDate", "priority", "status", "visibility"].includes(field)) return;
+    task[field] = option.dataset.taskValue;
+    renderMarketingTasksEditor();
+    return;
+  }
+  const note = event.target.closest("[data-marketing-task-note]");
+  if (note) {
+    const taskId = note.dataset.marketingTaskNote;
+    if (activeMarketingTaskNoteIds.has(taskId)) activeMarketingTaskNoteIds.delete(taskId);
+    else activeMarketingTaskNoteIds.add(taskId);
+    renderMarketingTasksEditor();
+    return;
+  }
+  const save = event.target.closest("[data-marketing-task-save]");
+  if (save) {
+    const task = marketingTaskDraft(save.dataset.marketingTaskSave);
+    if (!task?.title.trim()) {
+      focusMarketingTaskTitle(task?.id || "");
+      return;
+    }
+    activeMarketingExpandedTaskId = "";
+    renderMarketingTasksEditor();
+  }
+}
+
+function handleMarketingTaskInput(event) {
+  const input = event.target.closest("[data-marketing-task-field]");
+  if (!input) return;
+  const task = marketingTaskDraft(input.dataset.taskId);
+  const field = input.dataset.marketingTaskField;
+  if (!task || !["title", "description", "followUpNotes"].includes(field)) return;
+  task[field] = input.value;
+  input.setCustomValidity("");
+  if (field === "title") {
+    const summary = el.marketingTaskList.querySelector(`[data-marketing-task-title-summary="${CSS.escape(task.id)}"]`);
+    if (summary) summary.textContent = task.title.trim() || "Nova tarefa";
+  }
+}
+
+function handleMarketingTaskChange(event) {
+  const input = event.target.closest('[data-marketing-task-field="dueDate"]');
+  if (!input) return;
+  const task = marketingTaskDraft(input.dataset.taskId);
+  if (!task) return;
+  task.dueDate = input.value;
+  renderMarketingTasksEditor();
+}
+
+function validateMarketingTaskDrafts() {
+  const invalidTask = activeMarketingTaskDrafts.find((task) => !task.title.trim());
+  if (!invalidTask) return true;
+  activeMarketingExpandedTaskId = invalidTask.id;
+  renderMarketingTasksEditor();
+  window.setTimeout(() => {
+    const input = el.marketingTaskList.querySelector(`[data-marketing-task-field="title"][data-task-id="${CSS.escape(invalidTask.id)}"]`);
+    if (!input) return;
+    input.setCustomValidity("Informe o título da tarefa.");
+    input.reportValidity();
+  }, 0);
+  return false;
 }
 
 function marketingSelectOptions(options, selected, placeholder) {
@@ -5333,6 +5624,7 @@ function collectMarketingForm() {
 
 function saveMarketingItem({ draft = false } = {}) {
   if (!el.marketingForm.reportValidity()) return;
+  if (!validateMarketingTaskDrafts()) return;
   const existing = activeMarketingItemId ? state.marketingItems.find((item) => item.id === activeMarketingItemId) : null;
   const item = collectMarketingForm();
   if (draft && item.kind === "content") item.status = "Planejado";
@@ -5348,7 +5640,7 @@ function saveMarketingItem({ draft = false } = {}) {
   } else {
     state.marketingItems.unshift(item);
   }
-  syncMarketingTask(item, el.marketingGenerateTaskInput.checked);
+  syncMarketingTasks(item);
   recordActivity(
     "marketing",
     `${existing ? "Atualizou" : "Criou"} ${item.kind === "idea" ? "ideia" : "conteúdo"}: ${item.title}.`,
@@ -5434,53 +5726,59 @@ function marketingActivityOptions(item) {
   };
 }
 
-function syncMarketingTask(item, shouldGenerate) {
-  const existingTask = item.taskId ? state.internalTasks.find((task) => task.id === item.taskId) : null;
-  if (!shouldGenerate && !existingTask) return;
-  const dueDate = item.productionDate || item.publishDate || "";
-  const title = `Produzir conteúdo: ${item.title}`;
-  const description = [
-    item.description,
-    [marketingChannelLabel(item), item.format, item.status].filter(Boolean).join(" • "),
-    item.publishDate ? `Postagem: ${formatDate(item.publishDate)}${item.publishTime ? ` às ${item.publishTime}` : ""}` : "",
-  ].filter(Boolean).join("\n");
-  if (existingTask) {
-    const before = JSON.stringify([existingTask.title, existingTask.description, existingTask.ownerId, existingTask.dueDate, existingTask.priority]);
-    existingTask.title = title;
-    existingTask.description = description;
-    existingTask.ownerId = item.ownerId || existingTask.ownerId;
-    existingTask.dueDate = dueDate;
-    existingTask.priority = item.priority;
-    existingTask.marketingItemId = item.id;
-    existingTask.updatedAt = new Date().toISOString();
-    const after = JSON.stringify([existingTask.title, existingTask.description, existingTask.ownerId, existingTask.dueDate, existingTask.priority]);
-    if (before !== after) {
-      recordActivity("task", `Atualizou tarefa de marketing: ${item.title}.`, "Tarefa sincronizada com o conteúdo.", taskActivityOptions(existingTask, {
-        internalTaskId: existingTask.id,
-        marketingItemId: item.id,
-      }));
-    }
-    return;
-  }
-  const task = normalizeInternalTask({
-    id: id(),
-    title,
-    description,
-    ownerId: item.ownerId || currentUser.id,
-    dueDate,
-    status: "Pendente",
-    priority: item.priority,
-    visibility: "team",
-    marketingItemId: item.id,
-    createdBy: currentUser.id,
-    createdAt: new Date().toISOString(),
+function syncMarketingTasks(item) {
+  if (item.kind !== "content") return;
+  const linkedTasks = state.internalTasks.filter((task) => task.marketingItemId === item.id || (item.taskId && task.id === item.taskId));
+  const linkedById = new Map(linkedTasks.map((task) => [task.id, task]));
+  const draftIds = new Set(activeMarketingTaskDrafts.map((task) => task.id));
+  const removedTasks = linkedTasks.filter((task) => !draftIds.has(task.id));
+
+  removedTasks.forEach((task) => {
+    recordActivity("task", `Removeu tarefa de marketing: ${task.title || "Tarefa sem título"}.`, `Conteúdo: ${item.title}.`, taskActivityOptions(task, {
+      internalTaskId: task.id,
+      marketingItemId: item.id,
+    }));
   });
-  state.internalTasks.unshift(task);
-  item.taskId = task.id;
-  recordActivity("task", `Criou tarefa de marketing: ${item.title}.`, description, taskActivityOptions(task, {
-    internalTaskId: task.id,
-    marketingItemId: item.id,
-  }));
+  if (removedTasks.length) {
+    const removedIds = new Set(removedTasks.map((task) => task.id));
+    state.internalTasks = state.internalTasks.filter((task) => !removedIds.has(task.id));
+  }
+
+  const createdTasks = [];
+  activeMarketingTaskDrafts.forEach((draft) => {
+    const existingTask = linkedById.get(draft.id) || null;
+    const nextTask = normalizeInternalTask({
+      ...(existingTask || {}),
+      ...draft,
+      title: draft.title.trim(),
+      description: draft.description.trim(),
+      followUpNotes: draft.followUpNotes.trim(),
+      marketingItemId: item.id,
+      createdBy: existingTask?.createdBy || draft.createdBy || currentUser.id,
+      createdAt: existingTask?.createdAt || draft.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    if (existingTask) {
+      const trackedFields = ["title", "description", "followUpNotes", "ownerId", "dueDate", "status", "priority", "visibility", "marketingItemId"];
+      const before = JSON.stringify(trackedFields.map((field) => existingTask[field] || ""));
+      const after = JSON.stringify(trackedFields.map((field) => nextTask[field] || ""));
+      Object.assign(existingTask, nextTask, { updatedAt: before === after ? existingTask.updatedAt : nextTask.updatedAt });
+      if (before !== after) {
+        recordActivity("task", `Atualizou tarefa de marketing: ${nextTask.title}.`, `Conteúdo: ${item.title}.`, taskActivityOptions(nextTask, {
+          internalTaskId: nextTask.id,
+          marketingItemId: item.id,
+        }));
+      }
+      return;
+    }
+    createdTasks.push(nextTask);
+    recordActivity("task", `Criou tarefa de marketing: ${nextTask.title}.`, nextTask.description, taskActivityOptions(nextTask, {
+      internalTaskId: nextTask.id,
+      marketingItemId: item.id,
+    }));
+  });
+  if (createdTasks.length) state.internalTasks.unshift(...createdTasks);
+  item.taskId = activeMarketingTaskDrafts[0]?.id || "";
 }
 
 function updateMarketingStatus(itemId, status) {
@@ -5492,7 +5790,6 @@ function updateMarketingStatus(itemId, status) {
   item.updatedAt = new Date().toISOString();
   item.updatedBy = currentUser.id;
   item.history = [marketingHistoryEntry("Etapa atualizada", [`Etapa: ${previousStatus} -> ${nextStatus}.`]), ...(item.history || [])].slice(0, MARKETING_MAX_HISTORY);
-  syncMarketingTask(item, Boolean(item.taskId));
   recordActivity("marketing", `Atualizou conteúdo: ${item.title}.`, `Etapa: ${previousStatus} -> ${nextStatus}.`, marketingActivityOptions(item));
   saveState();
   renderMarketing();
@@ -5520,8 +5817,9 @@ function deleteMarketingItem() {
   if (currentUser.role !== "admin" || !activeMarketingItemId) return;
   const item = state.marketingItems.find((candidate) => candidate.id === activeMarketingItemId);
   if (!item || !window.confirm(`Excluir ${item.kind === "idea" ? "a ideia" : "o conteúdo"} “${item.title}”?`)) return;
-  const task = item.taskId ? state.internalTasks.find((candidate) => candidate.id === item.taskId) : null;
-  if (task) task.marketingItemId = "";
+  state.internalTasks.forEach((task) => {
+    if (task.marketingItemId === item.id || (item.taskId && task.id === item.taskId)) task.marketingItemId = "";
+  });
   state.marketingItems = state.marketingItems.filter((candidate) => candidate.id !== item.id);
   recordActivity("marketing", `Excluiu ${item.kind === "idea" ? "ideia" : "conteúdo"}: ${item.title}.`, "", marketingActivityOptions(item));
   saveState();
@@ -5533,6 +5831,9 @@ function deleteMarketingItem() {
 
 function closeMarketingDialog() {
   activeMarketingItemId = "";
+  activeMarketingTaskDrafts = [];
+  activeMarketingExpandedTaskId = "";
+  activeMarketingTaskNoteIds = new Set();
   if (el.marketingDialog.open) el.marketingDialog.close();
 }
 

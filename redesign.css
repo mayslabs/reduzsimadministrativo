@@ -9703,6 +9703,384 @@ body.privacy-mode :is(
   font-weight: 400;
 }
 
+#marketingDialog .marketing-tasks-section {
+  display: grid;
+  gap: 12px;
+}
+
+#marketingDialog .marketing-tasks-section[hidden] {
+  display: none;
+}
+
+#marketingDialog .marketing-task-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#marketingDialog .marketing-task-section-heading h3 {
+  margin: 0 0 4px;
+}
+
+#marketingDialog .marketing-task-section-heading p {
+  margin: 0;
+  color: #8a8a8a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#marketingDialog .marketing-task-count {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#marketingDialog .marketing-task-list {
+  display: grid;
+  gap: 10px;
+}
+
+#marketingDialog .marketing-task-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+#marketingDialog .marketing-task-card.expanded {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(0, 155, 119, 0.04);
+}
+
+#marketingDialog .marketing-task-card-header {
+  display: grid;
+  min-height: 72px;
+  padding: 12px;
+  grid-template-columns: 26px minmax(0, 1fr) 30px 30px;
+  align-items: center;
+  gap: 8px;
+}
+
+#marketingDialog .marketing-task-index {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#marketingDialog .marketing-task-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+#marketingDialog .marketing-task-card-copy > strong {
+  overflow: hidden;
+  color: #222222;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#marketingDialog .marketing-task-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  color: #777777;
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+
+#marketingDialog .marketing-task-owner-avatar {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--green-dark);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+#marketingDialog .marketing-task-owner-avatar.owner-camilli {
+  background: var(--green);
+}
+
+#marketingDialog .marketing-task-meta-pill {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #5f5f5f;
+  background: #f0f0f0;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+#marketingDialog .marketing-task-meta-pill.priority-importante {
+  color: #8a5a00;
+  background: #fff2d7;
+}
+
+#marketingDialog .marketing-task-meta-pill.priority-urgente {
+  color: #9f2525;
+  background: #fde7e7;
+}
+
+#marketingDialog .marketing-task-card-header .icon-button {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  color: #777777;
+  background: transparent;
+}
+
+#marketingDialog .marketing-task-card-header .icon-button:hover {
+  color: var(--green-dark);
+  background: var(--soft);
+}
+
+#marketingDialog .marketing-task-card-header .icon-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+#marketingDialog .marketing-task-editor {
+  display: grid;
+  gap: 12px;
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--line);
+}
+
+#marketingDialog .marketing-form .marketing-task-editor .marketing-task-title-field input {
+  min-height: 44px;
+  padding: 12px 0 8px;
+  border: 0;
+  border-bottom: 2px solid var(--green);
+  border-radius: 0;
+  color: #222222;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#marketingDialog .marketing-form .marketing-task-editor .marketing-task-title-field input:focus {
+  outline: 0;
+  box-shadow: none;
+}
+
+#marketingDialog .marketing-form .marketing-task-description-field textarea {
+  min-height: 68px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#marketingDialog .marketing-form .marketing-task-description-field textarea:focus {
+  outline: 0;
+  box-shadow: none;
+}
+
+#marketingDialog .marketing-task-controls {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f1f1f1;
+}
+
+#marketingDialog .marketing-task-control-row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+#marketingDialog .marketing-task-control-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #6a6a6a;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#marketingDialog .marketing-task-control-label svg {
+  width: 14px;
+  height: 14px;
+}
+
+#marketingDialog .marketing-task-options {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#marketingDialog .marketing-task-option {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #333333;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#marketingDialog .marketing-task-option:hover {
+  border-color: rgba(0, 155, 119, 0.55);
+}
+
+#marketingDialog .marketing-task-option.active {
+  border-color: var(--green-dark);
+  color: #ffffff;
+  background: var(--green-dark);
+}
+
+#marketingDialog .marketing-task-owner-option {
+  gap: 6px;
+  padding-left: 5px;
+}
+
+#marketingDialog .marketing-task-owner-option > span {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: var(--green);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+#marketingDialog .marketing-task-owner-option.active > span {
+  color: var(--green-dark);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+#marketingDialog .marketing-form .marketing-task-date-input {
+  width: 140px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+#marketingDialog .marketing-task-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#marketingDialog .marketing-task-follow-up {
+  display: inline-flex;
+  min-height: 36px;
+  padding: 0;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+#marketingDialog .marketing-task-follow-up svg {
+  width: 14px;
+  height: 14px;
+}
+
+#marketingDialog .marketing-task-save {
+  display: inline-flex;
+  min-height: 38px;
+  padding: 0 14px;
+  align-items: center;
+  gap: 7px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+#marketingDialog .marketing-task-save svg {
+  width: 14px;
+  height: 14px;
+}
+
+#marketingDialog .marketing-task-follow-up-field {
+  padding-top: 2px;
+}
+
+#marketingDialog .marketing-form .marketing-task-follow-up-field textarea {
+  min-height: 64px;
+  font-size: 13px;
+}
+
+#marketingDialog .marketing-add-task-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--green-dark);
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#marketingDialog .marketing-add-task-button:hover {
+  border-color: var(--green);
+  background: rgba(0, 155, 119, 0.04);
+}
+
+#marketingDialog .marketing-add-task-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+body.privacy-mode #marketingDialog :is(
+  .marketing-task-card-copy > strong,
+  .marketing-task-meta > span:not(.marketing-task-owner-avatar):not(.marketing-task-meta-pill),
+  .marketing-task-title-field input,
+  .marketing-task-description-field textarea,
+  .marketing-task-follow-up-field textarea
+) {
+  color: transparent !important;
+  text-shadow: none !important;
+  background-color: var(--privacy-mask) !important;
+  border-radius: 4px;
+}
+
 #marketingDialog .marketing-dialog-footer {
   min-height: 70px;
   padding: 14px 24px;
@@ -9801,18 +10179,66 @@ body.privacy-mode :is(
   #marketingDialog .marketing-footer-start,
   #marketingDialog .marketing-dialog-footer > .inline-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  #marketingDialog .marketing-footer-start {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #marketingDialog .marketing-dialog-footer > .inline-actions {
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
   }
 
   #marketingDialog .marketing-dialog-footer button {
     width: 100%;
+  }
+
+  #marketingDialog .marketing-dialog-footer .primary-button {
+    min-height: 48px;
+    padding: 7px 10px;
+    line-height: 1.25;
+    white-space: normal;
   }
 }
 
 @media (max-width: 460px) {
   #marketingDialog #marketingProductionSection .marketing-field-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  #marketingDialog .marketing-task-card-header {
+    grid-template-columns: 26px minmax(0, 1fr) 28px 28px;
+    padding-inline: 10px;
+    gap: 5px;
+  }
+
+  #marketingDialog .marketing-task-control-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  #marketingDialog .marketing-task-date-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #marketingDialog .marketing-form .marketing-task-date-input {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  #marketingDialog .marketing-task-date-options .marketing-task-option {
+    padding-inline: 7px;
+  }
+
+  #marketingDialog .marketing-task-editor-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #marketingDialog .marketing-task-save {
+    justify-content: center;
   }
 
   #marketingDialog .marketing-dialog-title .section-subtitle {

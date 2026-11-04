@@ -23,7 +23,24 @@ test("marketing is a complete team workspace", () => {
   assert.match(appJs, /function renderMarketingProduction/);
   assert.match(appJs, /\$\{renderMarketingProduction\(items\)\}[\s\S]*\$\{renderMarketingCalendar\(items\)\}/);
   assert.match(appJs, /function convertMarketingIdea/);
-  assert.match(appJs, /function syncMarketingTask/);
+  assert.match(appJs, /function syncMarketingTasks\(/);
+});
+
+test("marketing content manages production tasks in the central task source", () => {
+  assert.match(indexHtml, /id="marketingTasksSection"/);
+  assert.match(indexHtml, /id="marketingTaskList"/);
+  assert.match(indexHtml, /id="addMarketingTaskButton"/);
+  assert.match(indexHtml, /05 · Tarefas de produção/);
+  assert.doesNotMatch(indexHtml, /id="marketingGenerateTaskInput"/);
+  assert.match(appJs, /let activeMarketingTaskDrafts = \[\]/);
+  assert.match(appJs, /function renderMarketingTasksEditor\(/);
+  assert.match(appJs, /function syncMarketingTasks\(item\)/);
+  assert.match(appJs, /marketingItemId: item\.id/);
+  assert.match(appJs, /state\.internalTasks\.unshift\(\.\.\.createdTasks\)/);
+  assert.match(appJs, /Salvar conteúdo e \$\{count\}/);
+  assert.match(redesignCss, /\.marketing-task-card\.expanded/);
+  assert.match(redesignCss, /\.marketing-task-control-row/);
+  assert.match(redesignCss, /\.marketing-add-task-button/);
 });
 
 test("marketing content supports multiple publication channels", () => {

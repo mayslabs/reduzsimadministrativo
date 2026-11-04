@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=201" />
+    <link rel="stylesheet" href="./redesign.css?v=202" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -1394,11 +1394,22 @@
               <div class="marketing-script-fields">
                 <label>Legenda<textarea id="marketingCaptionInput" rows="3" maxlength="3000" placeholder="Texto que acompanhará a publicação."></textarea></label>
                 <label>Link da arte ou vídeo<input id="marketingAssetLinkInput" type="url" maxlength="500" placeholder="https://" /></label>
-                <label class="marketing-checkbox-row">
-                  <input id="marketingGenerateTaskInput" type="checkbox" />
-                  <span><strong>Gerar tarefa de produção</strong><small>Cria uma tarefa na Central de Tarefas para o responsável</small></span>
-                </label>
               </div>
+            </section>
+
+            <section id="marketingTasksSection" class="marketing-form-section marketing-tasks-section">
+              <div class="marketing-task-section-heading">
+                <div>
+                  <h3>05 · Tarefas de produção</h3>
+                  <p>Cada tarefa vai para a Central de Tarefas, ligada a este conteúdo</p>
+                </div>
+                <span id="marketingTaskCount" class="marketing-task-count">0</span>
+              </div>
+              <div id="marketingTaskList" class="marketing-task-list"></div>
+              <button id="addMarketingTaskButton" class="marketing-add-task-button" type="button">
+                <i data-lucide="plus"></i>
+                Adicionar tarefa
+              </button>
             </section>
 
             <section id="marketingHistorySection" class="marketing-form-section marketing-history-section" hidden>
@@ -1442,7 +1453,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=201"></script>
+    <script src="./app.js?v=202"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
