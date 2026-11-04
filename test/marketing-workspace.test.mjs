@@ -117,6 +117,16 @@ test("marketing editors use the content and compact idea layouts", () => {
   assert.match(redesignCss, /marketing-dialog-body\s*\{\s*grid-template-columns:\s*repeat\(2/);
 });
 
+test("marketing history timeline can be hidden and shown", () => {
+  assert.match(indexHtml, /id="toggleMarketingHistoryButton"/);
+  assert.match(indexHtml, /aria-label="Ocultar linha do tempo"/);
+  assert.match(appJs, /function setMarketingHistoryExpanded\(expanded\)/);
+  assert.match(appJs, /marketingHistoryList\.hidden = !activeMarketingHistoryExpanded/);
+  assert.match(appJs, /data-lucide="\$\{activeMarketingHistoryExpanded \? "eye-off" : "eye"\}"/);
+  assert.match(redesignCss, /\.marketing-history-heading/);
+  assert.match(redesignCss, /\.marketing-history-toggle/);
+});
+
 test("marketing records synchronize securely and preserve history", () => {
   assert.match(stateApi, /stateKey:\s*"marketingItems"/);
   assert.match(stateApi, /table:\s*"marketing_items"/);

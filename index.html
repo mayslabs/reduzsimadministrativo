@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=179" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=202" />
+    <link rel="stylesheet" href="./redesign.css?v=203" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -1413,7 +1413,12 @@
             </section>
 
             <section id="marketingHistorySection" class="marketing-form-section marketing-history-section" hidden>
-              <h3>Histórico</h3>
+              <div class="marketing-history-heading">
+                <h3>Histórico</h3>
+                <button id="toggleMarketingHistoryButton" class="icon-button marketing-history-toggle" type="button" aria-label="Ocultar linha do tempo" title="Ocultar linha do tempo" aria-expanded="true">
+                  <i data-lucide="eye-off"></i>
+                </button>
+              </div>
               <div id="marketingHistoryList" class="marketing-history-list"></div>
             </section>
           </div>
@@ -1453,7 +1458,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=3"></script>
-    <script src="./app.js?v=202"></script>
+    <script src="./app.js?v=203"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

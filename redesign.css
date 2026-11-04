@@ -10081,6 +10081,43 @@ body.privacy-mode #marketingDialog :is(
   border-radius: 4px;
 }
 
+#marketingDialog .marketing-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+#marketingDialog .marketing-history-heading h3 {
+  margin: 0;
+}
+
+#marketingDialog .marketing-history-toggle {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  flex: 0 0 30px;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--green-dark);
+  background: #ffffff;
+}
+
+#marketingDialog .marketing-history-toggle:hover {
+  border-color: var(--green);
+  background: rgba(0, 155, 119, 0.06);
+}
+
+#marketingDialog .marketing-history-toggle svg {
+  width: 15px;
+  height: 15px;
+}
+
+#marketingDialog .marketing-history-list[hidden] {
+  display: none;
+}
+
 #marketingDialog .marketing-dialog-footer {
   min-height: 70px;
   padding: 14px 24px;

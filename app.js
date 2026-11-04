@@ -323,6 +323,7 @@ let activeMarketingIdeaObjective = "";
 let activeMarketingTaskDrafts = [];
 let activeMarketingExpandedTaskId = "";
 let activeMarketingTaskNoteIds = new Set();
+let activeMarketingHistoryExpanded = true;
 let expandedMarketingIdeas = false;
 let expandedMarketingStages = new Set();
 let marketingDragSuppressClick = false;
@@ -618,6 +619,7 @@ const el = {
   marketingTaskList: document.getElementById("marketingTaskList"),
   addMarketingTaskButton: document.getElementById("addMarketingTaskButton"),
   marketingHistorySection: document.getElementById("marketingHistorySection"),
+  toggleMarketingHistoryButton: document.getElementById("toggleMarketingHistoryButton"),
   marketingHistoryList: document.getElementById("marketingHistoryList"),
   simpleDialog: document.getElementById("simpleDialog"),
   simpleDialogTitle: document.getElementById("simpleDialogTitle"),
@@ -1863,6 +1865,9 @@ function bindEvents() {
   el.marketingTaskList?.addEventListener("click", handleMarketingTaskClick);
   el.marketingTaskList?.addEventListener("input", handleMarketingTaskInput);
   el.marketingTaskList?.addEventListener("change", handleMarketingTaskChange);
+  el.toggleMarketingHistoryButton?.addEventListener("click", () => {
+    setMarketingHistoryExpanded(!activeMarketingHistoryExpanded);
+  });
   el.previousTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(-1));
   el.nextTaskPeriodButton.addEventListener("click", () => moveTaskPeriod(1));
   el.todayTaskButton.addEventListener("click", () => {
@@ -5213,6 +5218,7 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   activeMarketingTaskDrafts = item.kind === "content" ? marketingTasksForItem(item) : [];
   activeMarketingExpandedTaskId = "";
   activeMarketingTaskNoteIds = new Set(activeMarketingTaskDrafts.filter((task) => task.followUpNotes).map((task) => task.id));
+  activeMarketingHistoryExpanded = true;
   el.marketingProductionSection.hidden = item.kind === "idea";
   el.marketingContentDetails.hidden = item.kind === "idea";
   el.marketingTasksSection.hidden = item.kind === "idea";
@@ -5569,6 +5575,7 @@ function renderMarketingDialogHistory(item, existing) {
   if (!existing) {
     el.marketingDialogHistorySummary.innerHTML = "";
     el.marketingHistoryList.innerHTML = "";
+    setMarketingHistoryExpanded(true);
     return;
   }
   el.marketingDialogHistorySummary.innerHTML = `
@@ -5582,6 +5589,19 @@ function renderMarketingDialogHistory(item, existing) {
       <div><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(ownerName(entry.userId))} • ${escapeHtml(formatDateTime(entry.createdAt))}</small>${entry.details.length ? `<p>${entry.details.map(escapeHtml).join(" · ")}</p>` : ""}</div>
     </article>
   `).join("") : `<p class="empty-state compact">Nenhuma alteração posterior ao cadastro.</p>`;
+  setMarketingHistoryExpanded(activeMarketingHistoryExpanded);
+}
+
+function setMarketingHistoryExpanded(expanded) {
+  activeMarketingHistoryExpanded = Boolean(expanded);
+  if (!el.marketingHistoryList || !el.toggleMarketingHistoryButton) return;
+  el.marketingHistoryList.hidden = !activeMarketingHistoryExpanded;
+  const actionLabel = activeMarketingHistoryExpanded ? "Ocultar linha do tempo" : "Mostrar linha do tempo";
+  el.toggleMarketingHistoryButton.setAttribute("aria-label", actionLabel);
+  el.toggleMarketingHistoryButton.setAttribute("title", actionLabel);
+  el.toggleMarketingHistoryButton.setAttribute("aria-expanded", String(activeMarketingHistoryExpanded));
+  el.toggleMarketingHistoryButton.innerHTML = `<i data-lucide="${activeMarketingHistoryExpanded ? "eye-off" : "eye"}"></i>`;
+  refreshIcons();
 }
 
 function collectMarketingForm() {
