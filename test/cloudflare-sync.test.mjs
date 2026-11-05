@@ -120,3 +120,107 @@ test("cloud patches keep deletions scoped to the requested record", async () => 
   assert.deepEqual(body.versions, { "clients:c1": 4 });
   assert.deepEqual(plain(saved.state.clients), [{ id: "c2" }]);
 });
+
+test("cloud saves recover when the write succeeded but its response was lost", async () => {
+  const requests = [];
+  const loadedState = { clients: [{ id: "c1", name: "Antes" }] };
+  const savedState = { clients: [{ id: "c1", name: "Depois" }] };
+  let step = 0;
+  const context = {
+    structuredClone,
+    encodeURIComponent,
+    console,
+    setTimeout: (callback) => callback(),
+    fetch: async (url, options = {}) => {
+      requests.push({ url, options });
+      step += 1;
+      if (step === 1) {
+        return jsonResponse({
+          ok: true,
+          state: loadedState,
+          versions: { "clients:c1": 1 },
+          lastSeq: 1,
+          currentUser: { id: "admin", role: "admin" },
+        });
+      }
+      if (step === 2) throw new TypeError("connection reset");
+      return jsonResponse({
+        ok: true,
+        state: savedState,
+        versions: { "clients:c1": 2 },
+        lastSeq: 2,
+        currentUser: { id: "admin", role: "admin" },
+      });
+    },
+    window: {
+      location: { pathname: "/", replace() {} },
+    },
+  };
+  vm.runInNewContext(source, context);
+
+  const loaded = await context.window.ReduzSimCloud.load();
+  loaded.state.clients[0].name = "Depois";
+  const saved = await context.window.ReduzSimCloud.save(loaded.state, ["clients:c1"]);
+
+  assert.equal(requests.length, 3);
+  assert.equal(requests[1].options.method, "POST");
+  assert.equal(requests[2].options.method, "GET");
+  assert.deepEqual(plain(saved.state), savedState);
+});
+
+test("cloud saves retry a transient server failure after verification", async () => {
+  const requests = [];
+  const loadedState = { clients: [{ id: "c1", name: "Antes" }] };
+  let step = 0;
+  const context = {
+    structuredClone,
+    encodeURIComponent,
+    console,
+    setTimeout: (callback) => callback(),
+    fetch: async (url, options = {}) => {
+      requests.push({ url, options });
+      step += 1;
+      if (step === 1) {
+        return jsonResponse({
+          ok: true,
+          state: loadedState,
+          versions: { "clients:c1": 3 },
+          lastSeq: 1,
+          currentUser: { id: "admin", role: "admin" },
+        });
+      }
+      if (step === 2) {
+        return jsonResponse({ error: "Temporariamente indisponível", code: "STATE_SAVE_FAILED" }, 503);
+      }
+      if (step === 3) {
+        return jsonResponse({
+          ok: true,
+          state: { clients: [{ id: "c1", name: "Antes" }] },
+          versions: { "clients:c1": 3 },
+          lastSeq: 1,
+          currentUser: { id: "admin", role: "admin" },
+        });
+      }
+      return jsonResponse({
+        ok: true,
+        statePatch: { clients: [{ id: "c1", name: "Depois" }] },
+        versions: { "clients:c1": 4 },
+        partialVersions: true,
+        deletedKeys: [],
+        lastSeq: 2,
+        currentUser: { id: "admin", role: "admin" },
+      });
+    },
+    window: {
+      location: { pathname: "/", replace() {} },
+    },
+  };
+  vm.runInNewContext(source, context);
+
+  const loaded = await context.window.ReduzSimCloud.load();
+  loaded.state.clients[0].name = "Depois";
+  const saved = await context.window.ReduzSimCloud.save(loaded.state, ["clients:c1"]);
+
+  assert.equal(requests.length, 4);
+  assert.deepEqual(plain(saved.state.clients), [{ id: "c1", name: "Depois" }]);
+});

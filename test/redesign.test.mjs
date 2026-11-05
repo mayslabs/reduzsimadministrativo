@@ -11,7 +11,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 
 test("the supplied redesign is loaded and shipped", () => {
   assert.match(indexHtml, /styles\.css\?v=210/);
-  assert.match(indexHtml, /redesign\.css\?v=210/);
+  assert.match(indexHtml, /redesign\.css\?v=211/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -33,7 +33,7 @@ test("client metrics act as the new quick filters", () => {
 
 test("home client list follows the supplied compact table behavior", () => {
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
-  assert.match(appJs, /Definir próxima ação/);
+  assert.doesNotMatch(appJs, /Definir próxima ação/);
   assert.match(appJs, /compact-client-empty/);
   assert.match(appJs, /function compactClientDisplayName/);
   assert.match(appJs, /function compactClientArea/);
@@ -58,7 +58,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=211/);
+  assert.match(indexHtml, /app\.js\?v=212/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -69,7 +69,7 @@ test("client table headers sort records and card mode is removed", () => {
   assert.match(appJs, /activeClientSortDirection = activeClientSortDirection === "asc" \? "desc" : "asc"/);
   assert.match(appJs, /class="compact-client-created">\$\{escapeHtml\(clientCreatedDate\(client\)\)\}/);
   assert.match(appJs, /clientSortHeader\("name", "Cliente"\)[\s\S]*clientSortHeader\("created", "Cadastro"\)[\s\S]*clientSortHeader\("state", "UF"\)[\s\S]*clientSortHeader\("area", "Área"\)/);
-  assert.match(redesignCss, /grid-template-columns:\s*minmax\(190px, 2\.4fr\) 100px 42px 96px/);
+  assert.match(redesignCss, /grid-template-columns:\s*minmax\(220px, 2\.8fr\) 106px 48px 100px/);
   assert.match(redesignCss, /\.compact-client-sort/);
   assert.match(redesignCss, /\.compact-client-row,[\s\S]*?min-height:\s*68px;[\s\S]*?padding:\s*13px 20px/);
 });
@@ -179,8 +179,11 @@ test("client summary exposes pending work in the redesigned dialog", () => {
   assert.match(appJs, /function renderClientSummaryPending/);
   assert.match(appJs, /function setStatusPickerExpanded/);
   const metaSource = appJs.slice(appJs.indexOf("function renderClientDialogMeta"), appJs.indexOf("function renderClientSummaryPending"));
-  assert.match(metaSource, /destinationLabel\(activeClient\)[\s\S]*activeClient\.state[\s\S]*activeClient\.area/);
+  assert.match(metaSource, /destinationLabel\(activeClient\)[\s\S]*activeClient\.state[\s\S]*activeClient\.area[\s\S]*activeClient\.startDate[\s\S]*activeClient\.endDate/);
   assert.doesNotMatch(metaSource, /activeClient\.cpf|contractClosedDate|Fechado em/);
+  assert.doesNotMatch(indexHtml, /data-field="nextAction"/);
+  assert.match(appJs, /function migrateClientNextActionToNote/);
+  assert.match(appJs, /return \{ \.\.\.client, nextAction: "", notes \}/);
   assert.match(appJs, /const CLIENT_STATUS_THEME/);
   assert.match(appJs, /data-open-finance-summary/);
   assert.match(appJs, /Guias pagas no controle mensal/);

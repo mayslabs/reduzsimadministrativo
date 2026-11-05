@@ -763,8 +763,12 @@ function migrateState(savedState = {}, persist = false) {
 
   const userCleanup = normalizeUsersForMigration(migrated.users);
   migrated.users = userCleanup.users;
+  const nextActionNoteUserId = migrated.users.find((user) => normalize(user.name) === "mayssa")?.id
+    || migrated.users.find((user) => user.id === "user-mayssa")?.id
+    || migrated.users[0]?.id
+    || "";
 
-  migrated.clients = migrated.clients.map((client) => ({
+  migrated.clients = migrated.clients.map((client) => migrateClientNextActionToNote({
     id: id(),
     canonicalClientId: "",
     contractId: "",
@@ -842,7 +846,7 @@ function migrateState(savedState = {}, persist = false) {
     workerMessages: normalizeWorkerMessages(client, migrated.users[0]?.id || ""),
     financeMessages: normalizeFinanceMessages(client, migrated.users[0]?.id || ""),
     statusIds: Array.isArray(client.statusIds) ? client.statusIds : [],
-  }));
+  }, nextActionNoteUserId));
 
   migrated.clients = migrated.clients.flatMap((client) => splitClientWorksIntoCards(client, migrated.users[0]?.id || ""));
   migrateRegularizationLinks(migrated);
@@ -1432,6 +1436,26 @@ function normalizeClientNote(note = {}, client = {}, fallbackUserId = "") {
   };
 }
 
+function migrateClientNextActionToNote(client = {}, userId = "") {
+  const nextAction = String(client.nextAction || "").trim();
+  if (!nextAction) return client;
+
+  const noteId = `next-action-migration-${client.id}`;
+  const notes = Array.isArray(client.notes) ? [...client.notes] : [];
+  if (!notes.some((note) => note.id === noteId)) {
+    notes.unshift({
+      id: noteId,
+      text: nextAction,
+      userId,
+      pinned: false,
+      pinnedAt: null,
+      createdAt: client.updatedAt || client.createdAt || new Date().toISOString(),
+      updatedAt: null,
+    });
+  }
+  return { ...client, nextAction: "", notes };
+}
+
 function normalizeClientTask(task, client = {}, fallbackUserId = "") {
   return {
     id: task.id || id(),
@@ -1870,6 +1894,7 @@ function applyCloudPayload(payload, options = {}) {
 
 function showSyncError(error) {
   const message = error?.message || "Nao foi possivel sincronizar os dados.";
+  const shouldAlert = !activeSyncIssue || activeSyncIssue.detail !== message;
   activeSyncIssue = {
     id: "active-sync-issue",
     type: "sync",
@@ -1884,7 +1909,9 @@ function showSyncError(error) {
   };
   if (el.loginStatus) el.loginStatus.textContent = message;
   if (currentUser && el.updatesSection && !el.updatesSection.hidden) renderUpdates();
-  window.alert(`${message}\n\nA alteracao continua nesta tela. Tente salvar novamente.`);
+  if (shouldAlert) {
+    window.alert(`${message}\n\nA alteracao continua nesta tela. Tente salvar novamente.`);
+  }
 }
 
 function clearSyncIssue() {
@@ -10284,7 +10311,6 @@ function clientAttentionReasons(client = {}) {
   if (deadlines.today.length) reasons.push({ label: `${deadlines.today.length} prazo(s) hoje`, tone: "critical" });
   if (guideAwaitingPayment(client)) reasons.push({ label: "Guia aguardando pagamento", tone: "warning" });
   if (clientHasStatusName(client, ["Pendência do cliente", "Aguardando cliente"])) reasons.push({ label: "Pendência do cliente", tone: "warning" });
-  if (!String(client.nextAction || "").trim()) reasons.push({ label: "Sem próxima ação", tone: "info" });
   if (!client.internalOwner) reasons.push({ label: "Sem responsável", tone: "warning" });
   if (isCurrentMonthPending(client)) reasons.push({ label: "Mês atual pendente", tone: "warning" });
   return reasons;
@@ -10303,7 +10329,6 @@ function clientUrgencyScore(client = {}) {
   if (clientHasStatusName(client, ["Pendência do cliente", "Aguardando cliente"])) score += 45;
   if (isCurrentMonthPending(client)) score += 35;
   if (!client.internalOwner) score += 30;
-  if (!String(client.nextAction || "").trim()) score += 18;
   score += Math.min(clientDataGaps(client).length * 4, 20);
   return score;
 }
@@ -10395,7 +10420,6 @@ function renderCompactClients(clients) {
           <span>Status</span>
           ${clientSortHeader("tasks", "Tarefas")}
           ${clientSortHeader("deadlines", "Prazos")}
-          <span>Próxima ação</span>
           <span></span>
         </div>
         ${clients.map((client) => renderCompactClientRow(client)).join("")}
@@ -10447,7 +10471,6 @@ function renderCompactClientRow(client) {
   const deadlines = client.deadlines || [];
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   const workLine = [workTitle ? workTitle.slice(0, -3) : "", destinationLabel(client)].filter(Boolean).join(" | ");
-  const nextAction = String(client.nextAction || "").trim();
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
@@ -10466,9 +10489,6 @@ function renderCompactClientRow(client) {
           : `<span class="compact-client-empty" aria-label="Sem tarefas">—</span>`
       }
       <span class="compact-client-deadline ${deadlines.length ? "has-value" : ""}" aria-label="${deadlines.length ? `${deadlines.length} prazo(s)` : "Sem prazos"}">${deadlines.length || "—"}</span>
-      <span class="compact-client-next ${nextAction ? "" : "is-empty"}">
-        ${nextAction ? escapeHtml(nextAction) : `<i data-lucide="plus"></i> Definir próxima ação`}
-      </span>
       <span class="compact-open-pill" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
     </button>
   `;
@@ -10664,6 +10684,8 @@ function renderClientDialogMeta() {
     destinationLabel(activeClient),
     activeClient.state,
     activeClient.area,
+    activeClient.startDate ? `Início ${formatDate(activeClient.startDate)}` : "",
+    activeClient.endDate ? `Término ${formatDate(activeClient.endDate)}` : "",
   ].filter(Boolean);
   el.clientDialogMeta.textContent = details.join(" · ");
 }
@@ -12375,7 +12397,6 @@ function summarizeClientChanges(previousClient, nextClient) {
     infoOwner: "Responsável por informações",
     internalOwner: "Responsável interno",
     folderPath: "Pasta no OneDrive",
-    nextAction: "Próxima ação",
     workTitle: "Título da obra",
     workResponsible: "Responsável da obra",
     workResponsiblePhone: "Telefone do responsável da obra",

@@ -38,7 +38,7 @@
 
   async function save(state, dirtyKeys = null) {
     const usesPatch = Array.isArray(dirtyKeys);
-    const payload = await request("/api/state", {
+    const options = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -46,7 +46,29 @@
         versions: usesPatch ? versionsForDirtyKeys(dirtyKeys) : versions,
         ...(usesPatch ? { dirtyKeys, compact: true } : {}),
       }),
-    });
+    };
+
+    let payload;
+    try {
+      payload = await request("/api/state", options);
+      assertSavePayload(payload);
+    } catch (error) {
+      if (!isRetryableSyncError(error)) throw error;
+
+      const verifiedPayload = await verifySavedState(state, dirtyKeys);
+      if (verifiedPayload) return verifiedPayload;
+
+      await wait(450);
+      try {
+        payload = await request("/api/state", options);
+        assertSavePayload(payload);
+      } catch (retryError) {
+        const verifiedRetry = await verifySavedState(state, dirtyKeys);
+        if (verifiedRetry) return verifiedRetry;
+        throw retryError;
+      }
+    }
+
     if (payload.statePatch) {
       payload.state = mergeStatePatch(state, payload.statePatch, payload.deletedKeys);
     }
@@ -81,30 +103,117 @@
     });
   }
 
-  async function request(url, options) {
-    const response = await fetch(url, {
-      credentials: "same-origin",
-      headers: {
-        Accept: "application/json",
-        ...(options.headers || {}),
-      },
-      ...options,
-    });
+  async function request(url, options = {}) {
+    let response;
+    try {
+      response = await fetch(url, {
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+    } catch (cause) {
+      const error = new Error("Não foi possível conectar ao servidor para sincronizar os dados.");
+      error.name = "NetworkError";
+      error.code = "NETWORK_ERROR";
+      error.cause = cause;
+      throw error;
+    }
 
-    const payload = await response.json().catch(() => ({}));
+    const payload = await response.json().catch(() => null);
     if (response.status === 401) {
       window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
-      throw new Error("Sessão encerrada.");
+      const error = new Error("Sessão encerrada.");
+      error.code = "UNAUTHORIZED";
+      error.status = response.status;
+      throw error;
     }
-    if (response.status === 409 && payload.code === "SYNC_CONFLICT") {
+    if (response.status === 409 && payload?.code === "SYNC_CONFLICT") {
       throw new SyncConflictError(payload.conflicts || []);
     }
     if (!response.ok) {
-      const error = new Error(payload.error || "Não foi possível sincronizar os dados.");
-      error.code = payload.code || "REQUEST_FAILED";
+      const error = new Error(payload?.error || "Não foi possível sincronizar os dados.");
+      error.code = payload?.code || "REQUEST_FAILED";
+      error.status = response.status;
+      throw error;
+    }
+    if (!payload || typeof payload !== "object") {
+      const error = new Error("O servidor não confirmou a sincronização dos dados.");
+      error.code = "INVALID_RESPONSE";
+      error.status = response.status;
       throw error;
     }
     return payload;
+  }
+
+  function assertSavePayload(payload) {
+    if (payload?.state || payload?.statePatch) return;
+    const error = new Error("O servidor não confirmou a sincronização dos dados.");
+    error.code = "INVALID_RESPONSE";
+    throw error;
+  }
+
+  function isRetryableSyncError(error) {
+    return ["NETWORK_ERROR", "INVALID_RESPONSE", "STATE_SAVE_FAILED"].includes(error?.code)
+      || [408, 425, 429, 500, 502, 503, 504].includes(Number(error?.status));
+  }
+
+  async function verifySavedState(state, dirtyKeys) {
+    if (!Array.isArray(dirtyKeys)) return null;
+    try {
+      const payload = await request("/api/state", { method: "GET" });
+      if (!dirtyStateMatches(payload.state, state, dirtyKeys)) return null;
+      remember(payload);
+      return payload;
+    } catch (error) {
+      if (error?.code === "UNAUTHORIZED") throw error;
+      return null;
+    }
+  }
+
+  function dirtyStateMatches(remoteState, desiredState, dirtyKeys) {
+    if (!remoteState || typeof remoteState !== "object") return false;
+    return dirtyKeys.every((dirtyKey) => {
+      const separator = String(dirtyKey).indexOf(":");
+      if (separator < 1) return false;
+      const stateKey = String(dirtyKey).slice(0, separator);
+      const recordId = String(dirtyKey).slice(separator + 1);
+
+      if (stateKey === "settings") {
+        return sameRecord(remoteState[recordId], desiredState[recordId], stateKey);
+      }
+
+      const remoteRecord = (Array.isArray(remoteState[stateKey]) ? remoteState[stateKey] : [])
+        .find((item) => String(item?.id || "") === recordId);
+      const desiredRecord = (Array.isArray(desiredState[stateKey]) ? desiredState[stateKey] : [])
+        .find((item) => String(item?.id || "") === recordId);
+      return sameRecord(remoteRecord, desiredRecord, stateKey);
+    });
+  }
+
+  function sameRecord(remoteRecord, desiredRecord, stateKey) {
+    if (remoteRecord === undefined || desiredRecord === undefined) {
+      return remoteRecord === desiredRecord;
+    }
+    return JSON.stringify(comparableRecord(remoteRecord, stateKey))
+      === JSON.stringify(comparableRecord(desiredRecord, stateKey));
+  }
+
+  function comparableRecord(record, stateKey) {
+    const comparable = cloneData(record);
+    if (stateKey === "marketingItems") {
+      delete comparable.createdAt;
+      delete comparable.createdBy;
+      delete comparable.updatedAt;
+      delete comparable.updatedBy;
+    }
+    return comparable;
+  }
+
+  function wait(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
   }
 
   function remember(payload) {

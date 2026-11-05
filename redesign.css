@@ -521,7 +521,7 @@ textarea:focus {
 .compact-client-head,
 .compact-client-row {
   min-width: 1080px;
-  grid-template-columns: minmax(190px, 2.4fr) 100px 42px 96px minmax(150px, 1.5fr) 104px 64px minmax(170px, 1.7fr) 36px;
+  grid-template-columns: minmax(220px, 2.8fr) 106px 48px 100px minmax(180px, 1.8fr) 110px 72px 36px;
   gap: clamp(12px, 1vw, 16px);
 }
 
@@ -727,35 +727,6 @@ textarea:focus {
 .compact-client-deadline.has-value {
   color: var(--green-dark);
   font-weight: 600;
-}
-
-.compact-client-next {
-  color: #5c5c5c;
-  display: -webkit-box;
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.45;
-  text-overflow: ellipsis;
-  text-wrap: pretty;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  white-space: normal;
-}
-
-.compact-client-next.is-empty {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--green);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.compact-client-next.is-empty svg {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
 }
 
 .compact-open-pill {
@@ -5414,20 +5385,6 @@ body.privacy-mode #dataSection :is(
   text-align: center;
 }
 
-.summary-next-action {
-  display: grid;
-  gap: 8px;
-  color: var(--green-dark);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.summary-next-action textarea {
-  min-height: 112px;
-  color: #333333;
-  font-weight: 400;
-}
-
 .client-summary-pending {
   display: grid;
   gap: 10px;
@@ -6999,8 +6956,7 @@ body.privacy-mode :is(
 
   .compact-client-state::before,
   .compact-client-area::before,
-  .compact-client-created::before,
-  .compact-client-next::before {
+  .compact-client-created::before {
     color: #7a7a7a;
     font-size: 9.5px;
     font-weight: 600;
@@ -7024,19 +6980,9 @@ body.privacy-mode :is(
     grid-column: 1 / -1;
   }
 
-  .compact-client-status,
-  .compact-client-next {
+  .compact-client-status {
     grid-column: 1 / -1;
     justify-self: start;
-  }
-
-  .compact-client-next {
-    display: grid;
-    gap: 3px;
-  }
-
-  .compact-client-next::before {
-    content: "Próxima ação";
   }
 
   .compact-open-pill {
