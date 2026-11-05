@@ -3,6 +3,7 @@ const LEGACY_STORAGE_KEYS = ["reduzsim_client_flow_v1"];
 const SESSION_KEY = "reduzsim_current_user_v2";
 const GUIDANCE_COLLAPSE_KEY = "reduzsim_collapsed_guidance_v1";
 const APP_VERSION = currentAppVersion();
+const TASK_RECURRENCE = globalThis.ReduzSimTaskRecurrence;
 
 const firebaseConfig = {
   apiKey: "AIzaSyAwgOrvq2QGUEPObgkAPXyG_KyJ3l-305w",
@@ -967,9 +968,13 @@ function normalizeInternalTask(task) {
     priority: normalizeTaskPriority(task.priority),
     visibility: task.visibility === "admin" ? "admin" : "team",
     marketingItemId: task.marketingItemId || "",
+    recorrencia: TASK_RECURRENCE.normalize(task.recorrencia),
+    proximaGerada: Boolean(task.proximaGerada),
+    recurrenceParentId: task.recurrenceParentId || "",
     createdBy: task.createdBy || "",
     createdAt: task.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
+    completedAt: task.completedAt || null,
   };
 }
 
@@ -1466,9 +1471,14 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
     dueDate: task.dueDate || "",
     status: localizeLabel(task.status || "Pendente"),
     priority: normalizeTaskPriority(task.priority),
+    visibility: task.visibility === "admin" ? "admin" : "team",
+    recorrencia: TASK_RECURRENCE.normalize(task.recorrencia),
+    proximaGerada: Boolean(task.proximaGerada),
+    recurrenceParentId: task.recurrenceParentId || "",
     createdBy: task.createdBy || client.internalOwner || task.ownerId || fallbackUserId,
     createdAt: task.createdAt || client.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
+    completedAt: task.completedAt || null,
   };
 }
 
@@ -7831,6 +7841,7 @@ function renderTaskTableRow(item) {
             <span>${escapeHtml(ownerName(item.ownerId))}</span>
           </span>
           <span class="task-row-date ${item.urgency}"><i data-lucide="calendar"></i>${escapeHtml(taskDateMetaText(item))}</span>
+          ${taskRecurrenceBadge(item.recorrencia)}
           <span class="task-row-status"><span class="task-status-pill">${escapeHtml(statusLabel)}</span></span>
           ${priority === "Normal" ? "" : `<span class="task-row-priority"><span class="priority-pill">${escapeHtml(priority)}</span></span>`}
         </div>
@@ -7861,6 +7872,7 @@ function renderTaskSideRow(item) {
       <div class="task-side-meta">
         <span class="task-side-owner">${taskOwnerAvatar(item.ownerId)}<span>${escapeHtml(ownerName(item.ownerId))}</span></span>
         <span class="task-waiting-age">${escapeHtml(taskWaitingElapsedText(item))}</span>
+        ${taskRecurrenceBadge(item.recorrencia)}
       </div>
       <div class="task-side-actions">
         ${taskStatusControl(item, statusLabel)}
@@ -7893,6 +7905,13 @@ function taskDateText(item) {
   const base = item.date === today ? "Hoje" : item.date === tomorrow ? "Amanhã" : formatDate(item.date);
   const timeMatch = String(item.description || "").match(/Horário:\s*([0-9]{2}:[0-9]{2})/);
   return timeMatch ? `${base}, ${timeMatch[1]}` : base;
+}
+
+function taskRecurrenceBadge(value) {
+  const recurrence = TASK_RECURRENCE.normalize(value);
+  if (!recurrence) return "";
+  const tooltip = `${TASK_RECURRENCE.fullLabel(recurrence)} · ao concluir, a próxima é criada automaticamente`;
+  return `<span class="task-recurrence-badge" title="${escapeAttr(tooltip)}"><i data-lucide="repeat-2"></i>${escapeHtml(TASK_RECURRENCE.shortLabel(recurrence))}</span>`;
 }
 
 function taskDateMetaText(item) {
@@ -8133,8 +8152,14 @@ function bindTaskCenterActions() {
       if (select.dataset.taskSource === "internal") {
         const task = state.internalTasks.find((item) => item.id === select.dataset.taskId);
         if (!task) return;
+        const oldStatus = localizeLabel(task.status || "Pendente");
+        if (oldStatus === select.value) return;
         task.status = select.value;
         task.updatedAt = new Date().toISOString();
+        task.completedAt = isCompletedTaskStatus(select.value) ? new Date().toISOString() : null;
+        if (!isCompletedTaskStatus(oldStatus) && isCompletedTaskStatus(select.value)) {
+          createNextRecurringTask(task);
+        }
         recordActivity("task", `Alterou tarefa interna: ${task.title || "Tarefa sem título"}.`, `Status: ${select.value}.`, taskActivityOptions(task, {
           internalTaskId: task.id,
           visibility: task.visibility,
@@ -8153,7 +8178,12 @@ function bindTaskCenterActions() {
       const oldStatus = localizeLabel(task.status || "Pendente");
       if (oldStatus === select.value) return;
       task.status = select.value;
+      task.updatedAt = new Date().toISOString();
+      task.completedAt = isCompletedTaskStatus(select.value) ? new Date().toISOString() : null;
       client.updatedAt = new Date().toISOString();
+      if (!isCompletedTaskStatus(oldStatus) && isCompletedTaskStatus(select.value)) {
+        createNextRecurringTask(task, { client, clientSource: linked.source });
+      }
       addHistoryEntry(client, "Status de tarefa alterado", [
         `${task.title || "Tarefa sem título"}: ${oldStatus} -> ${select.value}.`,
       ]);
@@ -8306,25 +8336,31 @@ function renderTaskOverview(items) {
 
 function taskCenterItems() {
   const clientItems = state.clients.flatMap((client) => {
-    const tasks = (client.tasks || []).map((task) => {
-      const item = {
-        id: task.id,
-        source: "Administrativo",
-        kind: "Tarefa",
-        title: task.title || "Tarefa sem título",
-        description: task.description || "",
-        followUpNotes: task.followUpNotes || "",
-        ownerId: task.ownerId,
-        createdBy: task.createdBy || "",
-        date: task.dueDate || "",
-        status: localizeLabel(task.status || "Pendente"),
-        priority: normalizeTaskPriority(task.priority),
-        clientId: client.id,
-        clientName: client.clientName || "Cliente sem nome",
-      };
-      item.urgency = taskUrgency(item);
-      return item;
-    });
+    const tasks = (client.tasks || [])
+      .filter((task) => task.visibility !== "admin" || currentUser.role === "admin")
+      .map((task) => {
+        const item = {
+          id: task.id,
+          source: "Administrativo",
+          kind: "Tarefa",
+          title: task.title || "Tarefa sem título",
+          description: task.description || "",
+          followUpNotes: task.followUpNotes || "",
+          ownerId: task.ownerId,
+          createdBy: task.createdBy || "",
+          date: task.dueDate || "",
+          status: localizeLabel(task.status || "Pendente"),
+          priority: normalizeTaskPriority(task.priority),
+          visibility: task.visibility || "team",
+          recorrencia: task.recorrencia,
+          proximaGerada: Boolean(task.proximaGerada),
+          clientId: client.id,
+          clientSource: "inss",
+          clientName: client.clientName || "Cliente sem nome",
+        };
+        item.urgency = taskUrgency(item);
+        return item;
+      });
 
     const deadlines = (client.deadlines || []).map((deadline) => {
       const completed = ["Concluída", "Concluído"].includes(localizeLabel(deadline.status || "Pendente"));
@@ -8350,26 +8386,31 @@ function taskCenterItems() {
   });
 
   const regularizationItems = (state.regularizationClients || []).flatMap((process) => {
-    const tasks = (process.tasks || []).map((task) => {
-      const item = {
-        id: task.id,
-        source: "Regularização",
-        clientSource: "regularization",
-        kind: "Tarefa",
-        title: task.title || "Tarefa sem título",
-        description: task.description || "",
-        followUpNotes: task.followUpNotes || "",
-        ownerId: task.ownerId,
-        createdBy: task.createdBy || "",
-        date: task.dueDate || "",
-        status: localizeLabel(task.status || "Pendente"),
-        priority: normalizeTaskPriority(task.priority),
-        clientId: process.id,
-        clientName: process.clientName || "Cliente sem nome",
-      };
-      item.urgency = taskUrgency(item);
-      return item;
-    });
+    const tasks = (process.tasks || [])
+      .filter((task) => task.visibility !== "admin" || currentUser.role === "admin")
+      .map((task) => {
+        const item = {
+          id: task.id,
+          source: "Regularização",
+          clientSource: "regularization",
+          kind: "Tarefa",
+          title: task.title || "Tarefa sem título",
+          description: task.description || "",
+          followUpNotes: task.followUpNotes || "",
+          ownerId: task.ownerId,
+          createdBy: task.createdBy || "",
+          date: task.dueDate || "",
+          status: localizeLabel(task.status || "Pendente"),
+          priority: normalizeTaskPriority(task.priority),
+          visibility: task.visibility || "team",
+          recorrencia: task.recorrencia,
+          proximaGerada: Boolean(task.proximaGerada),
+          clientId: process.id,
+          clientName: process.clientName || "Cliente sem nome",
+        };
+        item.urgency = taskUrgency(item);
+        return item;
+      });
     const deadlines = (process.deadlines || []).map((deadline) => {
       const item = {
         id: deadline.id,
@@ -8411,6 +8452,8 @@ function taskCenterItems() {
         status: localizeLabel(task.status || "Pendente"),
         priority: normalizeTaskPriority(task.priority),
         visibility: task.visibility || "team",
+        recorrencia: task.recorrencia,
+        proximaGerada: Boolean(task.proximaGerada),
         internalTaskId: task.id,
         marketingItemId: marketingItem?.id || "",
         clientName: marketingItem?.title || (task.visibility === "admin" ? "Somente admin" : "Equipe interna"),
@@ -8547,6 +8590,7 @@ function renderTaskCalendarCard(item, compact = false, options = {}) {
         <span class="task-status-pill">${escapeHtml(statusLabel)}</span>
         <span class="urgency-pill">${urgencyLabel(item.urgency)}</span>
         ${showDate && item.date ? `<span class="task-date-chip"><i data-lucide="calendar"></i>${formatDate(item.date)}</span>` : ""}
+        ${taskRecurrenceBadge(item.recorrencia)}
       </div>
       ${
         compact
@@ -11513,19 +11557,23 @@ function renderTasks() {
 }
 
 function clientWorkItems(client = {}) {
-  const tasks = (client.tasks || []).map((task) => ({
-    id: task.id,
-    kind: "task",
-    label: "Tarefa",
-    title: task.title || "Tarefa sem descrição",
-    description: task.description || "",
-    followUpNotes: task.followUpNotes || "",
-    ownerId: task.ownerId,
-    date: task.dueDate || "",
-    tag: normalizeTaskPriority(task.priority),
-    status: localizeLabel(task.status || "Pendente"),
-    done: ["Concluída", "Concluído"].includes(localizeLabel(task.status || "Pendente")),
-  }));
+  const tasks = (client.tasks || [])
+    .filter((task) => task.visibility !== "admin" || currentUser.role === "admin")
+    .map((task) => ({
+      id: task.id,
+      kind: "task",
+      label: "Tarefa",
+      title: task.title || "Tarefa sem descrição",
+      description: task.description || "",
+      followUpNotes: task.followUpNotes || "",
+      ownerId: task.ownerId,
+      date: task.dueDate || "",
+      tag: normalizeTaskPriority(task.priority),
+      status: localizeLabel(task.status || "Pendente"),
+      recorrencia: task.recorrencia,
+      proximaGerada: Boolean(task.proximaGerada),
+      done: ["Concluída", "Concluído"].includes(localizeLabel(task.status || "Pendente")),
+    }));
   const deadlines = (client.deadlines || []).map((deadline) => ({
     id: deadline.id,
     kind: "deadline",
@@ -11591,6 +11639,7 @@ function renderClientWorkCard(item) {
         <div class="client-task-card-meta">
           <span class="client-task-owner"><i>${escapeHtml(userInitials(ownerName(item.ownerId)))}</i>${escapeHtml(ownerName(item.ownerId))}</span>
           <strong class="${overdue ? "overdue" : ""}">${escapeHtml(clientWorkDueText(item))}</strong>
+          ${taskRecurrenceBadge(item.recorrencia)}
           ${item.followUpNotes ? `<span class="client-task-follow-up"><i data-lucide="message-square"></i>${escapeHtml(item.followUpNotes)}</span>` : ""}
         </div>
       </div>
@@ -11654,6 +11703,9 @@ function bindClientWorkActions() {
       record.status = isDone ? "Pendente" : isTask ? "Concluída" : "Concluído";
       record.completedAt = isDone ? null : new Date().toISOString();
       record.updatedAt = new Date().toISOString();
+      if (isTask && !isDone) {
+        createNextRecurringTask(record, { client: activeClient, clientSource: "inss" });
+      }
       renderTasks();
       await persistActiveClient();
     });
@@ -12795,7 +12847,6 @@ function openClientTaskDialog(taskId = null) {
       alert("Informe o nome da tarefa.");
       return false;
     }
-
     const now = new Date().toISOString();
     const payload = {
       title: values.title,
@@ -12967,9 +13018,9 @@ function renderClientDeadlineEditorBody(draft, editing = false) {
   `;
 }
 
-function clientEditorSettingRow(icon, label, control) {
+function clientEditorSettingRow(icon, label, control, className = "") {
   return `
-    <div class="client-editor-setting-row">
+    <div class="client-editor-setting-row ${escapeAttr(className)}">
       <span class="client-editor-setting-label"><i data-lucide="${icon}"></i>${escapeHtml(label)}</span>
       <div class="client-editor-setting-control">${control}</div>
     </div>
@@ -13081,6 +13132,112 @@ function bindClientWorkEditorInteractions({ updateFooterOnDate = false } = {}) {
   });
 }
 
+function bindTaskRecurrenceEditorInteractions() {
+  const root = el.simpleDialogBody;
+  if (!root.querySelector("[data-task-recurrence-details]")) return;
+
+  const field = (name) => root.querySelector(`[data-client-editor-field="${name}"]`);
+  const titleInput = field("title");
+  const dueDateInput = field("dueDate");
+  const frequencyInput = field("recurrenceFrequency");
+  const weekdayInput = field("recurrenceWeekdays");
+  const recurrenceDayInput = field("recurrenceDay");
+  const monthInput = field("recurrenceMonth");
+  const details = root.querySelector("[data-task-recurrence-details]");
+  const summary = root.querySelector("[data-task-recurrence-summary] span");
+  const endDateInput = field("recurrenceEndDate");
+
+  const readValues = () => {
+    const values = {};
+    root.querySelectorAll("[data-client-editor-field]").forEach((input) => {
+      values[input.dataset.clientEditorField] = String(input.value || "").trim();
+    });
+    return values;
+  };
+
+  const selectedBaseDate = () => {
+    const value = dueDateInput?.value || localDateKey();
+    const date = new Date(`${value}T12:00:00`);
+    return Number.isNaN(date.getTime()) ? new Date() : date;
+  };
+
+  const selectDefaultWeekday = (weekday) => {
+    if (weekdayInput) weekdayInput.value = String(weekday);
+    root.querySelectorAll('[data-editor-choice-field="recurrenceWeekdays"]').forEach((button) => {
+      const active = Number(button.dataset.editorChoiceValue) === weekday;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  };
+
+  const syncRuleDefaultsFromDueDate = () => {
+    const date = selectedBaseDate();
+    const day = String(date.getDate());
+    if (recurrenceDayInput) recurrenceDayInput.value = day;
+    root.querySelectorAll("[data-task-recurrence-day-input]").forEach((input) => {
+      input.value = day;
+    });
+    if (monthInput) monthInput.value = String(date.getMonth());
+    selectDefaultWeekday(TASK_RECURRENCE.weekdayIndex(date));
+  };
+
+  const update = () => {
+    const values = readValues();
+    const frequency = values.recurrenceFrequency || "";
+    if (details) details.hidden = !frequency;
+    root.querySelectorAll("[data-task-recurrence-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.taskRecurrencePanel !== frequency;
+    });
+    if (endDateInput) endDateInput.hidden = values.recurrenceEndMode !== "date";
+
+    const recurrence = taskRecurrenceFromEditorValues(values);
+    const hasWeeklyDay = frequency !== "semanal" || Boolean(recurrence?.diasSemana.length);
+    if (summary) {
+      summary.textContent = frequency === "semanal" && !hasWeeklyDay
+        ? "Selecione pelo menos um dia da semana."
+        : recurrence
+          ? TASK_RECURRENCE.summary(recurrence, values.dueDate || localDateKey())
+          : "";
+    }
+    el.simpleDialogSave.disabled = !String(titleInput?.value || "").trim() || !hasWeeklyDay;
+    refreshIcons();
+  };
+
+  root.querySelectorAll('[data-editor-choice-field^="recurrence"]').forEach((button) => {
+    button.addEventListener("click", update);
+  });
+  root.querySelectorAll("[data-task-recurrence-day-input]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const day = Math.min(31, Math.max(1, Number(input.value) || 1));
+      if (recurrenceDayInput) recurrenceDayInput.value = String(day);
+      root.querySelectorAll("[data-task-recurrence-day-input]").forEach((other) => {
+        if (other !== input) other.value = String(day);
+      });
+      update();
+    });
+    input.addEventListener("change", () => {
+      input.value = String(Math.min(31, Math.max(1, Number(input.value) || 1)));
+      update();
+    });
+  });
+  monthInput?.addEventListener("change", update);
+  endDateInput?.addEventListener("change", update);
+  titleInput?.addEventListener("input", update);
+  dueDateInput?.addEventListener("change", () => {
+    if (!frequencyInput?.value) syncRuleDefaultsFromDueDate();
+    update();
+  });
+  root.querySelectorAll("[data-editor-date-offset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!frequencyInput?.value) syncRuleDefaultsFromDueDate();
+      update();
+    });
+  });
+
+  if (!frequencyInput?.value) syncRuleDefaultsFromDueDate();
+  update();
+}
+
 function clientDeadlineFooterNote(dateValue) {
   return dateValue ? `Data definida: ${formatDate(dateValue)}` : "Sem data definida";
 }
@@ -13184,6 +13341,18 @@ function openInternalTaskDialog(taskId = null) {
       alert("Informe o nome da tarefa.");
       return false;
     }
+    const recurrence = taskRecurrenceFromEditorValues(values);
+    if (recurrence?.frequencia === "semanal" && !recurrence.diasSemana.length) {
+      alert("Selecione pelo menos um dia da semana.");
+      return false;
+    }
+    const dueDate = recurrence
+      ? TASK_RECURRENCE.firstOccurrence(recurrence, values.dueDate || localDateKey())
+      : values.dueDate;
+    if (recurrence && !dueDate) {
+      alert("Não há uma ocorrência antes da data de término informada.");
+      return false;
+    }
 
     const now = new Date().toISOString();
     const payload = {
@@ -13191,10 +13360,12 @@ function openInternalTaskDialog(taskId = null) {
       description: values.description || "",
       followUpNotes: values.followUpNotes || "",
       ownerId: values.ownerId || currentUser.id,
-      dueDate: values.dueDate,
+      dueDate,
       priority: normalizeTaskPriority(values.priority),
       status: values.status || "Pendente",
       visibility: currentUser.role === "admin" ? values.visibility || "team" : "team",
+      recorrencia: recurrence,
+      proximaGerada: task ? Boolean(task.proximaGerada) : false,
       updatedAt: now,
     };
 
@@ -13220,9 +13391,14 @@ function openInternalTaskDialog(taskId = null) {
         dueDate: payload.dueDate,
         priority: payload.priority,
         status: payload.status,
+        visibility: payload.visibility,
+        recorrencia: payload.recorrencia,
+        proximaGerada: false,
+        recurrenceParentId: "",
         createdBy: currentUser.id,
         createdAt: now,
         updatedAt: now,
+        completedAt: null,
       };
       client.tasks = Array.isArray(client.tasks) ? client.tasks : [];
       client.tasks.push(newTask);
@@ -13241,8 +13417,10 @@ function openInternalTaskDialog(taskId = null) {
       const newTask = {
         id: id(),
         ...payload,
+        recurrenceParentId: "",
         createdBy: currentUser.id,
         createdAt: now,
+        completedAt: null,
       };
       state.internalTasks.unshift(newTask);
       recordActivity("task", `Criou tarefa interna: ${newTask.title}.`, newTask.description || "", taskActivityOptions(newTask, {
@@ -13259,6 +13437,7 @@ function openInternalTaskDialog(taskId = null) {
     return true;
     },
   });
+  bindTaskRecurrenceEditorInteractions();
 }
 
 function openMeetingDialog(meetingId = null) {
@@ -13360,6 +13539,7 @@ function renderTaskCenterTaskEditorBody(draft, options = {}) {
       ${clientRow}
       ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", ownerOptions, draft.ownerId || currentUser.id, "owner"))}
       ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate || "")}
+      ${renderTaskRecurrenceEditor(draft)}
       ${clientEditorSettingRow("flag", "Prioridade", clientEditorChoiceButtons("priority", taskPriorityValues().map((value) => ({ value, label: value })), normalizeTaskPriority(draft.priority)))}
       ${clientEditorSettingRow("clock-3", "Status", clientEditorChoiceButtons("status", options.statusChoices || [], draft.status || "Pendente"))}
       ${visibilityRow}
@@ -13369,6 +13549,82 @@ function renderTaskCenterTaskEditorBody(draft, options = {}) {
     </button>
     <div class="client-editor-notes" ${draft.followUpNotes ? "" : "hidden"}>
       <textarea rows="3" maxlength="1000" placeholder="Registre observações, atualizações ou próximos passos..." data-client-editor-field="followUpNotes">${escapeHtml(draft.followUpNotes || "")}</textarea>
+    </div>
+  `;
+}
+
+function renderTaskRecurrenceEditor(draft = {}) {
+  const recurrence = TASK_RECURRENCE.normalize(draft.recorrencia);
+  const baseDate = draft.dueDate || localDateKey();
+  const base = new Date(`${baseDate}T12:00:00`);
+  const frequency = recurrence?.frequencia || "";
+  const weekdays = recurrence?.diasSemana?.length
+    ? recurrence.diasSemana
+    : [TASK_RECURRENCE.weekdayIndex(base)];
+  const day = recurrence?.dia || base.getDate();
+  const month = recurrence?.mes ?? base.getMonth();
+  const endMode = recurrence?.ate ? "date" : "never";
+  const frequencyOptions = [
+    { value: "", label: "Não repete" },
+    { value: "diaria", label: "Todo dia" },
+    { value: "semanal", label: "Toda semana" },
+    { value: "mensal", label: "Todo mês" },
+    { value: "anual", label: "Todo ano" },
+  ];
+  const weekdayOptions = TASK_RECURRENCE.WEEKDAYS.map((weekday, index) => ({
+    value: String(index),
+    label: weekday.short[0].toUpperCase() + weekday.short.slice(1),
+  }));
+  const monthOptions = TASK_RECURRENCE.MONTHS.map((label, index) => ({
+    value: String(index),
+    label: label[0].toUpperCase() + label.slice(1),
+  }));
+
+  return `
+    ${clientEditorSettingRow("repeat-2", "Repetir", clientEditorChoiceButtons("recurrenceFrequency", frequencyOptions, frequency, "task-recurrence-main"), "task-recurrence-main-row")}
+    <div class="task-recurrence-details" data-task-recurrence-details ${frequency ? "" : "hidden"}>
+      <input type="hidden" value="${day}" data-client-editor-field="recurrenceDay" />
+      <div data-task-recurrence-panel="diaria" ${frequency === "diaria" ? "" : "hidden"}>
+        ${clientEditorSettingRow("calendar-range", "Frequência", clientEditorChoiceButtons("recurrenceDailyMode", [
+          { value: "all", label: "Todos os dias" },
+          { value: "business", label: "Só dias úteis" },
+        ], recurrence?.soDiasUteis ? "business" : "all"), "task-recurrence-detail-row")}
+      </div>
+      <div data-task-recurrence-panel="semanal" ${frequency === "semanal" ? "" : "hidden"}>
+        ${clientEditorSettingRow("calendar-days", "Dias", clientEditorMultiChoiceButtons("recurrenceWeekdays", weekdayOptions, weekdays, "task-recurrence-weekdays"), "task-recurrence-detail-row")}
+      </div>
+      <div data-task-recurrence-panel="mensal" ${frequency === "mensal" ? "" : "hidden"}>
+        ${clientEditorSettingRow("calendar-range", "Regra", `
+          <div class="task-recurrence-inline-rule">
+            <span>Todo dia</span>
+            <input class="task-recurrence-day-input" type="number" min="1" max="31" inputmode="numeric" value="${day}" data-task-recurrence-day-input />
+            <span>de cada mês</span>
+          </div>
+        `, "task-recurrence-detail-row")}
+      </div>
+      <div data-task-recurrence-panel="anual" ${frequency === "anual" ? "" : "hidden"}>
+        ${clientEditorSettingRow("calendar-range", "Regra", `
+          <div class="task-recurrence-inline-rule annual">
+            <span>Todo dia</span>
+            <input class="task-recurrence-day-input" type="number" min="1" max="31" inputmode="numeric" value="${day}" data-task-recurrence-day-input />
+            <span>de</span>
+            ${clientEditorSelectControl("recurrenceMonth", monthOptions, String(month), "task-recurrence-month-select")}
+          </div>
+        `, "task-recurrence-detail-row")}
+      </div>
+      ${clientEditorSettingRow("calendar-x-2", "Termina", `
+        <div class="task-recurrence-end-control">
+          ${clientEditorChoiceButtons("recurrenceEndMode", [
+            { value: "never", label: "Nunca" },
+            { value: "date", label: "Em uma data" },
+          ], endMode)}
+          <input class="task-recurrence-end-date" type="date" value="${escapeAttr(recurrence?.ate || "")}" data-client-editor-field="recurrenceEndDate" ${endMode === "date" ? "" : "hidden"} />
+        </div>
+      `, "task-recurrence-detail-row")}
+      <div class="task-recurrence-summary" data-task-recurrence-summary>
+        <i data-lucide="repeat-2"></i>
+        <span>${escapeHtml(recurrence ? TASK_RECURRENCE.summary(recurrence, baseDate) : "")}</span>
+      </div>
     </div>
   `;
 }
@@ -13749,9 +14005,13 @@ function emptyTask() {
     dueDate: "",
     status: "Pendente",
     priority: "Normal",
+    recorrencia: null,
+    proximaGerada: false,
+    recurrenceParentId: "",
     createdBy: currentUser.id,
     createdAt: new Date().toISOString(),
     updatedAt: null,
+    completedAt: null,
   };
 }
 
@@ -13808,6 +14068,74 @@ function taskStatusOptions(selected = "Pendente") {
 
 function taskStatusValues() {
   return ["Pendente", "Em andamento", "Aguardando cliente", "Aguardando terceiro", "Concluída"];
+}
+
+function isCompletedTaskStatus(status) {
+  return ["Concluída", "Concluído"].includes(localizeLabel(status || ""));
+}
+
+function taskRecurrenceFromEditorValues(values = {}) {
+  const frequency = values.recurrenceFrequency || "";
+  if (!frequency) return null;
+  return TASK_RECURRENCE.normalize({
+    frequencia: frequency,
+    soDiasUteis: values.recurrenceDailyMode === "business",
+    diasSemana: String(values.recurrenceWeekdays || "")
+      .split(",")
+      .map((value) => Number(value.trim()))
+      .filter(Number.isInteger),
+    dia: values.recurrenceDay,
+    mes: values.recurrenceMonth,
+    ate: values.recurrenceEndMode === "date" ? values.recurrenceEndDate || null : null,
+  });
+}
+
+function createNextRecurringTask(task, context = {}) {
+  const recurrence = TASK_RECURRENCE.normalize(task?.recorrencia);
+  if (!task || !recurrence || task.proximaGerada) return null;
+
+  task.proximaGerada = true;
+  const nextDueDate = TASK_RECURRENCE.nextOccurrence(recurrence, task.dueDate || localDateKey());
+  if (!nextDueDate) return null;
+
+  const now = new Date().toISOString();
+  const common = {
+    ...task,
+    id: id(),
+    dueDate: nextDueDate,
+    status: "Pendente",
+    recorrencia: recurrence,
+    proximaGerada: false,
+    recurrenceParentId: task.id,
+    createdBy: currentUser.id,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+  };
+
+  if (context.client) {
+    const nextTask = normalizeClientTask(common, context.client, currentUser.id);
+    context.client.tasks = Array.isArray(context.client.tasks) ? context.client.tasks : [];
+    context.client.tasks.push(nextTask);
+    context.client.updatedAt = now;
+    addHistoryEntry(context.client, "Próxima tarefa recorrente criada", [
+      `${nextTask.title || "Tarefa sem título"} · ${formatDate(nextTask.dueDate)}.`,
+    ]);
+    recordActivity("task", `Criou próxima tarefa recorrente em ${context.client.clientName || "cliente"}.`, nextTask.title || "Tarefa sem título", taskActivityOptions(nextTask, {
+      clientId: context.client.id,
+      clientSource: context.clientSource || "inss",
+      clientName: context.client.clientName,
+    }));
+    return nextTask;
+  }
+
+  const nextTask = normalizeInternalTask(common);
+  state.internalTasks.unshift(nextTask);
+  recordActivity("task", `Criou próxima tarefa recorrente: ${nextTask.title || "Tarefa sem título"}.`, `Prazo: ${formatDate(nextTask.dueDate)}.`, taskActivityOptions(nextTask, {
+    internalTaskId: nextTask.id,
+    visibility: nextTask.visibility,
+  }));
+  return nextTask;
 }
 
 function renderTaskQuickFilters() {

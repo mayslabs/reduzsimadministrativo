@@ -28,6 +28,7 @@ const publicFiles = [
   "login.js",
   "redesign.css",
   "styles.css",
+  "task-recurrence.js",
 ];
 
 await rm(output, { recursive: true, force: true });

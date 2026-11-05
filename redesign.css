@@ -1201,6 +1201,28 @@ body.privacy-mode :is(
   font-weight: 600;
 }
 
+.task-recurrence-badge {
+  display: inline-flex;
+  min-height: 22px;
+  padding: 2px 8px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  color: #074d40;
+  background: rgba(0, 155, 119, 0.1);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.task-recurrence-badge svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  stroke-width: 1.9;
+}
+
 .task-owner-avatar {
   width: 22px;
   height: 22px;
@@ -11551,19 +11573,20 @@ body.privacy-mode #marketingDialog :is(
 }
 
 .task-center-editor .client-editor-settings {
-  gap: 12px;
-  padding: 16px;
+  gap: 6px;
+  padding: 14px;
   border-radius: 11px;
 }
 
 .task-center-editor .client-editor-setting-row {
-  grid-template-columns: 145px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 8px;
 }
 
 .task-center-editor .client-editor-setting-label {
-  gap: 9px;
-  font-size: 13px;
+  min-height: 30px;
+  gap: 8px;
+  font-size: 12.5px;
 }
 
 .task-center-editor .client-editor-setting-label svg {
@@ -11573,27 +11596,31 @@ body.privacy-mode #marketingDialog :is(
 
 .task-center-editor .client-editor-choice,
 .task-center-editor .client-editor-date-shortcuts button {
-  min-height: 34px;
-  padding: 6px 11px;
-  font-size: 12.5px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .task-center-editor .client-editor-choices.owner .client-editor-choice {
-  padding: 4px 12px 4px 5px;
+  height: 30px;
+  padding: 0 10px 0 4px;
 }
 
 .task-center-editor .client-editor-choices.owner .client-editor-choice i {
-  width: 25px;
-  height: 25px;
-  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  font-size: 10.5px;
 }
 
 .task-center-editor .client-editor-date-control > input[type="date"] {
-  width: 158px;
-  min-width: 150px;
-  min-height: 38px;
-  height: 38px;
-  font-size: 13px;
+  width: 142px;
+  min-width: 136px;
+  min-height: 30px;
+  height: 30px;
+  padding: 3px 8px;
+  font-size: 12px;
 }
 
 .client-editor-select,
@@ -11618,6 +11645,138 @@ body.privacy-mode #marketingDialog :is(
   border-color: var(--green);
   box-shadow: 0 0 0 2px rgba(0, 159, 127, 0.08);
   outline: 0;
+}
+
+.task-center-task-editor .client-editor-select {
+  min-height: 30px;
+  height: 30px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+
+.task-recurrence-main {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.task-recurrence-details {
+  display: grid;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.task-recurrence-details[hidden],
+.task-recurrence-details [hidden] {
+  display: none !important;
+}
+
+.task-recurrence-detail-row {
+  min-height: 30px;
+}
+
+.task-recurrence-weekdays {
+  flex-wrap: nowrap;
+}
+
+.task-recurrence-weekdays .client-editor-choice {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+}
+
+.task-recurrence-inline-rule,
+.task-recurrence-end-control {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: #5c5c5c;
+  font-size: 12px;
+}
+
+.task-recurrence-inline-rule span {
+  white-space: nowrap;
+}
+
+.task-recurrence-day-input {
+  width: 56px;
+  min-width: 56px;
+  height: 30px;
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  color: #222222;
+  background: #ffffff;
+  font-size: 12px;
+  text-align: center;
+}
+
+.task-recurrence-month-select {
+  width: 134px;
+  min-width: 120px;
+  height: 30px;
+  min-height: 30px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+
+.task-recurrence-end-control {
+  flex-wrap: wrap;
+}
+
+.task-recurrence-end-control > .client-editor-choices {
+  flex-wrap: nowrap;
+}
+
+.task-recurrence-end-date {
+  width: 142px;
+  min-width: 136px;
+  height: 30px;
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  color: #222222;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.task-recurrence-day-input:focus,
+.task-recurrence-end-date:focus,
+.task-recurrence-month-select:focus {
+  border-color: #009b77;
+  box-shadow: 0 0 0 2px rgba(0, 155, 119, 0.08);
+  outline: 0;
+}
+
+.task-recurrence-summary {
+  display: flex;
+  min-height: 34px;
+  padding: 8px 10px;
+  align-items: flex-start;
+  gap: 7px;
+  border-radius: 8px;
+  color: #074d40;
+  background: rgba(0, 155, 119, 0.1);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.task-recurrence-summary svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  flex: 0 0 auto;
+}
+
+.task-center-task-editor #simpleDialogSave:disabled {
+  border-color: #9db8b1;
+  background: #9db8b1;
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 .meeting-editor-time-control {
