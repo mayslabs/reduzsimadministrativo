@@ -113,7 +113,12 @@ export async function onRequestPost(context) {
     if (result.statements.length) {
       await env.DB.batch(result.statements);
     }
-    return jsonResponse(await readState(env.DB, user));
+    const payload = await readState(env.DB, user);
+    return jsonResponse(
+      body.compact === true && dirtyKeys
+        ? compactStatePayload(payload, dirtyKeys)
+        : payload,
+    );
   } catch (error) {
     if (error instanceof PermissionError) {
       return jsonResponse({
@@ -423,17 +428,21 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
     conflicts.push(...settingsResult.conflicts);
     mutationCount += settingsResult.mutationCount;
 
-    const usersResult = await prepareUsers(
-      db,
-      user,
-      desiredState.users,
-      clientVersions,
-      now,
-      dirtyKeys,
-    );
-    statements.push(...usersResult.statements);
-    conflicts.push(...usersResult.conflicts);
-    mutationCount += usersResult.mutationCount;
+    const usersAreDirty = !dirtyKeys
+      || [...dirtyKeys].some((key) => key.startsWith("users:"));
+    if (usersAreDirty) {
+      const usersResult = await prepareUsers(
+        db,
+        user,
+        desiredState.users,
+        clientVersions,
+        now,
+        dirtyKeys,
+      );
+      statements.push(...usersResult.statements);
+      conflicts.push(...usersResult.conflicts);
+      mutationCount += usersResult.mutationCount;
+    }
   }
 
   if (mutationCount > MAX_MUTATIONS_PER_SAVE) {
@@ -697,6 +706,48 @@ function normalizeDirtyKeys(value) {
     throw new ValidationError("A lista de alteracoes e invalida.");
   }
   return new Set(keys);
+}
+
+export function compactStatePayload(payload, dirtyKeys) {
+  const collectionKeys = new Set([...COLLECTIONS.map((config) => config.stateKey), "users"]);
+  const settingKeys = new Set([
+    "goals",
+    "companyBillCategories",
+    "regularizationFieldDefinitions",
+    "regularizationStatusDefinitions",
+  ]);
+  const statePatch = {};
+  const deletedKeys = [];
+  const partialVersions = {};
+
+  dirtyKeys.forEach((dirtyKey) => {
+    const separator = dirtyKey.indexOf(":");
+    const stateKey = dirtyKey.slice(0, separator);
+    const recordId = dirtyKey.slice(separator + 1);
+
+    if (stateKey === "settings" && settingKeys.has(recordId)) {
+      statePatch[recordId] = payload.state[recordId];
+    } else if (collectionKeys.has(stateKey)) {
+      if (!statePatch[stateKey]) statePatch[stateKey] = [];
+      const record = (payload.state[stateKey] || [])
+        .find((item) => String(item?.id || "") === recordId);
+      if (record) statePatch[stateKey].push(record);
+      else deletedKeys.push(dirtyKey);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload.versions, dirtyKey)) {
+      partialVersions[dirtyKey] = payload.versions[dirtyKey];
+    }
+  });
+
+  const { state: _state, versions: _versions, ...metadata } = payload;
+  return {
+    ...metadata,
+    statePatch,
+    versions: partialVersions,
+    partialVersions: true,
+    deletedKeys,
+  };
 }
 
 function upsertStatement(db, config, item, payload, scope, existing, user, now) {
