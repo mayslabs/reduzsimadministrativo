@@ -57,3 +57,12 @@ test("waiting status is independent from the task due date", () => {
   assert.match(app, /isWaitingTaskStatus\(item\.status\)\) return "waiting"/);
   assert.match(app, /return waiting && item\.urgency !== "done"/);
 });
+
+test("upcoming tasks can be collapsed and expanded from their heading", () => {
+  assert.match(app, /"Próximas ações"[\s\S]*collapsible: true/);
+  assert.match(app, /data-toggle-task-panel/);
+  assert.match(app, /collapsedTaskPanels\.has\(key\)/);
+  assert.match(app, /aria-expanded="\$\{!collapsed\}"/);
+  assert.match(redesign, /\.task-panel-toggle/);
+  assert.match(redesign, /\.task-work-panel\.is-collapsed/);
+});

@@ -373,6 +373,7 @@ const collapsedUpdateDays = new Set();
 const expandedPastUpdateDays = new Set();
 const expandedTaskCardIds = new Set();
 const expandedCompletedTaskGroups = new Set();
+const collapsedTaskPanels = new Set();
 let firebaseApp = null;
 let firebaseAuth = null;
 let cloudSaveTimer = null;
@@ -7740,6 +7741,7 @@ function renderTaskDayBoard(items) {
           limit: 80,
           subtitle: "próximos dias",
           empty: "Nenhuma ação agendada.",
+          collapsible: true,
         })}
         ${currentUser.role === "admin" ? `
           <div class="task-admin-board">
@@ -7773,17 +7775,23 @@ function renderTaskTablePanel(title, items, key, icon, options = {}) {
   const limit = options.limit || 6;
   const visibleItems = [...items].sort(taskItemSorter).slice(0, limit);
   const hiddenCount = Math.max(0, items.length - visibleItems.length);
+  const collapsed = Boolean(options.collapsible && collapsedTaskPanels.has(key));
   return `
-    <section class="task-work-panel ${key} ${items.length ? "has-items" : "is-empty"}">
+    <section class="task-work-panel ${key} ${items.length ? "has-items" : "is-empty"} ${collapsed ? "is-collapsed" : ""}">
       <header class="task-panel-heading">
         <span class="task-panel-title">${escapeHtml(title)}</span>
         <strong class="task-panel-count ${options.strongBadge && items.length ? "strong" : ""}">${items.length}</strong>
         ${options.subtitle ? `<small>${escapeHtml(options.subtitle)}</small>` : ""}
+        ${options.collapsible ? `
+          <button class="task-panel-toggle" type="button" data-toggle-task-panel="${escapeAttr(key)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? "Expandir" : "Ocultar"} ${escapeAttr(title)}" title="${collapsed ? "Expandir" : "Ocultar"} ${escapeAttr(title)}">
+            <i data-lucide="chevron-${collapsed ? "down" : "up"}"></i>
+          </button>
+        ` : ""}
       </header>
-      <div class="task-table-list">
+      <div class="task-table-list" ${collapsed ? "hidden" : ""}>
         ${visibleItems.length ? visibleItems.map(renderTaskTableRow).join("") : `<p class="empty-state compact">${escapeHtml(options.empty || "Sem tarefas.")}</p>`}
       </div>
-      ${hiddenCount ? `<button class="task-panel-link" type="button" data-task-status-jump="${escapeAttr(key)}">Ver todas (${items.length})</button>` : ""}
+      ${hiddenCount && !collapsed ? `<button class="task-panel-link" type="button" data-task-status-jump="${escapeAttr(key)}">Ver todas (${items.length})</button>` : ""}
     </section>
   `;
 }
@@ -8108,6 +8116,15 @@ function renderCompletedTaskGroup(groupKey, items, options = {}) {
 }
 
 function bindTaskCenterActions() {
+  document.querySelectorAll("[data-toggle-task-panel]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const key = button.dataset.toggleTaskPanel;
+      if (collapsedTaskPanels.has(key)) collapsedTaskPanels.delete(key);
+      else collapsedTaskPanels.add(key);
+      renderTaskCenter();
+    });
+  });
+
   document.querySelectorAll("[data-toggle-task-card]").forEach((card) => {
     card.addEventListener("click", (event) => {
       if (event.target.closest("button, select, input, textarea, a")) return;

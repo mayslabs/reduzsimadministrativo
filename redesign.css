@@ -1117,6 +1117,35 @@ body.privacy-mode :is(
   font-weight: 400;
 }
 
+.task-panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--green-dark);
+  background: transparent;
+}
+
+.task-panel-toggle:hover,
+.task-panel-toggle:focus-visible {
+  border-color: var(--line);
+  background: #f4f8f7;
+}
+
+.task-panel-toggle svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.task-work-panel.is-collapsed > .task-panel-heading {
+  padding-bottom: 0;
+}
+
 .task-table-list {
   overflow: hidden;
   border: 1px solid var(--line);
