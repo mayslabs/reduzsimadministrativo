@@ -58,7 +58,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=212/);
+  assert.match(indexHtml, /app\.js\?v=213/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
@@ -179,8 +179,9 @@ test("client summary exposes pending work in the redesigned dialog", () => {
   assert.match(appJs, /function renderClientSummaryPending/);
   assert.match(appJs, /function setStatusPickerExpanded/);
   const metaSource = appJs.slice(appJs.indexOf("function renderClientDialogMeta"), appJs.indexOf("function renderClientSummaryPending"));
-  assert.match(metaSource, /destinationLabel\(activeClient\)[\s\S]*activeClient\.state[\s\S]*activeClient\.area[\s\S]*activeClient\.startDate[\s\S]*activeClient\.endDate/);
-  assert.doesNotMatch(metaSource, /activeClient\.cpf|contractClosedDate|Fechado em/);
+  assert.match(metaSource, /startDate && endDate \? `\$\{startDate\} a \$\{endDate\}`/);
+  assert.match(metaSource, /destinationLabel\(activeClient\)[\s\S]*activeClient\.state[\s\S]*activeClient\.area[\s\S]*workPeriod/);
+  assert.doesNotMatch(metaSource, /activeClient\.cpf|contractClosedDate|Fechado em|Início |Término /);
   assert.doesNotMatch(indexHtml, /data-field="nextAction"/);
   assert.match(appJs, /function migrateClientNextActionToNote/);
   assert.match(appJs, /return \{ \.\.\.client, nextAction: "", notes \}/);

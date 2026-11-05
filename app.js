@@ -10680,12 +10680,14 @@ function fillClientFields() {
 
 function renderClientDialogMeta() {
   if (!el.clientDialogMeta || !activeClient) return;
+  const startDate = activeClient.startDate ? formatDate(activeClient.startDate) : "";
+  const endDate = activeClient.endDate ? formatDate(activeClient.endDate) : "";
+  const workPeriod = startDate && endDate ? `${startDate} a ${endDate}` : startDate || endDate;
   const details = [
     destinationLabel(activeClient),
     activeClient.state,
     activeClient.area,
-    activeClient.startDate ? `Início ${formatDate(activeClient.startDate)}` : "",
-    activeClient.endDate ? `Término ${formatDate(activeClient.endDate)}` : "",
+    workPeriod,
   ].filter(Boolean);
   el.clientDialogMeta.textContent = details.join(" · ");
 }
