@@ -9,39 +9,26 @@ const [indexHtml, app, styles, redesign] = await Promise.all([
   readFile(new URL("../redesign.css", import.meta.url), "utf8"),
 ]);
 
-test("admin-only tasks use a dedicated board in the day view", () => {
-  assert.match(app, /openItems\.filter\(\(item\) => item\.visibility === "admin"\)/);
-  assert.match(app, /operationalItems = openItems\.filter\(\(item\) => item\.visibility !== "admin"\)/);
-  assert.match(app, /Tarefas da administração/);
-  assert.match(app, /task-admin-board/);
-  assert.match(
-    app,
-    /task-dashboard-main[\s\S]*Próximas ações[\s\S]*task-admin-board[\s\S]*task-dashboard-side/,
-  );
-  assert.match(styles, /\.task-work-panel\.admin-only/);
-});
-
-test("day view follows the redesigned task hierarchy", () => {
+test("weekly view is the only task workspace", () => {
   assert.match(indexHtml, /id="tasksEyebrow"/);
   assert.match(indexHtml, /id="taskStatusFilter"[^>]*hidden/);
   assert.match(indexHtml, /id="addInternalTaskButton" class="primary-button"/);
-  assert.match(
-    app,
-    /task-dashboard-main[\s\S]*"Atrasadas"[\s\S]*dayTitle[\s\S]*"Próximas ações"[\s\S]*"Tarefas da administração"[\s\S]*renderTaskWaitingPanel/,
-  );
-  assert.match(app, /Cobre quem está devendo resposta\./);
-  assert.match(app, /label: "Cliente"[\s\S]*label: "Terceiros"/);
-  assert.match(redesign, /grid-template-columns:\s*22px minmax\(0, 1fr\) 34px/);
-  assert.match(redesign, /\.task-return-group h4/);
+  assert.doesNotMatch(indexHtml, /taskDayModeLabel|Meu dia/);
+  assert.match(indexHtml, /id="taskWeekOutsideSummary"/);
+  assert.match(app, /renderTaskCalendar\(items\)\s*\{\s*el\.taskCenterList\.innerHTML = renderTaskWeekBoard\(items\);\s*\}/);
+  assert.match(app, /nextDate\.setDate\(nextDate\.getDate\(\) \+ \(direction \* 7\)\)/);
+  assert.match(redesign, /grid-template-columns:\s*repeat\(7, minmax\(150px, 1fr\)\)/);
+  assert.match(redesign, /min-width:\s*1080px/);
 });
 
-test("task center keeps only the my day view", () => {
-  assert.match(indexHtml, /id="taskDayModeLabel"[^>]*>Meu dia<\/span>/);
-  assert.doesNotMatch(indexHtml, /taskWeekModeButton|taskMonthModeButton/);
-  assert.doesNotMatch(app, /activeTaskCalendarMode|setTaskCalendarMode/);
-  assert.match(app, /function renderTaskCalendar\(items\)\s*\{\s*el\.taskCenterList\.innerHTML = renderTaskDayBoard\(items\);\s*\}/);
-  assert.match(app, /function moveTaskPeriod\(direction\)[\s\S]*nextDate\.setDate\(nextDate\.getDate\(\) \+ direction\)/);
-  assert.match(redesign, /#tasksSection \.calendar-mode\.single-mode \.active/);
+test("weekly columns provide completion, full titles and date-prefilled creation", () => {
+  assert.match(app, /data-add-task-for-date/);
+  assert.match(app, /openInternalTaskDialog\(null, \{ dueDate: button\.dataset\.addTaskForDate/);
+  assert.match(app, /data-toggle-week-task-completion/);
+  assert.match(app, /data-open-week-task/);
+  assert.match(app, /dayItems\.map\(renderTaskWeekCard\)/);
+  assert.match(redesign, /\.task-week-open strong[\s\S]*overflow-wrap:\s*anywhere[\s\S]*white-space:\s*normal/);
+  assert.match(redesign, /\.task-week-card\.overdue[\s\S]*#c62828/);
 });
 
 test("overdue and stalled task signals use the urgent red treatment", () => {
@@ -58,11 +45,25 @@ test("waiting status is independent from the task due date", () => {
   assert.match(app, /return waiting && item\.urgency !== "done"/);
 });
 
-test("upcoming tasks can be collapsed and expanded from their heading", () => {
-  assert.match(app, /"Próximas ações"[\s\S]*collapsible: true/);
-  assert.match(app, /data-toggle-task-panel/);
-  assert.match(app, /collapsedTaskPanels\.has\(key\)/);
-  assert.match(app, /aria-expanded="\$\{!collapsed\}"/);
-  assert.match(redesign, /\.task-panel-toggle/);
-  assert.match(redesign, /\.task-work-panel\.is-collapsed/);
+test("task details use a right drawer with explicit draft saving", () => {
+  assert.match(indexHtml, /id="taskDetailOverlay"/);
+  assert.match(indexHtml, /id="taskDetailDrawer"/);
+  assert.match(app, /function renderTaskDetailDrawer\(\)/);
+  assert.match(app, /function saveTaskDrawerChanges\(\)/);
+  assert.match(app, /Alterações não salvas/);
+  assert.match(app, /Descrição atualizada/);
+  assert.match(app, /Prazo alterado para/);
+  assert.match(app, /Responsável alterado para/);
+  assert.match(app, /Prioridade alterada para/);
+  assert.match(redesign, /\.task-detail-overlay[\s\S]*rgba\(34, 34, 34, 0\.32\)/);
+  assert.match(redesign, /width:\s*min\(480px, 100vw\)/);
+});
+
+test("task annotations and recurrence completion stay on the shared task record", () => {
+  assert.match(app, /annotations:\s*normalizeTaskAnnotations/);
+  assert.match(app, /history:\s*normalizeTaskHistory/);
+  assert.match(app, /function registerTaskDrawerAnnotation/);
+  assert.match(app, /createNextRecurringTask\(record/);
+  assert.match(app, /Criada automaticamente pela repetição/);
+  assert.match(app, /proximaGerada/);
 });

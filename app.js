@@ -374,6 +374,8 @@ const expandedPastUpdateDays = new Set();
 const expandedTaskCardIds = new Set();
 const expandedCompletedTaskGroups = new Set();
 const collapsedTaskPanels = new Set();
+let activeTaskDrawerKey = "";
+let activeTaskDrawerDraft = null;
 let firebaseApp = null;
 let firebaseAuth = null;
 let cloudSaveTimer = null;
@@ -414,12 +416,15 @@ const el = {
   nextTaskPeriodButton: document.getElementById("nextTaskPeriodButton"),
   todayTaskButton: document.getElementById("todayTaskButton"),
   taskPeriodLabel: document.getElementById("taskPeriodLabel"),
+  taskWeekOutsideSummary: document.getElementById("taskWeekOutsideSummary"),
   taskSearchInput: document.getElementById("taskSearchInput"),
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
   taskClientFilter: document.getElementById("taskClientFilter"),
   taskStatusFilter: document.getElementById("taskStatusFilter"),
   taskMineFilterButton: document.getElementById("taskMineFilterButton"),
   taskCenterList: document.getElementById("taskCenterList"),
+  taskDetailOverlay: document.getElementById("taskDetailOverlay"),
+  taskDetailDrawer: document.getElementById("taskDetailDrawer"),
   addMarketingIdeaButton: document.getElementById("addMarketingIdeaButton"),
   addMarketingContentButton: document.getElementById("addMarketingContentButton"),
   marketingSearchInput: document.getElementById("marketingSearchInput"),
@@ -957,9 +962,49 @@ function normalizeActivity(activity = {}) {
   };
 }
 
+function normalizeTaskAnnotations(task = {}, taskId = "") {
+  const annotations = Array.isArray(task.annotations)
+    ? task.annotations
+    : Array.isArray(task.anotacoes)
+      ? task.anotacoes
+      : [];
+  const normalized = annotations.map((annotation, index) => ({
+    id: annotation?.id || `${taskId || "task"}-annotation-${index}`,
+    text: annotation?.text || annotation?.texto || "",
+    authorId: annotation?.authorId || annotation?.autorId || annotation?.autor || task.createdBy || task.ownerId || "",
+    createdAt: annotation?.createdAt || annotation?.dataHora || task.updatedAt || task.createdAt || new Date().toISOString(),
+  })).filter((annotation) => annotation.text);
+  if (!normalized.length && task.followUpNotes) {
+    normalized.push({
+      id: `${taskId || "task"}-legacy-follow-up`,
+      text: task.followUpNotes,
+      authorId: task.createdBy || task.ownerId || "",
+      createdAt: task.updatedAt || task.createdAt || new Date().toISOString(),
+    });
+  }
+  return normalized;
+}
+
+function normalizeTaskHistory(task = {}, taskId = "") {
+  const history = Array.isArray(task.history)
+    ? task.history
+    : Array.isArray(task.historico)
+      ? task.historico
+      : [];
+  return history.map((entry, index) => typeof entry === "string"
+    ? { id: `${taskId || "task"}-history-${index}`, text: entry, actorId: "", createdAt: "" }
+    : {
+        id: entry?.id || `${taskId || "task"}-history-${index}`,
+        text: entry?.text || entry?.texto || "",
+        actorId: entry?.actorId || entry?.autorId || "",
+        createdAt: entry?.createdAt || entry?.dataHora || "",
+      }).filter((entry) => entry.text);
+}
+
 function normalizeInternalTask(task) {
+  const taskId = task.id || id();
   return {
-    id: task.id || id(),
+    id: taskId,
     title: task.title || "",
     description: task.description || task.text || task.notes || "",
     followUpNotes: task.followUpNotes || "",
@@ -976,6 +1021,8 @@ function normalizeInternalTask(task) {
     createdAt: task.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
     completedAt: task.completedAt || null,
+    annotations: normalizeTaskAnnotations(task, taskId),
+    history: normalizeTaskHistory(task, taskId),
   };
 }
 
@@ -1463,8 +1510,9 @@ function migrateClientNextActionToNote(client = {}, userId = "") {
 }
 
 function normalizeClientTask(task, client = {}, fallbackUserId = "") {
+  const taskId = task.id || id();
   return {
-    id: task.id || id(),
+    id: taskId,
     title: task.title || "",
     description: task.description || task.text || task.notes || "",
     followUpNotes: task.followUpNotes || "",
@@ -1480,6 +1528,8 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
     createdAt: task.createdAt || client.createdAt || new Date().toISOString(),
     updatedAt: task.updatedAt || null,
     completedAt: task.completedAt || null,
+    annotations: normalizeTaskAnnotations(task, taskId),
+    history: normalizeTaskHistory(task, taskId),
   };
 }
 
@@ -1980,7 +2030,7 @@ function bindEvents() {
   el.newClientButton.addEventListener("click", () => openClient(createEmptyClient()));
   el.newRegularizationButton.addEventListener("click", () => openRegularizationDialog());
   el.quickInternalTaskButton?.addEventListener("click", openQuickInternalTaskDialog);
-  el.addInternalTaskButton.addEventListener("click", openInternalTaskDialog);
+  el.addInternalTaskButton.addEventListener("click", () => openInternalTaskDialog());
   el.addMeetingButton.addEventListener("click", () => openMeetingDialog());
   el.addMarketingIdeaButton?.addEventListener("click", () => openMarketingDialog("", "idea"));
   el.addMarketingContentButton?.addEventListener("click", () => openMarketingDialog("", "content"));
@@ -2030,6 +2080,12 @@ function bindEvents() {
   el.todayTaskButton.addEventListener("click", () => {
     activeTaskDate = new Date();
     renderTaskCenter();
+  });
+  el.taskDetailOverlay?.addEventListener("click", (event) => {
+    if (event.target === el.taskDetailOverlay) closeTaskDetailDrawer();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !el.taskDetailOverlay?.hidden) closeTaskDetailDrawer();
   });
   el.searchInput.addEventListener("input", renderClients);
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
@@ -6536,7 +6592,7 @@ function renderTaskCenter() {
   const items = taskCenterItems();
   const filtered = filterTaskCenterItems(items);
   renderTaskOverview(filtered);
-  renderTaskPeriodControls();
+  renderTaskPeriodControls(filtered);
 
   renderTaskCalendar(filtered);
   bindTaskCenterActions();
@@ -7700,12 +7756,41 @@ function activityIcon(type) {
   }[type] || "bell";
 }
 
-function renderTaskPeriodControls() {
-  el.taskPeriodLabel.textContent = `Meu dia - ${formatShortDate(activeTaskDate)}`;
+function renderTaskPeriodControls(items = []) {
+  const week = weekDays(activeTaskDate);
+  const weekStart = week[0];
+  const weekEnd = week[6];
+  el.taskPeriodLabel.textContent = taskWeekRangeLabel(weekStart, weekEnd);
+
+  const currentWeekKey = localDateKey(startOfWeek(new Date()));
+  const activeWeekKey = localDateKey(weekStart);
+  el.todayTaskButton.hidden = currentWeekKey === activeWeekKey;
+
+  const startKey = localDateKey(weekStart);
+  const pendingBefore = items.filter((item) => item.urgency !== "done" && item.date && item.date < startKey).length;
+  const withoutDate = items.filter((item) => item.urgency !== "done" && !item.date).length;
+  const summary = [];
+  if (pendingBefore) summary.push(`${pendingBefore} pendente${pendingBefore === 1 ? "" : "s"} antes desta semana`);
+  if (withoutDate) summary.push(`${withoutDate} sem prazo`);
+  el.taskWeekOutsideSummary.textContent = summary.join(" · ");
+  el.taskWeekOutsideSummary.hidden = !summary.length;
 }
 
 function renderTaskCalendar(items) {
-  el.taskCenterList.innerHTML = renderTaskDayBoard(items);
+  el.taskCenterList.innerHTML = renderTaskWeekBoard(items);
+}
+
+function taskWeekRangeLabel(start, end) {
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  if (sameMonth) {
+    const month = start.toLocaleDateString("pt-BR", { month: "long" });
+    return `${start.getDate()} a ${end.getDate()} de ${month}`;
+  }
+  const shortMonth = (date) => date.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  if (start.getFullYear() === end.getFullYear()) {
+    return `${start.getDate()} ${shortMonth(start)} a ${end.getDate()} ${shortMonth(end)}`;
+  }
+  return `${start.getDate()} ${shortMonth(start)} ${start.getFullYear()} a ${end.getDate()} ${shortMonth(end)} ${end.getFullYear()}`;
 }
 
 function renderTaskDayBoard(items) {
@@ -8011,30 +8096,75 @@ function renderOverdueTasks(items) {
 
 function renderTaskWeekBoard(items) {
   const today = localDateKey();
+  const days = weekDays(activeTaskDate);
   return `
-    <div class="task-week-board">
-      ${weekDays(activeTaskDate)
+    <div class="task-week-scroll">
+      <div class="task-week-board">
+      ${days
         .map((day) => {
           const key = localDateKey(day);
-          const dayItems = items.filter((item) => item.date === key);
+          const dayItems = items.filter((item) => item.date === key).sort(taskWeekCardSorter);
           const openCount = dayItems.filter((item) => item.urgency !== "done").length;
-          const doneCount = dayItems.filter((item) => item.urgency === "done").length;
           return `
             <section class="task-day-column ${key === today ? "today" : ""}">
               <header>
-                <span>${weekdayLabel(day)}</span>
-                <strong>${formatShortDate(day)}</strong>
-                <small>${openCount} abertas · ${doneCount} concluídas</small>
+                <span>${weekdayLabel(day).slice(0, 3).toUpperCase()}</span>
+                <strong>${day.getDate()}</strong>
+                <small>${dayItems.length ? `${openCount}/${dayItems.length}` : ""}</small>
               </header>
               <div class="task-day-items">
-                ${renderTaskGroupItems(dayItems, key, { showDate: false }) || `<p class="empty-state compact">Sem tarefas.</p>`}
+                ${dayItems.length ? dayItems.map(renderTaskWeekCard).join("") : `<p class="task-week-empty">Nada agendado</p>`}
               </div>
+              <button class="task-day-add" type="button" data-add-task-for-date="${key}"><i data-lucide="plus"></i> Tarefa</button>
             </section>
           `;
         })
         .join("")}
+      </div>
     </div>
   `;
+}
+
+function taskWeekCardSorter(a, b) {
+  const completionDiff = Number(a.urgency === "done") - Number(b.urgency === "done");
+  if (completionDiff) return completionDiff;
+  const priorityDiff = taskPriorityRank(a.priority) - taskPriorityRank(b.priority);
+  if (priorityDiff) return priorityDiff;
+  return (a.title || "").localeCompare(b.title || "", "pt-BR");
+}
+
+function renderTaskWeekCard(item) {
+  const key = taskItemKey(item);
+  const completed = item.urgency === "done";
+  const overdue = !completed && item.date && item.date < localDateKey();
+  const priority = normalizeTaskPriority(item.priority);
+  const canComplete = item.kind.includes("Tarefa") || item.kind === "Prazo";
+  const openLabel = item.internalMeetingId ? "Editar reunião" : item.kind === "Prazo" ? "Abrir card do cliente" : "Abrir tarefa";
+  return `
+    <article class="task-week-card ${completed ? "done" : ""} ${overdue ? "overdue" : ""} ${taskOwnerClass(item.ownerId)} priority-${normalize(priority)}">
+      <div class="task-week-card-title-row">
+        ${canComplete
+          ? `<button class="task-week-complete" type="button" data-toggle-week-task-completion="${escapeAttr(key)}" aria-label="${completed ? "Reabrir" : "Concluir"} ${escapeAttr(item.title)}">${completed ? `<i data-lucide="check"></i>` : ""}</button>`
+          : `<span class="task-week-type-icon" aria-hidden="true"><i data-lucide="users-round"></i></span>`}
+        <button class="task-week-open" type="button" data-open-week-task="${escapeAttr(key)}" aria-label="${openLabel}">
+          <strong>${escapeHtml(item.title)}</strong>
+        </button>
+      </div>
+      <button class="task-week-context" type="button" data-open-week-task="${escapeAttr(key)}" aria-label="${openLabel}">${escapeHtml(taskItemContext(item))}</button>
+      <div class="task-week-card-meta">
+        ${taskOwnerAvatar(item.ownerId)}
+        ${taskRecurrenceIcon(item.recorrencia)}
+        ${priority === "Normal" ? "" : `<span class="priority-pill">${escapeHtml(priority)}</span>`}
+      </div>
+    </article>
+  `;
+}
+
+function taskRecurrenceIcon(value) {
+  const recurrence = TASK_RECURRENCE.normalize(value);
+  if (!recurrence) return "";
+  const tooltip = `${TASK_RECURRENCE.fullLabel(recurrence)} · ao concluir, a próxima é criada automaticamente`;
+  return `<span class="task-week-recurrence" title="${escapeAttr(tooltip)}" aria-label="${escapeAttr(tooltip)}"><i data-lucide="refresh-cw"></i></span>`;
 }
 
 function renderTaskMonthBoard(items) {
@@ -8116,6 +8246,18 @@ function renderCompletedTaskGroup(groupKey, items, options = {}) {
 }
 
 function bindTaskCenterActions() {
+  document.querySelectorAll("[data-add-task-for-date]").forEach((button) => {
+    button.addEventListener("click", () => openInternalTaskDialog(null, { dueDate: button.dataset.addTaskForDate || "" }));
+  });
+
+  document.querySelectorAll("[data-open-week-task]").forEach((button) => {
+    button.addEventListener("click", () => openTaskCenterItem(button.dataset.openWeekTask));
+  });
+
+  document.querySelectorAll("[data-toggle-week-task-completion]").forEach((button) => {
+    button.addEventListener("click", () => toggleTaskCenterItemCompletion(button.dataset.toggleWeekTaskCompletion));
+  });
+
   document.querySelectorAll("[data-toggle-task-panel]").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.toggleTaskPanel;
@@ -8629,6 +8771,431 @@ function taskItemKey(item = {}) {
   if (item.internalTaskId) return `internal-task:${item.internalTaskId}`;
   if (item.internalMeetingId) return `meeting:${item.internalMeetingId}`;
   return `client:${item.clientSource || "inss"}:${item.clientId || "none"}:${item.kind}:${item.id}`;
+}
+
+function taskItemFromKey(key) {
+  return taskCenterItems().find((item) => taskItemKey(item) === key) || null;
+}
+
+function taskRecordContext(item) {
+  if (!item) return null;
+  if (item.internalTaskId) {
+    const record = state.internalTasks.find((task) => task.id === item.internalTaskId);
+    return record ? { record, kind: "task", client: null, clientSource: "" } : null;
+  }
+  if (item.internalMeetingId) {
+    const record = state.meetings.find((meeting) => meeting.id === item.internalMeetingId);
+    return record ? { record, kind: "meeting", client: null, clientSource: "" } : null;
+  }
+  const linked = findLinkedClientRecord(item.clientId, item.clientSource || "inss");
+  if (!linked) return null;
+  const collection = item.kind === "Prazo" ? linked.record.deadlines : linked.record.tasks;
+  const record = (collection || []).find((candidate) => candidate.id === item.id);
+  return record ? {
+    record,
+    kind: item.kind === "Prazo" ? "deadline" : "task",
+    client: linked.record,
+    clientSource: linked.source,
+  } : null;
+}
+
+function openTaskCenterItem(key) {
+  const item = taskItemFromKey(key);
+  if (!item) return;
+  if (item.internalMeetingId) {
+    openMeetingDialog(item.internalMeetingId);
+    return;
+  }
+  if (item.kind === "Prazo") {
+    if (item.clientId) openLinkedClientRecord(item.clientId, item.clientSource || "inss");
+    return;
+  }
+  openTaskDetailDrawer(key);
+}
+
+function taskDrawerDraftFromRecord(record = {}) {
+  return {
+    description: record.description || "",
+    ownerId: record.ownerId || currentUser.id,
+    dueDate: record.dueDate || "",
+    priority: normalizeTaskPriority(record.priority),
+  };
+}
+
+function openTaskDetailDrawer(key) {
+  const item = taskItemFromKey(key);
+  const context = taskRecordContext(item);
+  if (!item || context?.kind !== "task") return;
+  context.record.annotations = normalizeTaskAnnotations(context.record, context.record.id);
+  context.record.history = normalizeTaskHistory(context.record, context.record.id);
+  activeTaskDrawerKey = key;
+  activeTaskDrawerDraft = taskDrawerDraftFromRecord(context.record);
+  el.taskDetailOverlay.hidden = false;
+  document.body.classList.add("task-detail-open");
+  renderTaskDetailDrawer();
+  requestAnimationFrame(() => el.taskDetailDrawer.querySelector("[data-close-task-drawer]")?.focus());
+}
+
+function closeTaskDetailDrawer() {
+  if (!el.taskDetailOverlay) return;
+  el.taskDetailOverlay.hidden = true;
+  document.body.classList.remove("task-detail-open");
+  activeTaskDrawerKey = "";
+  activeTaskDrawerDraft = null;
+  el.taskDetailDrawer.innerHTML = "";
+}
+
+function taskDrawerIsDirty(record) {
+  if (!record || !activeTaskDrawerDraft) return false;
+  return ["description", "ownerId", "dueDate", "priority"].some((field) => {
+    const current = field === "priority" ? normalizeTaskPriority(record[field]) : String(record[field] || "");
+    const draft = field === "priority" ? normalizeTaskPriority(activeTaskDrawerDraft[field]) : String(activeTaskDrawerDraft[field] || "");
+    return current !== draft;
+  });
+}
+
+function taskDrawerRelativeDate(dateValue) {
+  if (!dateValue) return { text: "Sem prazo", overdue: false };
+  const difference = taskDayDistance(dateValue);
+  if (difference === 0) return { text: "Hoje", overdue: false };
+  if (difference === 1) return { text: "Amanhã", overdue: false };
+  if (difference > 1) return { text: `em ${difference} dias`, overdue: false };
+  const lateDays = Math.abs(difference);
+  return { text: `${lateDays} ${lateDays === 1 ? "dia" : "dias"} de atraso`, overdue: true };
+}
+
+function taskDrawerDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.toLocaleDateString("pt-BR")} · ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function taskDrawerHistoryDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function renderTaskDetailDrawer() {
+  const item = taskItemFromKey(activeTaskDrawerKey);
+  const context = taskRecordContext(item);
+  if (!item || context?.kind !== "task") {
+    closeTaskDetailDrawer();
+    return;
+  }
+  const task = context.record;
+  if (!activeTaskDrawerDraft) activeTaskDrawerDraft = taskDrawerDraftFromRecord(task);
+  const completed = isCompletedTaskStatus(task.status);
+  const recurrence = TASK_RECURRENCE.normalize(task.recorrencia);
+  const priority = normalizeTaskPriority(activeTaskDrawerDraft.priority);
+  const relativeDate = taskDrawerRelativeDate(activeTaskDrawerDraft.dueDate);
+  const annotations = [...(task.annotations || [])].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  const history = [...(task.history || [])].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  const dirty = taskDrawerIsDirty(task);
+  const topChips = [
+    priority !== "Normal" ? `<span class="task-drawer-chip priority">${escapeHtml(priority)}</span>` : "",
+    recurrence ? `<span class="task-drawer-chip recurrence"><i data-lucide="refresh-cw"></i>${escapeHtml(TASK_RECURRENCE.shortLabel(recurrence))}</span>` : "",
+    task.visibility === "admin" ? `<span class="task-drawer-chip admin">Somente admin</span>` : "",
+    completed ? `<span class="task-drawer-chip completed"><i data-lucide="check"></i>Concluída</span>` : "",
+  ].filter(Boolean).join("");
+  const clientLabel = context.client?.clientName || taskItemContext(item);
+
+  el.taskDetailDrawer.innerHTML = `
+    <header class="task-drawer-header">
+      <div class="task-drawer-heading-copy">
+        ${topChips ? `<div class="task-drawer-chips">${topChips}</div>` : ""}
+        <h2>${escapeHtml(task.title || item.title)}</h2>
+      </div>
+      <button class="icon-button" type="button" data-close-task-drawer aria-label="Fechar painel"><i data-lucide="x"></i></button>
+    </header>
+    <div class="task-drawer-scroll">
+      <button class="task-drawer-complete ${completed ? "completed" : ""}" type="button" data-task-drawer-complete>
+        <i data-lucide="check"></i>${completed ? "Concluída · reabrir tarefa" : "Marcar como concluída"}
+      </button>
+
+      <section class="task-drawer-section">
+        <h3>Descrição</h3>
+        <textarea class="task-drawer-description" rows="3" maxlength="2000" data-task-drawer-description placeholder="Descreva o que precisa ser feito">${escapeHtml(activeTaskDrawerDraft.description)}</textarea>
+      </section>
+
+      <section class="task-drawer-settings">
+        <div class="task-drawer-setting-row">
+          <span>Cliente</span>
+          <div class="task-drawer-setting-value task-drawer-client-value">
+            <strong>${escapeHtml(clientLabel)}</strong>
+            ${context.client ? `<button type="button" data-task-drawer-open-client>Abrir card</button>` : ""}
+          </div>
+        </div>
+        <div class="task-drawer-setting-row">
+          <span>Responsável</span>
+          <div class="task-drawer-choice-row">
+            ${state.users.map((user) => `<button class="task-drawer-person ${activeTaskDrawerDraft.ownerId === user.id ? "active" : ""}" type="button" data-task-drawer-owner="${escapeAttr(user.id)}"><i>${escapeHtml(userInitials(user.name))}</i>${escapeHtml(user.name)}</button>`).join("")}
+          </div>
+        </div>
+        <div class="task-drawer-setting-row">
+          <span>Prazo</span>
+          <div class="task-drawer-date-row">
+            <input type="date" value="${escapeAttr(activeTaskDrawerDraft.dueDate)}" data-task-drawer-date />
+            <small class="${relativeDate.overdue ? "overdue" : ""}">${escapeHtml(relativeDate.text)}</small>
+          </div>
+        </div>
+        <div class="task-drawer-setting-row">
+          <span>Prioridade</span>
+          <div class="task-drawer-choice-row">
+            ${taskPriorityValues().map((value) => `<button class="task-drawer-choice ${priority === value ? "active" : ""}" type="button" data-task-drawer-priority="${escapeAttr(value)}">${escapeHtml(value)}</button>`).join("")}
+          </div>
+        </div>
+        <div class="task-drawer-setting-row readonly">
+          <span>Repetição</span>
+          <strong>${escapeHtml(recurrence ? TASK_RECURRENCE.fullLabel(recurrence) : "Não repete")}</strong>
+        </div>
+        <div class="task-drawer-setting-row readonly">
+          <span>Visibilidade</span>
+          <strong>${task.visibility === "admin" ? "Somente admin" : "Equipe"}</strong>
+        </div>
+      </section>
+
+      <section class="task-drawer-section task-drawer-follow-up">
+        <div class="task-drawer-section-title">
+          <h3>Acompanhamento</h3>
+          <small>${annotations.length ? `${annotations.length} registro${annotations.length === 1 ? "" : "s"}` : "nenhum registro ainda"}</small>
+        </div>
+        <div class="task-drawer-composer">
+          ${taskOwnerAvatar(currentUser.id)}
+          <div>
+            <textarea rows="2" maxlength="1200" data-task-drawer-note placeholder="Registre um andamento, combinado ou pendência"></textarea>
+            <button type="button" data-task-drawer-register-note disabled>Registrar</button>
+          </div>
+        </div>
+        <div class="task-drawer-annotations">
+          ${annotations.map((annotation) => `
+            <article>
+              ${taskOwnerAvatar(annotation.authorId)}
+              <div>
+                <p><strong>${escapeHtml(ownerName(annotation.authorId))}</strong>${annotation.createdAt ? ` · ${escapeHtml(taskDrawerDateTime(annotation.createdAt))}` : ""}</p>
+                <div>${escapeHtml(annotation.text)}</div>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+        <div class="task-drawer-history">
+          ${history.map((entry) => `<p>${entry.createdAt ? `${escapeHtml(taskDrawerHistoryDate(entry.createdAt))} · ` : ""}${escapeHtml(entry.text)}${entry.actorId ? ` por ${escapeHtml(ownerName(entry.actorId))}` : ""}</p>`).join("")}
+          <p>Criada por ${escapeHtml(ownerName(task.createdBy || task.ownerId))}${task.createdAt ? ` em ${escapeHtml(new Date(task.createdAt).toLocaleDateString("pt-BR"))}` : ""}</p>
+        </div>
+      </section>
+    </div>
+    <footer class="task-drawer-footer ${dirty ? "dirty" : ""}">
+      <button class="task-drawer-delete" type="button" data-task-drawer-delete><i data-lucide="trash-2"></i>Excluir</button>
+      <div>
+        <span data-task-drawer-unsaved ${dirty ? "" : "hidden"}>Alterações não salvas</span>
+        <button class="task-drawer-save" type="button" data-task-drawer-save ${dirty ? "" : "disabled"}><i data-lucide="check"></i>${dirty ? "Salvar alterações" : "Salvo"}</button>
+      </div>
+    </footer>
+  `;
+  bindTaskDetailDrawerActions();
+  refreshIcons();
+}
+
+function resizeTaskDrawerDescription() {
+  const textarea = el.taskDetailDrawer?.querySelector("[data-task-drawer-description]");
+  if (!textarea) return;
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function updateTaskDrawerDirtyUi() {
+  const context = taskRecordContext(taskItemFromKey(activeTaskDrawerKey));
+  const dirty = taskDrawerIsDirty(context?.record);
+  const footer = el.taskDetailDrawer?.querySelector(".task-drawer-footer");
+  const note = el.taskDetailDrawer?.querySelector("[data-task-drawer-unsaved]");
+  const save = el.taskDetailDrawer?.querySelector("[data-task-drawer-save]");
+  footer?.classList.toggle("dirty", dirty);
+  if (note) note.hidden = !dirty;
+  if (save) {
+    save.disabled = !dirty;
+    save.innerHTML = `<i data-lucide="check"></i>${dirty ? "Salvar alterações" : "Salvo"}`;
+  }
+  refreshIcons();
+}
+
+function bindTaskDetailDrawerActions() {
+  el.taskDetailDrawer.querySelector("[data-close-task-drawer]")?.addEventListener("click", closeTaskDetailDrawer);
+  el.taskDetailDrawer.querySelector("[data-task-drawer-complete]")?.addEventListener("click", () => toggleTaskCenterItemCompletion(activeTaskDrawerKey));
+  el.taskDetailDrawer.querySelector("[data-task-drawer-open-client]")?.addEventListener("click", () => {
+    const item = taskItemFromKey(activeTaskDrawerKey);
+    if (!item?.clientId) return;
+    closeTaskDetailDrawer();
+    openLinkedClientRecord(item.clientId, item.clientSource || "inss");
+  });
+  const description = el.taskDetailDrawer.querySelector("[data-task-drawer-description]");
+  description?.addEventListener("input", () => {
+    activeTaskDrawerDraft.description = description.value;
+    resizeTaskDrawerDescription();
+    updateTaskDrawerDirtyUi();
+  });
+  const date = el.taskDetailDrawer.querySelector("[data-task-drawer-date]");
+  date?.addEventListener("change", () => {
+    activeTaskDrawerDraft.dueDate = date.value;
+    renderTaskDetailDrawer();
+  });
+  el.taskDetailDrawer.querySelectorAll("[data-task-drawer-owner]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeTaskDrawerDraft.ownerId = button.dataset.taskDrawerOwner;
+      renderTaskDetailDrawer();
+    });
+  });
+  el.taskDetailDrawer.querySelectorAll("[data-task-drawer-priority]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeTaskDrawerDraft.priority = button.dataset.taskDrawerPriority;
+      renderTaskDetailDrawer();
+    });
+  });
+  const note = el.taskDetailDrawer.querySelector("[data-task-drawer-note]");
+  const register = el.taskDetailDrawer.querySelector("[data-task-drawer-register-note]");
+  note?.addEventListener("input", () => {
+    register.disabled = !note.value.trim();
+  });
+  register?.addEventListener("click", () => registerTaskDrawerAnnotation(note.value));
+  el.taskDetailDrawer.querySelector("[data-task-drawer-save]")?.addEventListener("click", saveTaskDrawerChanges);
+  el.taskDetailDrawer.querySelector("[data-task-drawer-delete]")?.addEventListener("click", deleteTaskDrawerTask);
+  resizeTaskDrawerDescription();
+}
+
+function appendTaskHistory(task, text, now = new Date().toISOString()) {
+  task.history = Array.isArray(task.history) ? task.history : [];
+  task.history.push({ id: id(), text, actorId: currentUser.id, createdAt: now });
+}
+
+function registerTaskDrawerAnnotation(text) {
+  const value = String(text || "").trim();
+  const item = taskItemFromKey(activeTaskDrawerKey);
+  const context = taskRecordContext(item);
+  if (!value || context?.kind !== "task") return;
+  const now = new Date().toISOString();
+  context.record.annotations = Array.isArray(context.record.annotations) ? context.record.annotations : [];
+  context.record.annotations.push({ id: id(), text: value, authorId: currentUser.id, createdAt: now });
+  context.record.updatedAt = now;
+  if (context.client) {
+    context.client.updatedAt = now;
+    addHistoryEntry(context.client, "Acompanhamento de tarefa registrado", [`${context.record.title}: ${value}`]);
+  }
+  recordActivity("task", `Registrou acompanhamento: ${context.record.title || "Tarefa sem título"}.`, value, taskActivityOptions(context.record, {
+    internalTaskId: item.internalTaskId || "",
+    clientId: item.clientId || "",
+    clientSource: item.clientSource || "inss",
+    clientName: item.clientName || "",
+    visibility: context.record.visibility,
+  }));
+  saveState();
+  renderTaskDetailDrawer();
+  renderUpdates();
+}
+
+function saveTaskDrawerChanges() {
+  const item = taskItemFromKey(activeTaskDrawerKey);
+  const context = taskRecordContext(item);
+  if (context?.kind !== "task" || !activeTaskDrawerDraft) return;
+  const task = context.record;
+  const now = new Date().toISOString();
+  const changes = [];
+  if (String(task.description || "") !== String(activeTaskDrawerDraft.description || "")) changes.push("Descrição atualizada");
+  if (String(task.dueDate || "") !== String(activeTaskDrawerDraft.dueDate || "")) {
+    changes.push(activeTaskDrawerDraft.dueDate ? `Prazo alterado para ${formatDate(activeTaskDrawerDraft.dueDate)}` : "Prazo removido");
+  }
+  if (String(task.ownerId || "") !== String(activeTaskDrawerDraft.ownerId || "")) changes.push(`Responsável alterado para ${ownerName(activeTaskDrawerDraft.ownerId)}`);
+  if (normalizeTaskPriority(task.priority) !== normalizeTaskPriority(activeTaskDrawerDraft.priority)) changes.push(`Prioridade alterada para ${normalizeTaskPriority(activeTaskDrawerDraft.priority)}`);
+  if (!changes.length) return;
+
+  Object.assign(task, {
+    description: activeTaskDrawerDraft.description || "",
+    ownerId: activeTaskDrawerDraft.ownerId || currentUser.id,
+    dueDate: activeTaskDrawerDraft.dueDate || "",
+    priority: normalizeTaskPriority(activeTaskDrawerDraft.priority),
+    updatedAt: now,
+  });
+  changes.forEach((change) => appendTaskHistory(task, change, now));
+  if (context.client) {
+    context.client.updatedAt = now;
+    addHistoryEntry(context.client, "Tarefa atualizada", changes.map((change) => `${task.title}: ${change}.`));
+  }
+  recordActivity("task", `Atualizou tarefa: ${task.title || "Tarefa sem título"}.`, changes.join(" · "), taskActivityOptions(task, {
+    internalTaskId: item.internalTaskId || "",
+    clientId: item.clientId || "",
+    clientSource: item.clientSource || "inss",
+    clientName: item.clientName || "",
+    visibility: task.visibility,
+  }));
+  saveState();
+  activeTaskDrawerDraft = taskDrawerDraftFromRecord(task);
+  renderTaskCenter();
+  renderTaskDetailDrawer();
+  renderUpdates();
+}
+
+function toggleTaskCenterItemCompletion(key) {
+  const item = taskItemFromKey(key);
+  const context = taskRecordContext(item);
+  if (!item || !context || context.kind === "meeting") return;
+  const record = context.record;
+  const completed = isCompletedTaskStatus(record.status);
+  const now = new Date().toISOString();
+  const nextStatus = completed ? "Pendente" : context.kind === "deadline" ? "Concluído" : "Concluída";
+  record.status = nextStatus;
+  record.completedAt = completed ? null : now;
+  record.updatedAt = now;
+  if (context.kind === "task") {
+    appendTaskHistory(record, completed ? "Tarefa reaberta" : "Tarefa concluída", now);
+    if (!completed) createNextRecurringTask(record, context.client ? { client: context.client, clientSource: context.clientSource } : {});
+  }
+  if (context.client) {
+    context.client.updatedAt = now;
+    addHistoryEntry(context.client, completed ? "Tarefa reaberta" : "Tarefa concluída", [record.title || "Tarefa sem título"]);
+  }
+  recordActivity(context.kind === "deadline" ? "deadline" : "task", `${completed ? "Reabriu" : "Concluiu"} ${context.kind === "deadline" ? "prazo" : "tarefa"}: ${record.title || "Sem título"}.`, "", taskActivityOptions(record, {
+    internalTaskId: item.internalTaskId || "",
+    clientId: item.clientId || "",
+    clientSource: item.clientSource || "inss",
+    clientName: item.clientName || "",
+    visibility: record.visibility,
+  }));
+  saveState();
+  renderMetrics();
+  renderClients();
+  renderTaskCenter();
+  renderUpdates();
+  if (activeTaskDrawerKey === key && context.kind === "task") {
+    activeTaskDrawerDraft = taskDrawerDraftFromRecord(record);
+    renderTaskDetailDrawer();
+  }
+}
+
+function deleteTaskDrawerTask() {
+  const item = taskItemFromKey(activeTaskDrawerKey);
+  const context = taskRecordContext(item);
+  if (!item || context?.kind !== "task") return;
+  if (!confirm(`Excluir a tarefa “${context.record.title || "Sem título"}”?`)) return;
+  if (item.internalTaskId) {
+    state.internalTasks = state.internalTasks.filter((task) => task.id !== item.internalTaskId);
+  } else if (context.client) {
+    context.client.tasks = (context.client.tasks || []).filter((task) => task.id !== item.id);
+    context.client.updatedAt = new Date().toISOString();
+    addHistoryEntry(context.client, "Tarefa removida", [context.record.title || "Tarefa sem título"]);
+  }
+  recordActivity("task", `Removeu tarefa: ${context.record.title || "Tarefa sem título"}.`, "", taskActivityOptions(context.record, {
+    internalTaskId: item.internalTaskId || "",
+    clientId: item.clientId || "",
+    clientSource: item.clientSource || "inss",
+    clientName: item.clientName || "",
+    visibility: context.record.visibility,
+  }));
+  saveState();
+  closeTaskDetailDrawer();
+  renderMetrics();
+  renderClients();
+  renderTaskCenter();
+  renderUpdates();
 }
 
 function taskTypeClass(item = {}) {
@@ -10679,7 +11246,7 @@ function ensureStatusByName(name, color = "#009f7f") {
 
 function moveTaskPeriod(direction) {
   const nextDate = new Date(activeTaskDate);
-  nextDate.setDate(nextDate.getDate() + direction);
+  nextDate.setDate(nextDate.getDate() + (direction * 7));
   activeTaskDate = nextDate;
   renderTaskCenter();
 }
@@ -13307,14 +13874,14 @@ function openQuickInternalTaskDialog() {
   });
 }
 
-function openInternalTaskDialog(taskId = null) {
+function openInternalTaskDialog(taskId = null, options = {}) {
   const task = state.internalTasks.find((item) => item.id === taskId) || null;
   const draft = task || normalizeInternalTask({
     title: "",
     description: "",
     followUpNotes: "",
     ownerId: currentUser.id,
-    dueDate: "",
+    dueDate: options.dueDate || "",
     priority: "Normal",
     status: "Pendente",
     visibility: "team",
@@ -13416,6 +13983,8 @@ function openInternalTaskDialog(taskId = null) {
         createdAt: now,
         updatedAt: now,
         completedAt: null,
+        annotations: [],
+        history: [],
       };
       client.tasks = Array.isArray(client.tasks) ? client.tasks : [];
       client.tasks.push(newTask);
@@ -13438,6 +14007,8 @@ function openInternalTaskDialog(taskId = null) {
         createdBy: currentUser.id,
         createdAt: now,
         completedAt: null,
+        annotations: [],
+        history: [],
       };
       state.internalTasks.unshift(newTask);
       recordActivity("task", `Criou tarefa interna: ${newTask.title}.`, newTask.description || "", taskActivityOptions(newTask, {
@@ -14029,6 +14600,8 @@ function emptyTask() {
     createdAt: new Date().toISOString(),
     updatedAt: null,
     completedAt: null,
+    annotations: [],
+    history: [],
   };
 }
 
@@ -14128,6 +14701,13 @@ function createNextRecurringTask(task, context = {}) {
     createdAt: now,
     updatedAt: now,
     completedAt: null,
+    annotations: [],
+    history: [{
+      id: id(),
+      text: "Criada automaticamente pela repetição",
+      actorId: currentUser.id,
+      createdAt: now,
+    }],
   };
 
   if (context.client) {

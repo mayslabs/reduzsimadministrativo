@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=210" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=213" />
+    <link rel="stylesheet" href="./redesign.css?v=214" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -177,15 +177,6 @@
 
           <div id="taskOverview" class="task-overview"></div>
 
-          <div class="calendar-controls task-period-controls" hidden>
-            <button id="previousTaskPeriodButton" class="icon-button" type="button" aria-label="Período anterior"><i data-lucide="chevron-left"></i></button>
-            <div class="calendar-title">
-              <strong id="taskPeriodLabel"></strong>
-              <button id="todayTaskButton" class="small-button" type="button">Hoje</button>
-            </div>
-            <button id="nextTaskPeriodButton" class="icon-button" type="button" aria-label="Próximo período"><i data-lucide="chevron-right"></i></button>
-          </div>
-
           <div class="toolbar task-toolbar">
             <label class="search-field">
               <i data-lucide="search"></i>
@@ -206,9 +197,16 @@
               <option value="Aguardando terceiro">Aguardando terceiro</option>
             </select>
             <button id="taskMineFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="user-check"></i> Minhas tarefas</button>
-            <div class="segmented-control calendar-mode single-mode" aria-label="Visualização atual das tarefas">
-              <span id="taskDayModeLabel" class="active" aria-current="page">Meu dia</span>
+          </div>
+
+          <div class="task-week-navigation">
+            <div class="calendar-controls task-period-controls">
+              <button id="previousTaskPeriodButton" class="icon-button" type="button" aria-label="Semana anterior"><i data-lucide="chevron-left"></i></button>
+              <strong id="taskPeriodLabel"></strong>
+              <button id="nextTaskPeriodButton" class="icon-button" type="button" aria-label="Próxima semana"><i data-lucide="chevron-right"></i></button>
             </div>
+            <button id="todayTaskButton" class="small-button task-current-week-button" type="button" hidden>Esta semana</button>
+            <p id="taskWeekOutsideSummary" class="task-week-outside-summary" hidden></p>
           </div>
 
           <div id="taskCenterList" class="task-center-list"></div>
@@ -1479,11 +1477,15 @@
       </form>
     </dialog>
 
+    <div id="taskDetailOverlay" class="task-detail-overlay" hidden>
+      <aside id="taskDetailDrawer" class="task-detail-drawer" role="dialog" aria-modal="true" aria-label="Detalhes da tarefa"></aside>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=5"></script>
     <script src="./task-recurrence.js?v=1"></script>
-    <script src="./app.js?v=215"></script>
+    <script src="./app.js?v=216"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>
