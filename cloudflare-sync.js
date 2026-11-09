@@ -21,17 +21,21 @@
   let versions = {};
   let lastSeq = 0;
   let currentUser = null;
+  let revision = "";
 
   class SyncConflictError extends Error {
     constructor(conflicts = []) {
       super("Os dados foram alterados em outro computador.");
       this.name = "SyncConflictError";
+      this.code = "SYNC_CONFLICT";
       this.conflicts = conflicts;
     }
   }
 
-  async function load() {
-    const payload = await request("/api/state", { method: "GET" });
+  async function load({ onlyIfChanged = false, accept = () => true } = {}) {
+    const url = onlyIfChanged && revision ? `/api/state?revision=${encodeURIComponent(revision)}` : "/api/state";
+    const payload = await request(url, { method: "GET", keepPage: onlyIfChanged });
+    if (!accept() || payload.unchanged === true) return null;
     remember(payload);
     return payload;
   }
@@ -40,6 +44,7 @@
     const usesPatch = Array.isArray(dirtyKeys);
     const options = {
       method: "POST",
+      keepPage: true,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         state: usesPatch ? buildStatePatch(state, dirtyKeys) : state,
@@ -85,6 +90,7 @@
     versions = {};
     lastSeq = 0;
     currentUser = null;
+    revision = "";
   }
 
   async function markActivitiesRead(ids) {
@@ -103,7 +109,7 @@
     });
   }
 
-  async function request(url, options = {}) {
+  async function request(url, { keepPage = false, ...options } = {}) {
     let response;
     try {
       response = await fetch(url, {
@@ -124,8 +130,10 @@
 
     const payload = await response.json().catch(() => null);
     if (response.status === 401) {
-      window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
-      const error = new Error("Sessão encerrada.");
+      if (!keepPage) window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      const error = new Error(keepPage
+        ? "Sessão encerrada. Entre novamente com a mesma conta em outra aba e tente salvar."
+        : "Sessão encerrada.");
       error.code = "UNAUTHORIZED";
       error.status = response.status;
       throw error;
@@ -163,7 +171,7 @@
   async function verifySavedState(state, dirtyKeys) {
     if (!Array.isArray(dirtyKeys)) return null;
     try {
-      const payload = await request("/api/state", { method: "GET" });
+      const payload = await request("/api/state", { method: "GET", keepPage: true });
       if (!dirtyStateMatches(payload.state, state, dirtyKeys)) return null;
       remember(payload);
       return payload;
@@ -222,6 +230,7 @@
       (payload.deletedKeys || []).forEach((key) => delete versions[key]);
     } else {
       versions = { ...(payload.versions || {}) };
+      revision = payload.revision || "";
     }
     lastSeq = Number(payload.lastSeq || 0);
     currentUser = payload.currentUser || null;

@@ -62,6 +62,13 @@ export async function onRequestGet(context) {
   if (!user) return unauthorized();
 
   try {
+    const revision = new URL(context.request.url).searchParams.get("revision");
+    if (revision && revision.length <= 256) {
+      const row = await revisionQuery(context.env.DB, user, activityRetentionCutoff()).first();
+      if (revision === stateRevision(row, user)) {
+        return jsonResponse({ ok: true, unchanged: true });
+      }
+    }
     return jsonResponse(await readState(context.env.DB, user));
   } catch (error) {
     console.error("State read failed", error);
@@ -109,14 +116,15 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: result.error.message, code: result.error.code }, result.error.status);
     }
 
-    await env.DB.batch(activityCleanupStatements(env.DB, activityRetentionCutoff()));
-    if (result.statements.length) {
-      await env.DB.batch(result.statements);
-    }
-    const payload = await readState(env.DB, user);
+    await env.DB.batch([
+      ...activityCleanupStatements(env.DB, activityRetentionCutoff()),
+      ...result.statements,
+    ]);
+    const compactKeys = body.compact === true ? dirtyKeys : null;
+    const payload = await readState(env.DB, user, compactKeys);
     return jsonResponse(
-      body.compact === true && dirtyKeys
-        ? compactStatePayload(payload, dirtyKeys)
+      compactKeys
+        ? compactStatePayload(payload, compactKeys)
         : payload,
     );
   } catch (error) {
@@ -140,8 +148,30 @@ export async function onRequestPost(context) {
   }
 }
 
-async function readState(db, user) {
-  const readableCollections = COLLECTIONS.filter((config) => !config.adminOnly || user.role === "admin");
+function revisionQuery(db, user, cutoff) {
+  return db.prepare(`
+    SELECT (SELECT COALESCE(MAX(seq), 0) FROM sync_log) AS last_seq,
+      (SELECT MIN(created_at) FROM activities
+        WHERE created_at >= ? AND deleted_at IS NULL AND (? = 'admin' OR scope = 'team')) AS oldest_activity,
+      (SELECT COUNT(*) FROM activity_reads WHERE user_id = ?) AS reads_count,
+      (SELECT MAX(read_at) FROM activity_reads WHERE user_id = ?) AS last_read
+  `).bind(cutoff, user.role, user.id, user.id);
+}
+
+function stateRevision(row, user) {
+  return JSON.stringify([user.role, row?.last_seq || 0, row?.oldest_activity || "", row?.reads_count || 0, row?.last_read || ""]);
+}
+
+function idsForCollection(dirtyKeys, stateKey) {
+  const prefix = `${stateKey}:`;
+  return [...dirtyKeys].filter((key) => key.startsWith(prefix)).map((key) => key.slice(prefix.length));
+}
+
+async function readState(db, user, dirtyKeys = null) {
+  const readableCollections = COLLECTIONS.filter((config) =>
+    (!config.adminOnly || user.role === "admin")
+    && (!dirtyKeys || idsForCollection(dirtyKeys, config.stateKey).length),
+  );
   const retentionCutoff = activityRetentionCutoff();
   const statements = readableCollections.map((config) => {
     const retentionClause = config.stateKey === "activities"
@@ -153,31 +183,44 @@ async function readState(db, user) {
       WHERE deleted_at IS NULL
         ${retentionClause}
         AND (? = 'admin' OR scope = 'team')
+        ${dirtyKeys ? "AND id IN (SELECT value FROM json_each(?))" : ""}
       ORDER BY updated_at DESC
     `);
-    return config.stateKey === "activities"
-      ? statement.bind(retentionCutoff, user.role)
-      : statement.bind(user.role);
+    const params = config.stateKey === "activities" ? [retentionCutoff, user.role] : [user.role];
+    if (dirtyKeys) params.push(JSON.stringify(idsForCollection(dirtyKeys, config.stateKey)));
+    return statement.bind(...params);
   });
-  statements.push(db.prepare(`
+  const userIds = dirtyKeys ? idsForCollection(dirtyKeys, "users") : null;
+  const settingIds = dirtyKeys ? idsForCollection(dirtyKeys, "settings") : null;
+  const activityIds = dirtyKeys ? idsForCollection(dirtyKeys, "activities") : null;
+  const usersIndex = statements.length;
+  if (!userIds || userIds.length) statements.push(db.prepare(`
     SELECT id, email, name, role, enabled, session_version
     FROM app_users
     WHERE enabled = 1
+      ${userIds ? "AND id IN (SELECT value FROM json_each(?))" : ""}
     ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, lower(name)
-  `));
-  statements.push(db.prepare(`
+  `).bind(...(userIds ? [JSON.stringify(userIds)] : [])));
+  const settingsIndex = statements.length;
+  if (!settingIds || settingIds.length) statements.push(db.prepare(`
     SELECT key, value_json, version, scope
     FROM app_settings
-    WHERE ? = 'admin' OR scope = 'team'
-  `).bind(user.role));
-  statements.push(db.prepare("SELECT COALESCE(MAX(seq), 0) AS last_seq FROM sync_log"));
-  statements.push(db.prepare(`
+    WHERE (? = 'admin' OR scope = 'team')
+      ${settingIds ? "AND key IN (SELECT value FROM json_each(?))" : ""}
+  `).bind(user.role, ...(settingIds ? [JSON.stringify(settingIds)] : [])));
+  const revisionIndex = statements.length;
+  statements.push(dirtyKeys
+    ? db.prepare("SELECT COALESCE(MAX(seq), 0) AS last_seq FROM sync_log")
+    : revisionQuery(db, user, retentionCutoff));
+  const readsIndex = statements.length;
+  if (!activityIds || activityIds.length) statements.push(db.prepare(`
     SELECT activity_reads.activity_id
     FROM activity_reads
     INNER JOIN activities ON activities.id = activity_reads.activity_id
     WHERE activity_reads.user_id = ?
       AND activities.created_at >= ?
-  `).bind(user.id, retentionCutoff));
+      ${activityIds ? "AND activity_reads.activity_id IN (SELECT value FROM json_each(?))" : ""}
+  `).bind(user.id, retentionCutoff, ...(activityIds ? [JSON.stringify(activityIds)] : [])));
 
   const results = await db.batch(statements);
   const state = {
@@ -209,8 +252,7 @@ async function readState(db, user) {
     });
   });
 
-  let resultIndex = readableCollections.length;
-  const userRows = results[resultIndex++]?.results || [];
+  const userRows = !userIds || userIds.length ? results[usersIndex]?.results || [] : [];
   state.users = userRows.map((row) => ({
     id: String(row.id),
     email: String(row.email || ""),
@@ -221,7 +263,7 @@ async function readState(db, user) {
     versions[versionKey("users", row.id)] = Number(row.session_version || 1);
   });
 
-  const settingRows = results[resultIndex++]?.results || [];
+  const settingRows = !settingIds || settingIds.length ? results[settingsIndex]?.results || [] : [];
   settingRows.forEach((row) => {
     const value = parsePayload(row.value_json);
     if (row.key === "goals" && isObject(value)) state.goals = value;
@@ -237,9 +279,9 @@ async function readState(db, user) {
     versions[versionKey("settings", row.key)] = Number(row.version || 0);
   });
 
-  const lastSeq = Number(results[resultIndex++]?.results?.[0]?.last_seq || 0);
+  const revisionRow = results[revisionIndex]?.results?.[0];
   const readActivityIds = new Set(
-    (results[resultIndex]?.results || []).map((row) => String(row.activity_id)),
+    (results[readsIndex]?.results || []).map((row) => String(row.activity_id)),
   );
   state.activities = state.activities.map((activity) => {
     if (!readActivityIds.has(String(activity.id))) return activity;
@@ -253,7 +295,8 @@ async function readState(db, user) {
     ok: true,
     state,
     versions,
-    lastSeq,
+    lastSeq: Number(revisionRow?.last_seq || 0),
+    ...(!dirtyKeys ? { revision: stateRevision(revisionRow, user) } : {}),
     currentUser: {
       id: user.id,
       name: user.name,
@@ -287,22 +330,23 @@ function activityCleanupStatements(db, cutoff) {
 }
 
 async function prepareMutations(db, user, desiredState, clientVersions, dirtyKeys = null) {
-  const writableCollections = COLLECTIONS.filter((config) => !config.adminOnly || user.role === "admin");
-  const queries = writableCollections.map((config) => db.prepare(`
+  const writableCollections = COLLECTIONS
+    .filter((config) => !config.adminOnly || user.role === "admin")
+    .map((config) => ({ config, ids: dirtyKeys ? idsForCollection(dirtyKeys, config.stateKey) : null }))
+    .filter(({ ids }) => !ids || ids.length);
+  const queries = writableCollections.map(({ config, ids }) => db.prepare(`
     SELECT id, payload, version, scope, created_at, created_by, deleted_at
     FROM ${config.table}
-  `));
-  const results = await db.batch(queries);
+    ${ids ? "WHERE id IN (SELECT value FROM json_each(?))" : ""}
+  `).bind(...(ids ? [JSON.stringify(ids)] : [])));
+  const results = queries.length ? await db.batch(queries) : [];
   const now = new Date().toISOString();
   const statements = [];
   const conflicts = [];
   let mutationCount = 0;
 
-  writableCollections.forEach((config, index) => {
+  writableCollections.forEach(({ config }, index) => {
     const desiredItems = desiredState[config.stateKey];
-    const collectionHasDirtyRecords = !dirtyKeys
-      || [...dirtyKeys].some((key) => key.startsWith(`${config.stateKey}:`));
-    if (!Array.isArray(desiredItems) && dirtyKeys && !collectionHasDirtyRecords) return;
     if (!Array.isArray(desiredItems) || desiredItems.length > config.maxItems) {
       throw new ValidationError(`A colecao ${config.stateKey} e invalida.`);
     }
@@ -362,6 +406,7 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
         }
       }
 
+      validateTaskDueDates(config.stateKey, item, existingPayload ? parsePayload(existingPayload) : null);
       mutationCount += 1;
       statements.push(upsertStatement(db, config, item, payload, scope, existing, user, now));
       statements.push(syncLogStatement(
@@ -416,17 +461,12 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
   });
 
   if (user.role === "admin") {
-    const settingsResult = await prepareSettings(
-      db,
-      user,
-      desiredState,
-      clientVersions,
-      now,
-      dirtyKeys,
-    );
-    statements.push(...settingsResult.statements);
-    conflicts.push(...settingsResult.conflicts);
-    mutationCount += settingsResult.mutationCount;
+    if (!dirtyKeys || idsForCollection(dirtyKeys, "settings").length) {
+      const settingsResult = await prepareSettings(db, user, desiredState, clientVersions, now, dirtyKeys);
+      statements.push(...settingsResult.statements);
+      conflicts.push(...settingsResult.conflicts);
+      mutationCount += settingsResult.mutationCount;
+    }
 
     const usersAreDirty = !dirtyKeys
       || [...dirtyKeys].some((key) => key.startsWith("users:"));
@@ -630,6 +670,33 @@ function normalizeItem(rawItem, config, user, now) {
   }
 
   return item;
+}
+
+function validateTaskDueDates(stateKey, item, previous) {
+  const requireDate = (task) => {
+    const value = task?.dueDate;
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(value || "")) ? new Date(`${value}T00:00:00Z`) : null;
+    if (!date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+      throw new ValidationError("Defina um prazo valido para a tarefa.");
+    }
+  };
+  if (stateKey === "internalTasks") {
+    requireDate(item);
+    return;
+  }
+  if (stateKey !== "clients" && stateKey !== "regularizationClients") return;
+
+  const validateTasks = (owner, priorOwner) => {
+    const priorTasks = new Map((Array.isArray(priorOwner?.tasks) ? priorOwner.tasks : [])
+      .map((task) => [task?.id, JSON.stringify(task)]));
+    for (const task of Array.isArray(owner?.tasks) ? owner.tasks : []) {
+      // Unchanged legacy tasks must not block an unrelated edit to the client.
+      if (priorTasks.get(task?.id) !== JSON.stringify(task)) requireDate(task);
+    }
+  };
+  validateTasks(item, previous);
+  const priorWorks = new Map((Array.isArray(previous?.works) ? previous.works : []).map((work) => [work?.id, work]));
+  for (const work of Array.isArray(item.works) ? item.works : []) validateTasks(work, priorWorks.get(work?.id));
 }
 
 export function protectExistingHistory(existingClient, nextClient, user, now) {

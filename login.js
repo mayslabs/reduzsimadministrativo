@@ -197,10 +197,11 @@
   }
 
   function safeNext(value) {
-    const candidate = String(value || "/").trim();
-    if (!candidate.startsWith("/") || candidate.startsWith("//")) return "/";
-    if (candidate.startsWith("/auth/") || candidate.startsWith("/login")) return "/";
-    return candidate.slice(0, 1200);
+    const next = String(value || "/").trim().slice(0, 1200);
+    if (!next.startsWith("/") || next.startsWith("//") || /[\\\x00-\x1f\x7f]/.test(next)) return "/";
+    const { pathname } = new URL(next, window.location.origin);
+    if (pathname.startsWith("/auth/") || pathname.startsWith("/login")) return "/";
+    return next;
   }
 })();
 

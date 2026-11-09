@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=210" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=214" />
+    <link rel="stylesheet" href="./redesign.css?v=217" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -188,13 +188,9 @@
               <option value="">Todos</option>
               <option value="open">Abertas</option>
               <option value="overdue">Atrasadas</option>
-              <option value="waiting">Aguardando retorno</option>
               <option value="today">Hoje</option>
               <option value="upcoming">Próximas</option>
-              <option value="no-date">Sem prazo</option>
               <option value="done">Concluídas</option>
-              <option value="Aguardando cliente">Aguardando cliente</option>
-              <option value="Aguardando terceiro">Aguardando terceiro</option>
             </select>
             <button id="taskMineFilterButton" class="secondary-button filter-toggle" type="button" aria-pressed="false"><i data-lucide="user-check"></i> Minhas tarefas</button>
           </div>
@@ -206,10 +202,14 @@
               <button id="nextTaskPeriodButton" class="icon-button" type="button" aria-label="Próxima semana"><i data-lucide="chevron-right"></i></button>
             </div>
             <button id="todayTaskButton" class="small-button task-current-week-button" type="button" hidden>Esta semana</button>
-            <p id="taskWeekOutsideSummary" class="task-week-outside-summary" hidden></p>
+            <div id="taskWeekOutsideSummary" class="task-week-outside-summary" hidden>
+              <a id="taskOverdueJump" href="#taskOverdueBlock" hidden></a>
+            </div>
           </div>
 
           <div id="taskCenterList" class="task-center-list"></div>
+          <div id="taskOverdueWorkspace"></div>
+          <p id="taskOverdueStatus" class="sr-only" role="status"></p>
         </section>
 
         <section id="marketingSection" class="app-section" hidden>
@@ -1483,9 +1483,9 @@
 
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-    <script src="./cloudflare-sync.js?v=5"></script>
+    <script src="./cloudflare-sync.js?v=6"></script>
     <script src="./task-recurrence.js?v=1"></script>
-    <script src="./app.js?v=216"></script>
+    <script src="./app.js?v=220"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

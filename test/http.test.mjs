@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import {
   isTrustedMutation,
   jsonResponse,
@@ -26,9 +28,17 @@ test("accepts only same-origin mutations", () => {
   })), false);
 });
 
-test("prevents open redirects", () => {
-  assert.equal(sanitizeNext("https://attacker.example"), "/");
-  assert.equal(sanitizeNext("//attacker.example"), "/");
-  assert.equal(sanitizeNext("/auth/session"), "/");
-  assert.equal(sanitizeNext("/?view=tasks"), "/?view=tasks");
+test("prevents open redirects in the server and browser login", async () => {
+  const source = await readFile(new URL("../login.js", import.meta.url), "utf8");
+  const sandbox = { URL, window: { location: { origin: "https://crm.example.test" } } };
+  runInNewContext(source.replace(/\(\(\) => \{/, "(() => { globalThis.safeNext = safeNext; return;"), sandbox);
+  for (const check of [sanitizeNext, sandbox.safeNext]) {
+    assert.equal(check("https://attacker.example"), "/");
+    assert.equal(check("//attacker.example"), "/");
+    assert.equal(check("/\\attacker.example"), "/");
+    assert.equal(check("/\t/attacker.example"), "/");
+    assert.equal(check("/auth/session"), "/");
+    assert.equal(check("/./auth/session"), "/");
+    assert.equal(check("/?view=tasks"), "/?view=tasks");
+  }
 });

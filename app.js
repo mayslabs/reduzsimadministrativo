@@ -324,6 +324,8 @@ let state;
 state = loadState();
 let currentUser = null;
 let activeClient = null;
+let clientSaveInFlight = null;
+let clientViewNeedsRender = false;
 let activeRegularization = null;
 let activeClientQuickFilter = "active";
 let activeClientSortKey = "created";
@@ -335,6 +337,9 @@ let activeRegularizationQuickFilter = "active";
 let activeRegularizationViewMode = "compact";
 let activeRegularizationManagerType = "";
 let activeTaskDate = new Date();
+let taskEditorValidation = null;
+const expandedOverdueOwners = new Set();
+let movingOverdueTasks = false;
 let activeMarketingDate = new Date();
 let activeMarketingItemId = "";
 let activeMarketingDraftKind = "content";
@@ -417,6 +422,9 @@ const el = {
   todayTaskButton: document.getElementById("todayTaskButton"),
   taskPeriodLabel: document.getElementById("taskPeriodLabel"),
   taskWeekOutsideSummary: document.getElementById("taskWeekOutsideSummary"),
+  taskOverdueJump: document.getElementById("taskOverdueJump"),
+  taskOverdueWorkspace: document.getElementById("taskOverdueWorkspace"),
+  taskOverdueStatus: document.getElementById("taskOverdueStatus"),
   taskSearchInput: document.getElementById("taskSearchInput"),
   taskOwnerFilter: document.getElementById("taskOwnerFilter"),
   taskClientFilter: document.getElementById("taskClientFilter"),
@@ -1009,8 +1017,8 @@ function normalizeInternalTask(task) {
     description: task.description || task.text || task.notes || "",
     followUpNotes: task.followUpNotes || "",
     ownerId: task.ownerId || "",
-    dueDate: task.dueDate || "",
-    status: localizeLabel(task.status || "Pendente"),
+    dueDate: taskDueDateWithFallback(task),
+    status: normalizeTaskStatus(task.status),
     priority: normalizeTaskPriority(task.priority),
     visibility: task.visibility === "admin" ? "admin" : "team",
     marketingItemId: task.marketingItemId || "",
@@ -1517,8 +1525,8 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
     description: task.description || task.text || task.notes || "",
     followUpNotes: task.followUpNotes || "",
     ownerId: task.ownerId || client.internalOwner || fallbackUserId,
-    dueDate: task.dueDate || "",
-    status: localizeLabel(task.status || "Pendente"),
+    dueDate: taskDueDateWithFallback(task, client.createdAt),
+    status: normalizeTaskStatus(task.status),
     priority: normalizeTaskPriority(task.priority),
     visibility: task.visibility === "admin" ? "admin" : "team",
     recorrencia: TASK_RECURRENCE.normalize(task.recorrencia),
@@ -1852,6 +1860,7 @@ async function saveCloudStateNow() {
     return;
   }
   cloudSaveInFlight = true;
+  let conflicted = false;
 
   try {
     const payload = await window.ReduzSimCloud.save(stateToSave, dirtyKeys);
@@ -1867,9 +1876,9 @@ async function saveCloudStateNow() {
     }
   } catch (error) {
     if (error instanceof window.ReduzSimCloud.SyncConflictError) {
-      await loadCloudState({ render: true });
+      conflicted = true;
       const conflictError = new Error(
-        "Este mesmo registro foi atualizado em outro computador. A versao mais recente foi carregada; revise e salve novamente."
+        "Este registro foi atualizado em outro dispositivo. Sua edicao nao foi sobrescrita. Confira a versao salva em outra aba antes de refazer a alteracao."
       );
       conflictError.code = "SYNC_CONFLICT";
       throw conflictError;
@@ -1877,7 +1886,7 @@ async function saveCloudStateNow() {
     throw error;
   } finally {
     cloudSaveInFlight = false;
-    if (generation !== cloudChangeGeneration) scheduleCloudSave();
+    if (!conflicted && generation !== cloudChangeGeneration) scheduleCloudSave();
   }
 }
 
@@ -1923,15 +1932,40 @@ function stopCloudStateListener() {
   cloudPollTimer = null;
 }
 
-async function pollCloudState() {
-  if (
-    cloudSaveInFlight
-    || cloudSaveTimer
-    || !currentUser
-    || JSON.stringify(state) !== lastCloudStateJson
-  ) return;
+let cloudPollInFlight = false;
 
-  const payload = await window.ReduzSimCloud.load();
+function canPollCloudState() {
+  return Boolean(
+    currentUser
+    && !document.hidden
+    && !el.clientDialog?.open
+    && !el.regularizationDialog?.open
+    && !el.taskCenterList?.querySelector(".task-week-board.is-dragging")
+    && el.taskOverdueWorkspace?.getAttribute("aria-busy") !== "true"
+    && !cloudSaveInFlight
+    && !cloudSaveTimer
+    && JSON.stringify(state) === lastCloudStateJson
+  );
+}
+
+async function pollCloudState() {
+  if (cloudPollInFlight || !canPollCloudState()) return;
+  const generation = cloudChangeGeneration;
+  const baseline = lastCloudStateJson;
+  const accept = () => generation === cloudChangeGeneration
+    && baseline === lastCloudStateJson
+    && canPollCloudState();
+  cloudPollInFlight = true;
+  try {
+    const payload = await window.ReduzSimCloud.load({ onlyIfChanged: true, accept });
+    if (!payload || !accept()) return;
+    applyPolledCloudState(payload);
+  } finally {
+    cloudPollInFlight = false;
+  }
+}
+
+function applyPolledCloudState(payload) {
   const remoteState = migrateState(payload.state, false);
   if (JSON.stringify(remoteState) === lastCloudStateJson) {
     cloudSessionUser = payload.currentUser || cloudSessionUser;
@@ -1971,7 +2005,9 @@ function showSyncError(error) {
   if (el.loginStatus) el.loginStatus.textContent = message;
   if (currentUser && el.updatesSection && !el.updatesSection.hidden) renderUpdates();
   if (shouldAlert) {
-    window.alert(`${message}\n\nA alteracao continua nesta tela. Tente salvar novamente.`);
+    window.alert(error?.code === "SYNC_CONFLICT"
+      ? message
+      : `${message}\n\nA alteracao continua nesta tela. Nao recarregue antes de conferir o rascunho.`);
   }
 }
 
@@ -2081,6 +2117,29 @@ function bindEvents() {
     activeTaskDate = new Date();
     renderTaskCenter();
   });
+  el.taskOverdueJump.addEventListener("click", (event) => {
+    event.preventDefault();
+    scrollToOverdueTasks();
+  });
+  el.taskOverview.addEventListener("click", (event) => {
+    const owner = event.target.closest("[data-task-overview-owner]");
+    if (owner) {
+      const id = owner.dataset.taskOverviewOwner;
+      el.taskOwnerFilter.value = !taskMineOnly && el.taskOwnerFilter.value === id ? "" : id;
+      taskMineOnly = false;
+      renderTaskCenter();
+      [...el.taskOverview.querySelectorAll("[data-task-overview-owner]")]
+        .find((button) => button.dataset.taskOverviewOwner === id)?.focus({ preventScroll: true });
+      return;
+    }
+    const period = event.target.closest("[data-task-overview-week], [data-jump-to-overdue-tasks]");
+    if (!period) return;
+    activeTaskDate = new Date();
+    renderTaskCenter();
+    if (period.hasAttribute("data-jump-to-overdue-tasks")) scrollToOverdueTasks();
+    else el.taskOverview.querySelector("[data-task-overview-week]")?.focus({ preventScroll: true });
+  });
+  el.taskOverdueWorkspace.addEventListener("click", handleOverdueTaskAction);
   el.taskDetailOverlay?.addEventListener("click", (event) => {
     if (event.target === el.taskDetailOverlay) closeTaskDetailDrawer();
   });
@@ -2238,6 +2297,11 @@ function bindEvents() {
     renderClients();
   });
   el.saveClientButton.addEventListener("click", saveActiveClient);
+  el.clientDialog.addEventListener("close", () => {
+    if (!clientViewNeedsRender) return;
+    clientViewNeedsRender = false;
+    renderAll();
+  });
   el.deleteClientButton.addEventListener("click", deleteActiveClient);
   el.openStatusPicker.addEventListener("click", () => {
     setStatusPickerExpanded(el.statusPicker.hidden);
@@ -6016,7 +6080,7 @@ function createMarketingTaskDraft(overrides = {}) {
     description: "",
     followUpNotes: "",
     ownerId: el.marketingOwnerInput.value || currentUser.id,
-    dueDate: el.marketingProductionDateInput.value || el.marketingPublishDateInput.value || "",
+    dueDate: el.marketingProductionDateInput.value || el.marketingPublishDateInput.value || localDateKey(),
     status: "Pendente",
     priority: el.marketingPriorityInput.value || "Normal",
     visibility: "team",
@@ -6027,7 +6091,7 @@ function createMarketingTaskDraft(overrides = {}) {
 }
 
 function marketingTaskStatusLabel(status = "Pendente") {
-  return String(status).startsWith("Aguardando") ? "Aguardando" : status;
+  return normalizeTaskStatus(status);
 }
 
 function marketingTaskDueLabel(dueDate = "") {
@@ -6049,11 +6113,8 @@ function renderMarketingTaskEditor(task) {
   const today = localDateKey();
   const tomorrow = localDateKey(addDays(new Date(), 1));
   const sevenDays = localDateKey(addDays(new Date(), 7));
-  const statusChoices = [
-    { value: "Pendente", label: "Pendente" },
-    { value: "Em andamento", label: "Em andamento" },
-    { value: "Aguardando cliente", label: "Aguardando" },
-  ];
+  const statusChoices = taskEditorStatusChoices(task);
+  const validDate = isValidTaskDueDate(task.dueDate);
   const showFollowUp = activeMarketingTaskNoteIds.has(task.id) || Boolean(task.followUpNotes);
   const optionButton = (field, value, label, active) => `
     <button class="marketing-task-option ${active ? "active" : ""}" type="button" data-marketing-task-option="${escapeAttr(field)}" data-task-id="${escapeAttr(task.id)}" data-task-value="${escapeAttr(value)}" aria-pressed="${active}">${escapeHtml(label)}</button>
@@ -6085,12 +6146,13 @@ function renderMarketingTaskEditor(task) {
           </div>
         </div>
         <div class="marketing-task-control-row">
-          <span class="marketing-task-control-label"><i data-lucide="calendar-days"></i> Prazo</span>
+          <span class="marketing-task-control-label"><i data-lucide="calendar-days"></i> Prazo <span class="task-required-mark" aria-hidden="true">*</span></span>
           <div class="marketing-task-options marketing-task-date-options">
-            <input class="marketing-task-date-input" type="date" data-marketing-task-field="dueDate" data-task-id="${escapeAttr(task.id)}" value="${escapeAttr(task.dueDate)}" />
+            <input class="marketing-task-date-input" type="date" aria-label="Prazo" aria-invalid="${!validDate}" aria-describedby="marketingTaskDueError" required data-marketing-task-field="dueDate" data-task-id="${escapeAttr(task.id)}" value="${escapeAttr(task.dueDate)}" />
             ${optionButton("dueDate", today, "Hoje", task.dueDate === today)}
             ${optionButton("dueDate", tomorrow, "Amanhã", task.dueDate === tomorrow)}
             ${optionButton("dueDate", sevenDays, "+7 dias", task.dueDate === sevenDays)}
+            <small id="marketingTaskDueError" class="task-required-error" ${validDate ? "hidden" : ""}>Defina o prazo para criar a tarefa</small>
           </div>
         </div>
         <div class="marketing-task-control-row">
@@ -6115,7 +6177,7 @@ function renderMarketingTaskEditor(task) {
       </div>
       <div class="marketing-task-editor-footer">
         <button class="marketing-task-follow-up ${showFollowUp ? "active" : ""}" type="button" data-marketing-task-note="${escapeAttr(task.id)}"><i data-lucide="plus"></i> Anotação de acompanhamento</button>
-        <button class="primary-button marketing-task-save" type="button" data-marketing-task-save="${escapeAttr(task.id)}"><i data-lucide="check"></i> Salvar tarefa</button>
+        <button class="primary-button marketing-task-save" type="button" data-marketing-task-save="${escapeAttr(task.id)}" ${taskEditorCanSave(task.title, task.dueDate) ? "" : "disabled"}><i data-lucide="check"></i> Salvar tarefa</button>
       </div>
       ${showFollowUp ? `
         <label class="marketing-task-follow-up-field">
@@ -6238,6 +6300,7 @@ function handleMarketingTaskClick(event) {
       focusMarketingTaskTitle(task?.id || "");
       return;
     }
+    if (!isValidTaskDueDate(task.dueDate)) return;
     activeMarketingExpandedTaskId = "";
     renderMarketingTasksEditor();
   }
@@ -6248,12 +6311,20 @@ function handleMarketingTaskInput(event) {
   if (!input) return;
   const task = marketingTaskDraft(input.dataset.taskId);
   const field = input.dataset.marketingTaskField;
-  if (!task || !["title", "description", "followUpNotes"].includes(field)) return;
+  if (!task || !["title", "description", "followUpNotes", "dueDate"].includes(field)) return;
   task[field] = input.value;
   input.setCustomValidity("");
   if (field === "title") {
     const summary = el.marketingTaskList.querySelector(`[data-marketing-task-title-summary="${CSS.escape(task.id)}"]`);
     if (summary) summary.textContent = task.title.trim() || "Nova tarefa";
+  }
+  const editor = input.closest(".marketing-task-editor");
+  const save = editor?.querySelector("[data-marketing-task-save]");
+  if (save) save.disabled = !taskEditorCanSave(task.title, task.dueDate);
+  if (field === "dueDate") {
+    const valid = isValidTaskDueDate(task.dueDate);
+    input.setAttribute("aria-invalid", String(!valid));
+    editor.querySelector("#marketingTaskDueError").hidden = valid;
   }
 }
 
@@ -6267,14 +6338,15 @@ function handleMarketingTaskChange(event) {
 }
 
 function validateMarketingTaskDrafts() {
-  const invalidTask = activeMarketingTaskDrafts.find((task) => !task.title.trim());
+  const invalidTask = activeMarketingTaskDrafts.find((task) => !taskEditorCanSave(task.title, task.dueDate));
   if (!invalidTask) return true;
   activeMarketingExpandedTaskId = invalidTask.id;
   renderMarketingTasksEditor();
   window.setTimeout(() => {
-    const input = el.marketingTaskList.querySelector(`[data-marketing-task-field="title"][data-task-id="${CSS.escape(invalidTask.id)}"]`);
+    const field = !invalidTask.title.trim() ? "title" : "dueDate";
+    const input = el.marketingTaskList.querySelector(`[data-marketing-task-field="${field}"][data-task-id="${CSS.escape(invalidTask.id)}"]`);
     if (!input) return;
-    input.setCustomValidity("Informe o título da tarefa.");
+    input.setCustomValidity(field === "title" ? "Informe o título da tarefa." : "Defina o prazo para criar a tarefa.");
     input.reportValidity();
   }, 0);
   return false;
@@ -6363,8 +6435,8 @@ function collectMarketingForm() {
 }
 
 function saveMarketingItem({ draft = false } = {}) {
-  if (!el.marketingForm.reportValidity()) return;
   if (!validateMarketingTaskDrafts()) return;
+  if (!el.marketingForm.reportValidity()) return;
   const existing = activeMarketingItemId ? state.marketingItems.find((item) => item.id === activeMarketingItemId) : null;
   const item = collectMarketingForm();
   if (draft && item.kind === "content") item.status = "Planejado";
@@ -6591,10 +6663,12 @@ function renderTaskCenter() {
   renderTaskQuickFilters();
   const items = taskCenterItems();
   const filtered = filterTaskCenterItems(items);
-  renderTaskOverview(filtered);
-  renderTaskPeriodControls(filtered);
+  const overdue = tasksOverdueBeforeCurrentWeek(filtered);
+  renderTaskOverview(filtered, items);
+  renderTaskPeriodControls(overdue.length);
 
   renderTaskCalendar(filtered);
+  renderOverdueTaskBlock(overdue);
   bindTaskCenterActions();
   renderTaskNavSignals();
   refreshIcons();
@@ -7756,7 +7830,7 @@ function activityIcon(type) {
   }[type] || "bell";
 }
 
-function renderTaskPeriodControls(items = []) {
+function renderTaskPeriodControls(overdueCount) {
   const week = weekDays(activeTaskDate);
   const weekStart = week[0];
   const weekEnd = week[6];
@@ -7766,18 +7840,170 @@ function renderTaskPeriodControls(items = []) {
   const activeWeekKey = localDateKey(weekStart);
   el.todayTaskButton.hidden = currentWeekKey === activeWeekKey;
 
-  const startKey = localDateKey(weekStart);
-  const pendingBefore = items.filter((item) => item.urgency !== "done" && item.date && item.date < startKey).length;
-  const withoutDate = items.filter((item) => item.urgency !== "done" && !item.date).length;
-  const summary = [];
-  if (pendingBefore) summary.push(`${pendingBefore} pendente${pendingBefore === 1 ? "" : "s"} antes desta semana`);
-  if (withoutDate) summary.push(`${withoutDate} sem prazo`);
-  el.taskWeekOutsideSummary.textContent = summary.join(" · ");
-  el.taskWeekOutsideSummary.hidden = !summary.length;
+  el.taskOverdueJump.textContent = overdueCount ? `${overdueCount} ${overdueCount === 1 ? "atrasada" : "atrasadas"} abaixo ↓` : "";
+  el.taskOverdueJump.hidden = !overdueCount;
+  el.taskWeekOutsideSummary.hidden = !overdueCount;
 }
 
 function renderTaskCalendar(items) {
   el.taskCenterList.innerHTML = renderTaskWeekBoard(items);
+}
+
+function isOpenTaskBefore(item, date) {
+  return item.kind.includes("Tarefa") && item.urgency !== "done" && Boolean(item.date && item.date < date);
+}
+
+function tasksOverdueBeforeCurrentWeek(items, today = new Date()) {
+  const cutoff = localDateKey(startOfWeek(today));
+  return items.filter((item) => isOpenTaskBefore(item, cutoff))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, "pt-BR"));
+}
+
+function overdueOwnerGroups(items) {
+  const selectedOwner = taskMineOnly ? currentUser.id : el.taskOwnerFilter.value;
+  const groups = new Map((selectedOwner ? [selectedOwner] : state.users.map((user) => user.id))
+    .map((id) => [id, []]));
+  for (const item of items) {
+    const ownerId = item.ownerId || "";
+    if (selectedOwner && ownerId !== selectedOwner) continue;
+    if (!groups.has(ownerId)) groups.set(ownerId, []);
+    groups.get(ownerId).push(item);
+  }
+  return groups;
+}
+
+function renderOverdueTaskBlock(items) {
+  if (!items.length) {
+    el.taskOverdueWorkspace.innerHTML = "";
+    return;
+  }
+  const busy = movingOverdueTasks ? "disabled" : "";
+  el.taskOverdueWorkspace.innerHTML = `
+    <section id="taskOverdueBlock" class="task-overdue-block" aria-labelledby="taskOverdueHeading">
+      <header class="task-overdue-heading">
+        <div>
+          <h3 id="taskOverdueHeading" tabindex="-1">Atrasadas · <span>${items.length}</span></h3>
+          <span>venceram antes desta semana</span>
+        </div>
+        <button class="task-overdue-action" type="button" data-overdue-today-all ${busy}>${movingOverdueTasks ? "Salvando..." : "Trazer todas para hoje"}</button>
+      </header>
+      <div class="task-overdue-grid">
+        ${Array.from(overdueOwnerGroups(items), ([ownerId, tasks], index) => {
+          const owner = ownerName(ownerId);
+          const expanded = expandedOverdueOwners.has(ownerId);
+          const listId = `taskOverdueList-${index}`;
+          return `
+            <section class="task-overdue-owner ${taskOwnerClass(ownerId)}">
+              <header>
+                ${taskOwnerAvatar(ownerId)}
+                <h4>${escapeHtml(owner)}</h4>
+                <span class="${tasks.length ? "overdue-count" : "on-track"}">${tasks.length ? `${tasks.length} ${tasks.length === 1 ? "atrasada" : "atrasadas"}` : "em dia"}</span>
+              </header>
+              ${tasks.length ? `
+                <ul id="${listId}">
+                  ${(expanded ? tasks : tasks.slice(0, 5)).map(renderOverdueTaskRow).join("")}
+                </ul>
+                ${tasks.length > 5 ? `<button class="task-overdue-action task-overdue-expand" type="button" data-overdue-owner="${escapeAttr(ownerId)}" aria-controls="${listId}" aria-expanded="${expanded}">${expanded ? "Mostrar menos" : `Ver todas (${tasks.length})`}</button>` : ""}
+              ` : `<p class="task-overdue-empty">Nada atrasado.</p>`}
+            </section>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderOverdueTaskRow(item) {
+  const key = escapeAttr(taskItemKey(item));
+  const title = privacyModeEnabled ? "Tarefa" : item.title;
+  const client = privacyModeEnabled ? "" : taskItemContext(item);
+  const days = -taskDayDistance(item.date);
+  const busy = movingOverdueTasks ? "disabled" : "";
+  return `
+    <li class="task-overdue-row">
+      <button class="task-week-complete" type="button" data-overdue-complete="${key}" aria-label="Concluir ${escapeAttr(title)}" ${busy}></button>
+      <button class="task-overdue-open" type="button" data-overdue-open="${key}">
+        <strong title="${escapeAttr(title)}">${escapeHtml(title)}</strong>
+        ${client ? `<span title="${escapeAttr(client)}">${escapeHtml(client)}</span>` : ""}
+      </button>
+      <span class="task-overdue-age">há ${days} ${days === 1 ? "dia" : "dias"}</span>
+      <button class="task-overdue-action task-overdue-today" type="button" data-overdue-today="${key}" aria-label="Trazer para hoje: ${escapeAttr(title)}" ${busy}>Hoje <i data-lucide="arrow-right"></i></button>
+    </li>
+  `;
+}
+
+function scrollToOverdueTasks() {
+  const heading = el.taskOverdueWorkspace.querySelector("#taskOverdueHeading");
+  heading?.focus({ preventScroll: true });
+  const target = heading || el.taskCenterList.querySelector(".task-week-card.overdue[data-task-drag-key]") || el.taskCenterList;
+  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  target.scrollIntoView({ behavior, block: "start" });
+}
+
+function handleOverdueTaskAction(event) {
+  const button = event.target.closest("button");
+  if (!button) return;
+  if (button.hasAttribute("data-overdue-owner")) {
+    const ownerId = button.dataset.overdueOwner;
+    if (expandedOverdueOwners.has(ownerId)) expandedOverdueOwners.delete(ownerId);
+    else expandedOverdueOwners.add(ownerId);
+    renderOverdueTaskBlock(tasksOverdueBeforeCurrentWeek(filterTaskCenterItems(taskCenterItems())));
+    refreshIcons();
+    [...el.taskOverdueWorkspace.querySelectorAll("[data-overdue-owner]")]
+      .find((candidate) => candidate.dataset.overdueOwner === ownerId)?.focus({ preventScroll: true });
+  } else if (button.dataset.overdueOpen) {
+    openTaskCenterItem(button.dataset.overdueOpen);
+  } else if (!movingOverdueTasks) {
+    if (button.dataset.overdueComplete) toggleTaskCenterItemCompletion(button.dataset.overdueComplete);
+    if (button.dataset.overdueToday) moveOverdueTasksToToday(button.dataset.overdueToday);
+    if (button.hasAttribute("data-overdue-today-all")) moveOverdueTasksToToday();
+  }
+}
+
+async function moveOverdueTasksToToday(key = null) {
+  if (movingOverdueTasks) return;
+  const items = tasksOverdueBeforeCurrentWeek(filterTaskCenterItems(taskCenterItems()))
+    .filter((item) => key === null || taskItemKey(item) === key);
+  if (!items.length) return;
+
+  movingOverdueTasks = true;
+  el.taskOverdueWorkspace.setAttribute("aria-busy", "true");
+  el.taskOverdueWorkspace.querySelectorAll("[data-overdue-today-all], [data-overdue-today], [data-overdue-complete]")
+    .forEach((button) => {
+      button.disabled = true;
+      if (button.hasAttribute("data-overdue-today-all")) button.textContent = "Salvando...";
+    });
+  el.taskOverdueStatus.textContent = "";
+  const today = localDateKey();
+  let moved = 0;
+  try {
+    await flushCloudState();
+    // Each task can write a record and an activity; keep each batch below the save limit.
+    for (let offset = 0; offset < items.length; offset += 20) {
+      let batchSize = 0;
+      for (const item of items.slice(offset, offset + 20)) {
+        const context = taskRecordContext(item);
+        if (context?.kind !== "task" || context.record.dueDate !== item.date || isCompletedTaskStatus(context.record.status)) continue;
+        changeTaskDueDate(item, context, today, { deferSave: true });
+        batchSize += 1;
+      }
+      if (batchSize) {
+        saveState();
+        await flushCloudState();
+        moved += batchSize;
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    showSyncError(error);
+  } finally {
+    movingOverdueTasks = false;
+    el.taskOverdueWorkspace.removeAttribute("aria-busy");
+    if (moved) activeTaskDate = new Date();
+    renderTaskCenter();
+    renderUpdates();
+    if (moved) el.taskOverdueStatus.textContent = moved === 1 ? "1 tarefa trazida para hoje." : `${moved} tarefas trazidas para hoje.`;
+  }
 }
 
 function taskWeekRangeLabel(start, end) {
@@ -8097,16 +8323,20 @@ function renderOverdueTasks(items) {
 function renderTaskWeekBoard(items) {
   const today = localDateKey();
   const days = weekDays(activeTaskDate);
+  const weekend = days.slice(5);
+  const weekendKeys = weekend.map((day) => localDateKey(day));
+  const weekendItems = items.filter((item) => weekendKeys.includes(item.date));
+  const weekendOpen = weekendItems.filter((item) => item.urgency !== "done").length;
   return `
     <div class="task-week-scroll">
       <div class="task-week-board">
-      ${days
+      ${days.slice(0, 5)
         .map((day) => {
           const key = localDateKey(day);
           const dayItems = items.filter((item) => item.date === key).sort(taskWeekCardSorter);
           const openCount = dayItems.filter((item) => item.urgency !== "done").length;
           return `
-            <section class="task-day-column ${key === today ? "today" : ""}">
+            <section class="task-day-column ${key === today ? "today" : ""}" data-task-drop-date="${key}">
               <header>
                 <span>${weekdayLabel(day).slice(0, 3).toUpperCase()}</span>
                 <strong>${day.getDate()}</strong>
@@ -8120,6 +8350,28 @@ function renderTaskWeekBoard(items) {
           `;
         })
         .join("")}
+        <section class="task-day-column task-weekend-column ${weekendKeys.includes(today) ? "today" : ""}">
+          <header>
+            <span>SÁB · DOM</span>
+            <strong>${weekend[0].getDate()}–${weekend[1].getDate()}</strong>
+            <small>${weekendItems.length ? `${weekendOpen}/${weekendItems.length}` : ""}</small>
+          </header>
+          <div class="task-weekend-days">
+            ${weekend.map((day, index) => {
+              const key = weekendKeys[index];
+              const label = `${index === 0 ? "Sáb" : "Dom"} ${day.getDate()}`;
+              const dayItems = weekendItems.filter((item) => item.date === key).sort(taskWeekCardSorter);
+              return `<div class="task-weekend-day" data-task-drop-date="${key}" aria-label="${label}">
+                ${dayItems.length
+                  ? dayItems.map((item) => renderTaskWeekCard({ ...item, weekendLabel: label })).join("")
+                  : `<p class="task-weekend-empty">${label} · Nada agendado</p>`}
+              </div>`;
+            }).join("")}
+          </div>
+          <div class="task-weekend-actions">
+            ${weekendKeys.map((key, index) => `<button class="task-day-add" type="button" data-add-task-for-date="${key}" aria-label="Adicionar tarefa para ${index === 0 ? "sábado" : "domingo"}"><i data-lucide="plus"></i> ${index === 0 ? "Sáb" : "Dom"}</button>`).join("")}
+          </div>
+        </section>
       </div>
     </div>
   `;
@@ -8138,10 +8390,13 @@ function renderTaskWeekCard(item) {
   const completed = item.urgency === "done";
   const overdue = !completed && item.date && item.date < localDateKey();
   const priority = normalizeTaskPriority(item.priority);
-  const canComplete = item.kind.includes("Tarefa") || item.kind === "Prazo";
+  const canReschedule = item.kind.includes("Tarefa");
+  const canComplete = canReschedule || item.kind === "Prazo";
   const openLabel = item.internalMeetingId ? "Editar reunião" : item.kind === "Prazo" ? "Abrir card do cliente" : "Abrir tarefa";
   return `
-    <article class="task-week-card ${completed ? "done" : ""} ${overdue ? "overdue" : ""} ${taskOwnerClass(item.ownerId)} priority-${normalize(priority)}">
+    <article class="task-week-card ${completed ? "done" : ""} ${overdue ? "overdue" : ""} ${taskOwnerClass(item.ownerId)} priority-${normalize(priority)}"
+      ${canReschedule ? `draggable="true" data-task-drag-key="${escapeAttr(key)}"` : ""}>
+      ${item.weekendLabel ? `<span class="task-weekend-badge">${escapeHtml(item.weekendLabel)}</span>` : ""}
       <div class="task-week-card-title-row">
         ${canComplete
           ? `<button class="task-week-complete" type="button" data-toggle-week-task-completion="${escapeAttr(key)}" aria-label="${completed ? "Reabrir" : "Concluir"} ${escapeAttr(item.title)}">${completed ? `<i data-lucide="check"></i>` : ""}</button>`
@@ -8155,6 +8410,7 @@ function renderTaskWeekCard(item) {
         ${taskOwnerAvatar(item.ownerId)}
         ${taskRecurrenceIcon(item.recorrencia)}
         ${priority === "Normal" ? "" : `<span class="priority-pill">${escapeHtml(priority)}</span>`}
+        ${canReschedule ? `<span class="task-week-grip" aria-hidden="true" title="Arrastar para mudar o prazo"><i data-lucide="grip-vertical"></i></span>` : ""}
       </div>
     </article>
   `;
@@ -8246,6 +8502,8 @@ function renderCompletedTaskGroup(groupKey, items, options = {}) {
 }
 
 function bindTaskCenterActions() {
+  bindTaskWeekDragAndDrop();
+
   document.querySelectorAll("[data-add-task-for-date]").forEach((button) => {
     button.addEventListener("click", () => openInternalTaskDialog(null, { dueDate: button.dataset.addTaskForDate || "" }));
   });
@@ -8468,29 +8726,63 @@ function openLinkedClientRecord(clientId, source = "inss") {
   openClientById(clientId);
 }
 
-function renderTaskOverview(items) {
-  const openItems = items.filter((item) => item.urgency !== "done");
-  const stats = [
-    { label: "Atrasadas", value: openItems.filter((item) => item.urgency === "overdue").length, key: "overdue", icon: "triangle-alert", hint: "precisam de ação agora" },
-    { label: "Hoje", value: openItems.filter((item) => item.date === localDateKey()).length, key: "today", icon: "calendar-days", hint: "vencem hoje" },
-    { label: "Aguardando retorno", value: openItems.filter((item) => isWaitingReturnItem(item)).length, key: "waiting", icon: "hourglass", hint: "cliente ou terceiro" },
-    { label: "Sem prazo", value: openItems.filter((item) => item.urgency === "no-date").length, key: "no-date", icon: "clock-3", hint: "defina uma data" },
-  ];
+function taskWeekProgress(items, today = new Date()) {
+  const days = weekDays(today);
+  const start = days[0];
+  const end = days[6];
+  const startKey = localDateKey(start);
+  const endKey = localDateKey(end);
+  const tasks = items.filter((item) => item.kind.includes("Tarefa") && item.date >= startKey && item.date <= endKey);
+  const month = (day) => day.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  return {
+    total: tasks.length,
+    completed: tasks.filter((item) => item.urgency === "done").length,
+    period: start.getMonth() === end.getMonth()
+      ? `${start.getDate()} a ${end.getDate()} ${month(end)}`
+      : `${start.getDate()} ${month(start)} a ${end.getDate()} ${month(end)}`,
+  };
+}
 
-  el.taskOverview.innerHTML = stats
-    .map(
-      (stat) => `
-        <article class="task-stat ${stat.key}">
-          <div class="task-stat-heading">
-            <span>${stat.label}</span>
-            ${stat.key === "overdue" && stat.value ? `<em>Requer ação</em>` : ""}
-          </div>
-          <strong>${stat.value}</strong>
-          <small>${stat.hint}</small>
-        </article>
-      `
-    )
-    .join("");
+function renderTaskOverview(items, allItems) {
+  const today = localDateKey();
+  const overdue = items.filter((item) => isOpenTaskBefore(item, today)).length;
+  const dueToday = items.filter((item) => item.urgency !== "done" && item.date === today).length;
+  const { total, completed, period } = taskWeekProgress(allItems);
+  const percent = total ? Math.round(completed / total * 100) : 0;
+  const selectedOwner = !taskMineOnly ? el.taskOwnerFilter.value : "";
+  el.taskOverview.innerHTML = `
+    <button class="task-stat overdue" type="button" data-jump-to-overdue-tasks>
+      <span class="task-stat-heading"><span>Atrasadas</span>${overdue ? `<em>Requer ação</em>` : ""}</span>
+      <strong>${overdue}</strong>
+      <small>precisam de ação agora</small>
+    </button>
+    <article class="task-stat today">
+      <span class="task-stat-heading"><span>Hoje</span></span>
+      <strong>${dueToday}</strong>
+      <small>vencem hoje</small>
+    </article>
+    <button class="task-stat task-week-stat" type="button" data-task-overview-week>
+      <span class="task-stat-heading"><span>Esta semana</span>${total ? `<small class="task-week-percent">${percent}%</small>` : ""}</span>
+      <span class="task-week-tally"><strong>${completed}</strong> <small>de ${total}</small></span>
+      <progress aria-label="Tarefas concluídas nesta semana" value="${completed}" max="${total || 1}"></progress>
+      <small>concluídas · ${escapeHtml(period)}</small>
+    </button>
+    <article class="task-stat task-owner-stat">
+      <span class="task-stat-heading"><span>Por responsável</span><small>em aberto</small></span>
+      <div class="task-owner-stat-list">
+        ${state.users.map((user) => {
+          const open = allItems.filter((item) => item.ownerId === user.id && item.kind.includes("Tarefa") && item.urgency !== "done");
+          const late = open.filter((item) => isOpenTaskBefore(item, today)).length;
+          return `<button class="task-owner-stat-row ${taskOwnerClass(user.id)}" type="button" data-task-overview-owner="${escapeAttr(user.id)}" aria-pressed="${selectedOwner === user.id}">
+            ${taskOwnerAvatar(user.id)}
+            <span class="task-owner-stat-name">${escapeHtml(user.name)}</span>
+            ${late ? `<span class="task-owner-stat-late">${late} ${late === 1 ? "atrasada" : "atrasadas"}</span>` : ""}
+            <strong>${open.length}</strong>
+          </button>`;
+        }).join("")}
+      </div>
+    </article>
+  `;
 }
 
 function taskCenterItems() {
@@ -8767,6 +9059,83 @@ function renderTaskCalendarCard(item, compact = false, options = {}) {
   `;
 }
 
+function bindTaskWeekDragAndDrop() {
+  const board = el.taskCenterList.querySelector(".task-week-board");
+  if (!board) return;
+
+  let card = null;
+  let target = null;
+  const findColumn = (event) => {
+    const column = event.target.closest("[data-task-drop-date]");
+    return column && column !== card?.closest("[data-task-drop-date]") ? column : null;
+  };
+  const highlight = (column) => {
+    if (column === target) return;
+    target?.classList.remove("is-drop-target");
+    target = column;
+    target?.classList.add("is-drop-target");
+  };
+  const clear = () => {
+    highlight(null);
+    card?.classList.remove("is-dragging");
+    card = null;
+    board.classList.remove("is-dragging");
+  };
+
+  board.addEventListener("dragstart", (event) => {
+    const source = event.target.closest("[data-task-drag-key]");
+    if (source !== event.target || !event.dataTransfer) return;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", source.dataset.taskDragKey);
+    card = source;
+    card.classList.add("is-dragging");
+    board.classList.add("is-dragging");
+  });
+  board.addEventListener("dragover", (event) => {
+    if (!card) return;
+    const column = findColumn(event);
+    highlight(column);
+    if (!column) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  });
+  board.addEventListener("dragleave", (event) => {
+    if (target && !target.contains(event.relatedTarget)) highlight(null);
+  });
+  board.addEventListener("drop", (event) => {
+    if (!card) return;
+    event.preventDefault();
+    const key = card.dataset.taskDragKey;
+    const date = findColumn(event)?.dataset.taskDropDate;
+    clear();
+    if (date) rescheduleWeekTask(key, date);
+  });
+  board.addEventListener("dragend", clear);
+}
+
+function rescheduleWeekTask(key, date) {
+  if (!weekDays(activeTaskDate).some((day) => localDateKey(day) === date)) return false;
+  const item = taskItemFromKey(key);
+  const context = taskRecordContext(item);
+  if (context?.kind !== "task" || context.record.dueDate === date) return false;
+
+  const scrollLeft = el.taskCenterList.querySelector(".task-week-scroll")?.scrollLeft || 0;
+  changeTaskDueDate(item, context, date);
+  renderTaskCenter();
+  const scroll = el.taskCenterList.querySelector(".task-week-scroll");
+  if (scroll) scroll.scrollLeft = scrollLeft;
+  renderUpdates();
+  return true;
+}
+
+function changeTaskDueDate(item, context, date, options) {
+  const previousDate = context.record.dueDate;
+  const change = previousDate
+    ? `Prazo alterado de ${formatDate(previousDate)} para ${formatDate(date)}`
+    : `Prazo alterado para ${formatDate(date)}`;
+  applyTaskDetailChanges(item, context, { dueDate: date }, [change], options);
+}
+
 function taskItemKey(item = {}) {
   if (item.internalTaskId) return `internal-task:${item.internalTaskId}`;
   if (item.internalMeetingId) return `meeting:${item.internalMeetingId}`;
@@ -8894,6 +9263,7 @@ function renderTaskDetailDrawer() {
   const annotations = [...(task.annotations || [])].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   const history = [...(task.history || [])].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   const dirty = taskDrawerIsDirty(task);
+  const validDate = isValidTaskDueDate(activeTaskDrawerDraft.dueDate);
   const topChips = [
     priority !== "Normal" ? `<span class="task-drawer-chip priority">${escapeHtml(priority)}</span>` : "",
     recurrence ? `<span class="task-drawer-chip recurrence"><i data-lucide="refresh-cw"></i>${escapeHtml(TASK_RECURRENCE.shortLabel(recurrence))}</span>` : "",
@@ -8935,10 +9305,10 @@ function renderTaskDetailDrawer() {
           </div>
         </div>
         <div class="task-drawer-setting-row">
-          <span>Prazo</span>
+          <span>Prazo <span class="task-required-mark" aria-hidden="true">*</span></span>
           <div class="task-drawer-date-row">
-            <input type="date" value="${escapeAttr(activeTaskDrawerDraft.dueDate)}" data-task-drawer-date />
-            <small class="${relativeDate.overdue ? "overdue" : ""}">${escapeHtml(relativeDate.text)}</small>
+            <input type="date" required aria-label="Prazo" aria-invalid="${!validDate}" value="${escapeAttr(activeTaskDrawerDraft.dueDate)}" data-task-drawer-date />
+            <small class="${relativeDate.overdue ? "overdue" : ""}" data-task-drawer-date-hint>${escapeHtml(relativeDate.text)}</small>
           </div>
         </div>
         <div class="task-drawer-setting-row">
@@ -8990,7 +9360,7 @@ function renderTaskDetailDrawer() {
       <button class="task-drawer-delete" type="button" data-task-drawer-delete><i data-lucide="trash-2"></i>Excluir</button>
       <div>
         <span data-task-drawer-unsaved ${dirty ? "" : "hidden"}>Alterações não salvas</span>
-        <button class="task-drawer-save" type="button" data-task-drawer-save ${dirty ? "" : "disabled"}><i data-lucide="check"></i>${dirty ? "Salvar alterações" : "Salvo"}</button>
+        <button class="task-drawer-save" type="button" data-task-drawer-save ${dirty && validDate ? "" : "disabled"}><i data-lucide="check"></i>${!validDate ? "Defina o prazo" : dirty ? "Salvar alterações" : "Salvo"}</button>
       </div>
     </footer>
   `;
@@ -9011,11 +9381,12 @@ function updateTaskDrawerDirtyUi() {
   const footer = el.taskDetailDrawer?.querySelector(".task-drawer-footer");
   const note = el.taskDetailDrawer?.querySelector("[data-task-drawer-unsaved]");
   const save = el.taskDetailDrawer?.querySelector("[data-task-drawer-save]");
+  const validDate = isValidTaskDueDate(activeTaskDrawerDraft?.dueDate);
   footer?.classList.toggle("dirty", dirty);
   if (note) note.hidden = !dirty;
   if (save) {
-    save.disabled = !dirty;
-    save.innerHTML = `<i data-lucide="check"></i>${dirty ? "Salvar alterações" : "Salvo"}`;
+    save.disabled = !dirty || !validDate;
+    save.innerHTML = `<i data-lucide="check"></i>${!validDate ? "Defina o prazo" : dirty ? "Salvar alterações" : "Salvo"}`;
   }
   refreshIcons();
 }
@@ -9036,10 +9407,17 @@ function bindTaskDetailDrawerActions() {
     updateTaskDrawerDirtyUi();
   });
   const date = el.taskDetailDrawer.querySelector("[data-task-drawer-date]");
-  date?.addEventListener("change", () => {
+  const updateDate = () => {
     activeTaskDrawerDraft.dueDate = date.value;
-    renderTaskDetailDrawer();
-  });
+    date.setAttribute("aria-invalid", String(!isValidTaskDueDate(date.value)));
+    const relative = taskDrawerRelativeDate(date.value);
+    const hint = el.taskDetailDrawer.querySelector("[data-task-drawer-date-hint]");
+    hint.textContent = relative.text;
+    hint.classList.toggle("overdue", relative.overdue);
+    updateTaskDrawerDirtyUi();
+  };
+  date?.addEventListener("input", updateDate);
+  date?.addEventListener("change", updateDate);
   el.taskDetailDrawer.querySelectorAll("[data-task-drawer-owner]").forEach((button) => {
     button.addEventListener("click", () => {
       activeTaskDrawerDraft.ownerId = button.dataset.taskDrawerOwner;
@@ -9096,25 +9474,33 @@ function registerTaskDrawerAnnotation(text) {
 function saveTaskDrawerChanges() {
   const item = taskItemFromKey(activeTaskDrawerKey);
   const context = taskRecordContext(item);
-  if (context?.kind !== "task" || !activeTaskDrawerDraft) return;
+  if (context?.kind !== "task" || !isValidTaskDueDate(activeTaskDrawerDraft?.dueDate)) return;
   const task = context.record;
-  const now = new Date().toISOString();
   const changes = [];
   if (String(task.description || "") !== String(activeTaskDrawerDraft.description || "")) changes.push("Descrição atualizada");
   if (String(task.dueDate || "") !== String(activeTaskDrawerDraft.dueDate || "")) {
-    changes.push(activeTaskDrawerDraft.dueDate ? `Prazo alterado para ${formatDate(activeTaskDrawerDraft.dueDate)}` : "Prazo removido");
+    changes.push(`Prazo alterado para ${formatDate(activeTaskDrawerDraft.dueDate)}`);
   }
   if (String(task.ownerId || "") !== String(activeTaskDrawerDraft.ownerId || "")) changes.push(`Responsável alterado para ${ownerName(activeTaskDrawerDraft.ownerId)}`);
   if (normalizeTaskPriority(task.priority) !== normalizeTaskPriority(activeTaskDrawerDraft.priority)) changes.push(`Prioridade alterada para ${normalizeTaskPriority(activeTaskDrawerDraft.priority)}`);
   if (!changes.length) return;
 
-  Object.assign(task, {
+  applyTaskDetailChanges(item, context, {
     description: activeTaskDrawerDraft.description || "",
     ownerId: activeTaskDrawerDraft.ownerId || currentUser.id,
-    dueDate: activeTaskDrawerDraft.dueDate || "",
+    dueDate: activeTaskDrawerDraft.dueDate,
     priority: normalizeTaskPriority(activeTaskDrawerDraft.priority),
-    updatedAt: now,
-  });
+  }, changes);
+  activeTaskDrawerDraft = taskDrawerDraftFromRecord(task);
+  renderTaskCenter();
+  renderTaskDetailDrawer();
+  renderUpdates();
+}
+
+function applyTaskDetailChanges(item, context, updates, changes, { deferSave = false } = {}) {
+  const task = context.record;
+  const now = new Date().toISOString();
+  Object.assign(task, updates, { updatedAt: now });
   changes.forEach((change) => appendTaskHistory(task, change, now));
   if (context.client) {
     context.client.updatedAt = now;
@@ -9127,11 +9513,7 @@ function saveTaskDrawerChanges() {
     clientName: item.clientName || "",
     visibility: task.visibility,
   }));
-  saveState();
-  activeTaskDrawerDraft = taskDrawerDraftFromRecord(task);
-  renderTaskCenter();
-  renderTaskDetailDrawer();
-  renderUpdates();
+  if (!deferSave) saveState();
 }
 
 function toggleTaskCenterItemCompletion(key) {
@@ -10379,7 +10761,7 @@ function openRegularizationTaskDialog(taskId = "") {
       value: task?.ownerId || currentUser.id,
       options: state.users.map((user) => ({ value: user.id, label: user.name })),
     },
-    { label: "Prazo", name: "dueDate", type: "date", value: task?.dueDate || "" },
+    { label: "Prazo", name: "dueDate", type: "date", required: true, value: task?.dueDate || localDateKey() },
     {
       label: "Prioridade",
       name: "priority",
@@ -12844,34 +13226,56 @@ function commitActiveClientToState() {
 }
 
 async function persistActiveClient(options = {}) {
+  if (!activeClient) return false;
+  const draft = activeClient;
+  if (clientSaveInFlight) {
+    const saved = await clientSaveInFlight;
+    return saved && activeClient === draft && el.clientDialog.open
+      ? persistActiveClient(options)
+      : saved;
+  }
   const closeDialog = Boolean(options.closeDialog);
-  const clientId = commitActiveClientToState();
-  saveState();
-
+  let finishSave;
+  let succeeded = false;
+  clientSaveInFlight = new Promise((resolve) => { finishSave = resolve; });
+  el.saveClientButton.disabled = true;
   try {
+    const clientId = commitActiveClientToState();
+    const submittedDraft = JSON.stringify(draft);
+    saveState();
     await flushCloudState();
+
+    const draftUnchanged = activeClient === draft && JSON.stringify(draft) === submittedDraft;
+    if (draftUnchanged) {
+      const savedClient = state.clients.find((client) => client.id === clientId);
+      if (savedClient) activeClient = cloneData(savedClient);
+      if (!closeDialog) {
+        renderActiveStatuses();
+        renderStatusPicker();
+        renderNotes();
+        renderFinanceMessages();
+        renderHistory();
+        refreshIcons();
+      }
+    }
+    if (el.clientDialog.open) {
+      clientViewNeedsRender = true;
+      if (closeDialog && draftUnchanged) el.clientDialog.close();
+    } else {
+      clientViewNeedsRender = false;
+      renderAll();
+    }
+    succeeded = true;
+    return true;
   } catch (error) {
     console.error(error);
     showSyncError(error);
     return false;
+  } finally {
+    clientSaveInFlight = null;
+    el.saveClientButton.disabled = false;
+    finishSave(succeeded);
   }
-
-  const savedClient = state.clients.find((client) => client.id === clientId);
-  if (savedClient && activeClient?.id === clientId) {
-    activeClient = cloneData(savedClient);
-  }
-
-  if (closeDialog) {
-    el.clientDialog.close();
-  } else if (activeClient) {
-    renderActiveStatuses();
-    renderStatusPicker();
-    renderNotes();
-    renderFinanceMessages();
-    renderHistory();
-  }
-  renderAll();
-  return true;
 }
 
 function saveActiveClient() {
@@ -13411,21 +13815,13 @@ function openUserDialog() {
 function openClientTaskDialog(taskId = null) {
   const task = activeClient.tasks.find((item) => item.id === taskId) || null;
   const draft = task || emptyTask();
-  const statusChoices = [
-    { value: "Pendente", label: "Pendente" },
-    { value: "Em andamento", label: "Em andamento" },
-    { value: "Aguardando cliente", label: "Aguardando" },
-  ];
-  if (draft.status === "Aguardando terceiro") {
-    statusChoices.push({ value: "Aguardando terceiro", label: "Aguardando terceiro" });
-  }
   openClientWorkEditor({
     kind: "task",
     title: task ? "Editar tarefa" : "Nova tarefa",
     icon: "list-checks",
     saveLabel: task ? "Salvar tarefa" : "Criar tarefa",
     footerNote: `Criada por ${ownerName(draft.createdBy || currentUser.id)}`,
-    body: renderClientTaskEditorBody(draft, statusChoices),
+    body: renderClientTaskEditorBody(draft, taskEditorStatusChoices(draft)),
     onSave: (values) => {
     if (!values.title) {
       alert("Informe o nome da tarefa.");
@@ -13506,6 +13902,7 @@ function openClientDeadlineDialog(deadlineId = null) {
 }
 
 function openClientWorkEditor({ kind, title, icon, saveLabel, footerNote, body, onSave, updateFooterOnDate = false, subtitle = clientWorkEditorSubtitle(), className = "" }) {
+  taskEditorValidation?.abort();
   el.simpleDialog.className = `simple-dialog client-work-editor client-${kind}-editor ${className}`.trim();
   el.simpleDialogTitle.innerHTML = `<span class="client-editor-title-icon"><i data-lucide="${icon}"></i></span><span>${escapeHtml(title)}</span>`;
   el.simpleDialogSubtitle.textContent = subtitle || "";
@@ -13516,12 +13913,17 @@ function openClientWorkEditor({ kind, title, icon, saveLabel, footerNote, body, 
   el.simpleDialogFooterNote.hidden = !footerNote;
   el.simpleDialogSave.textContent = saveLabel;
   el.simpleDialogSave.disabled = false;
+  let saving = false;
+  const refreshValidity = kind === "task" || kind === "center-task"
+    ? bindTaskEditorValidation(el.simpleDialogBody, el.simpleDialogSave, "client-editor-field", () => saving)
+    : () => { el.simpleDialogSave.disabled = false; return true; };
   el.simpleDialogSave.onclick = async () => {
+    if (saving || !refreshValidity()) return;
     const values = {};
     el.simpleDialogBody.querySelectorAll("[data-client-editor-field]").forEach((input) => {
       values[input.dataset.clientEditorField] = input.value.trim();
     });
-    el.simpleDialogSave.disabled = true;
+    saving = el.simpleDialogSave.disabled = true;
     try {
       const shouldClose = await onSave(values);
       if (shouldClose !== false) el.simpleDialog.close();
@@ -13529,7 +13931,8 @@ function openClientWorkEditor({ kind, title, icon, saveLabel, footerNote, body, 
       console.error(error);
       showSyncError(error);
     } finally {
-      el.simpleDialogSave.disabled = false;
+      saving = false;
+      refreshValidity();
     }
   };
   bindClientWorkEditorInteractions({ updateFooterOnDate });
@@ -13552,7 +13955,7 @@ function renderClientTaskEditorBody(draft, statusChoices) {
     </div>
     <div class="client-editor-settings">
       ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", state.users.map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
-      ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate || "")}
+      ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate, true)}
       ${clientEditorSettingRow("flag", "Prioridade", clientEditorChoiceButtons("priority", taskPriorityValues().map((value) => ({ value, label: value })), normalizeTaskPriority(draft.priority)))}
       ${clientEditorSettingRow("clock-3", "Status", clientEditorChoiceButtons("status", statusChoices, draft.status || "Pendente"))}
     </div>
@@ -13602,26 +14005,50 @@ function renderClientDeadlineEditorBody(draft, editing = false) {
   `;
 }
 
-function clientEditorSettingRow(icon, label, control, className = "") {
+function clientEditorSettingRow(icon, label, control, className = "", required = false) {
   return `
     <div class="client-editor-setting-row ${escapeAttr(className)}">
-      <span class="client-editor-setting-label"><i data-lucide="${icon}"></i>${escapeHtml(label)}</span>
+      <span class="client-editor-setting-label"><i data-lucide="${icon}"></i>${escapeHtml(label)}${required ? `<span class="task-required-mark" aria-hidden="true">*</span>` : ""}</span>
       <div class="client-editor-setting-control">${control}</div>
     </div>
   `;
 }
 
-function clientEditorDateRow(label, field, value) {
+function clientEditorDateRow(label, field, value, required = false) {
   return clientEditorSettingRow("calendar-days", label, `
     <div class="client-editor-date-control">
-      <input type="date" value="${escapeAttr(value)}" data-client-editor-field="${field}" data-client-editor-date />
+      <input type="date" aria-label="${escapeAttr(label)}" value="${escapeAttr(value)}" data-client-editor-field="${field}" data-client-editor-date ${required ? 'required aria-describedby="taskEditorDueError"' : ""} />
       <div class="client-editor-date-shortcuts">
         <button type="button" data-editor-date-offset="0">Hoje</button>
         <button type="button" data-editor-date-offset="1">Amanhã</button>
         <button type="button" data-editor-date-offset="7">+7 dias</button>
       </div>
     </div>
-  `);
+    ${required ? `<small id="taskEditorDueError" class="task-required-error" data-task-due-error hidden>Defina o prazo para criar a tarefa</small>` : ""}
+  `, "", required);
+}
+
+function taskEditorCanSave(title, dueDate, frequency = "", weekdays = "") {
+  return Boolean(title?.trim() && isValidTaskDueDate(dueDate)
+    && (frequency !== "semanal" || weekdays.split(",").some((day) => /^[0-6]$/.test(day.trim()))));
+}
+
+function bindTaskEditorValidation(root, button, fieldAttribute, isSaving = () => false) {
+  taskEditorValidation = new AbortController();
+  const field = (name) => root.querySelector(`[data-${fieldAttribute}="${name}"]`);
+  const date = field("dueDate");
+  const error = root.querySelector("[data-task-due-error]");
+  const update = () => {
+    const valid = isValidTaskDueDate(date?.value);
+    date?.setAttribute("aria-invalid", String(!valid));
+    if (error) error.hidden = valid;
+    const ready = taskEditorCanSave(field("title")?.value, date?.value, field("recurrenceFrequency")?.value, field("recurrenceWeekdays")?.value);
+    button.disabled = !ready || isSaving();
+    return ready;
+  };
+  for (const type of ["input", "change", "click"]) root.addEventListener(type, update, { signal: taskEditorValidation.signal });
+  update();
+  return update;
 }
 
 function clientEditorChoiceButtons(field, options, selectedValue, className = "") {
@@ -13721,7 +14148,6 @@ function bindTaskRecurrenceEditorInteractions() {
   if (!root.querySelector("[data-task-recurrence-details]")) return;
 
   const field = (name) => root.querySelector(`[data-client-editor-field="${name}"]`);
-  const titleInput = field("title");
   const dueDateInput = field("dueDate");
   const frequencyInput = field("recurrenceFrequency");
   const weekdayInput = field("recurrenceWeekdays");
@@ -13783,7 +14209,6 @@ function bindTaskRecurrenceEditorInteractions() {
           ? TASK_RECURRENCE.summary(recurrence, values.dueDate || localDateKey())
           : "";
     }
-    el.simpleDialogSave.disabled = !String(titleInput?.value || "").trim() || !hasWeeklyDay;
     refreshIcons();
   };
 
@@ -13806,7 +14231,6 @@ function bindTaskRecurrenceEditorInteractions() {
   });
   monthInput?.addEventListener("change", update);
   endDateInput?.addEventListener("change", update);
-  titleInput?.addEventListener("input", update);
   dueDateInput?.addEventListener("change", () => {
     if (!frequencyInput?.value) syncRuleDefaultsFromDueDate();
     update();
@@ -13837,7 +14261,7 @@ function openQuickInternalTaskDialog() {
   openSimpleDialog("Tarefa rápida", [
     { label: "Tarefa", name: "title", type: "text", value: "" },
     { label: "Responsável", name: "ownerId", type: "select", value: currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
-    { label: "Prazo", name: "dueDate", type: "date", value: localDateKey() },
+    { label: "Prazo", name: "dueDate", type: "date", required: true, value: localDateKey() },
     { label: "Prioridade", name: "priority", type: "select", value: "Normal", options: taskPriorityValues().map((value) => ({ value, label: value })) },
     { label: "Visibilidade", name: "visibility", type: "select", value: "team", options: visibilityOptions },
   ], (values) => {
@@ -13881,7 +14305,7 @@ function openInternalTaskDialog(taskId = null, options = {}) {
     description: "",
     followUpNotes: "",
     ownerId: currentUser.id,
-    dueDate: options.dueDate || "",
+    dueDate: options.dueDate || localDateKey(),
     priority: "Normal",
     status: "Pendente",
     visibility: "team",
@@ -13897,14 +14321,7 @@ function openInternalTaskDialog(taskId = null, options = {}) {
     ...option,
     label: index === 0 ? "Tarefa interna (sem cliente)" : option.label,
   }));
-  const statusChoices = [
-    { value: "Pendente", label: "Pendente" },
-    { value: "Em andamento", label: "Em andamento" },
-    { value: "Aguardando cliente", label: "Aguardando" },
-  ];
-  if (!statusChoices.some((option) => option.value === draft.status)) {
-    statusChoices.push({ value: draft.status, label: draft.status });
-  }
+  const statusChoices = taskEditorStatusChoices(draft);
 
   openClientWorkEditor({
     kind: "center-task",
@@ -13931,7 +14348,7 @@ function openInternalTaskDialog(taskId = null, options = {}) {
       return false;
     }
     const dueDate = recurrence
-      ? TASK_RECURRENCE.firstOccurrence(recurrence, values.dueDate || localDateKey())
+      ? TASK_RECURRENCE.firstOccurrence(recurrence, values.dueDate)
       : values.dueDate;
     if (recurrence && !dueDate) {
       alert("Não há uma ocorrência antes da data de término informada.");
@@ -14126,7 +14543,7 @@ function renderTaskCenterTaskEditorBody(draft, options = {}) {
     <div class="client-editor-settings">
       ${clientRow}
       ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", ownerOptions, draft.ownerId || currentUser.id, "owner"))}
-      ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate || "")}
+      ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate, true)}
       ${renderTaskRecurrenceEditor(draft)}
       ${clientEditorSettingRow("flag", "Prioridade", clientEditorChoiceButtons("priority", taskPriorityValues().map((value) => ({ value, label: value })), normalizeTaskPriority(draft.priority)))}
       ${clientEditorSettingRow("clock-3", "Status", clientEditorChoiceButtons("status", options.statusChoices || [], draft.status || "Pendente"))}
@@ -14284,6 +14701,7 @@ function bindTaskCenterMeetingEditorInteractions() {
 }
 
 function openSimpleDialog(title, fields, onSave, options = {}) {
+  taskEditorValidation?.abort();
   el.simpleDialog.className = `simple-dialog ${options.className || ""}`.trim();
   el.simpleDialogTitle.textContent = title;
   el.simpleDialogBody.className = "field-stack";
@@ -14303,18 +14721,24 @@ function openSimpleDialog(title, fields, onSave, options = {}) {
         field.type === "section"
           ? `<div class="simple-section-title ${field.className || ""}">${escapeHtml(field.label)}</div>`
           : `
-        <label class="${field.span === 2 ? "span-2" : ""}">${field.label}
+        <label class="${field.span === 2 ? "span-2" : ""}">${field.label}${field.required ? ` <span class="task-required-mark" aria-hidden="true">*</span>` : ""}
           ${simpleFieldControl(field)}
+          ${field.required ? `<small class="task-required-error" data-task-due-error hidden>Defina o prazo para criar a tarefa</small>` : ""}
         </label>
       `
     )
     .join("");
+  let saving = false;
+  const refreshValidity = fields.some((field) => field.name === "dueDate" && field.required)
+    ? bindTaskEditorValidation(el.simpleDialogBody, el.simpleDialogSave, "simple-field", () => saving)
+    : () => { el.simpleDialogSave.disabled = false; return true; };
   el.simpleDialogSave.onclick = async () => {
+    if (saving || !refreshValidity()) return;
     const values = {};
     el.simpleDialogBody.querySelectorAll("[data-simple-field]").forEach((input) => {
       values[input.dataset.simpleField] = input.value.trim();
     });
-    el.simpleDialogSave.disabled = true;
+    saving = el.simpleDialogSave.disabled = true;
     try {
       const shouldClose = await onSave(values);
       if (shouldClose !== false) el.simpleDialog.close();
@@ -14322,7 +14746,8 @@ function openSimpleDialog(title, fields, onSave, options = {}) {
       console.error(error);
       showSyncError(error);
     } finally {
-      el.simpleDialogSave.disabled = false;
+      saving = false;
+      refreshValidity();
     }
   };
   el.simpleDialogBody.querySelectorAll("[data-money-field]").forEach((input) => {
@@ -14353,7 +14778,7 @@ function simpleFieldControl(field) {
     return `<input type="text" inputmode="numeric" value="${escapeAttr(formatCurrencyValue(field.value || ""))}" data-simple-field="${field.name}" data-money-field />`;
   }
 
-  return `<input class="${field.type === "color" ? "color-input" : ""}" type="${field.type}" value="${escapeAttr(field.value)}" placeholder="${escapeAttr(field.placeholder || "")}" data-simple-field="${field.name}" />`;
+  return `<input class="${field.type === "color" ? "color-input" : ""}" type="${field.type}" value="${escapeAttr(field.value)}" placeholder="${escapeAttr(field.placeholder || "")}" data-simple-field="${field.name}" ${field.required ? "required" : ""} />`;
 }
 
 function switchSection(sectionId) {
@@ -14590,7 +15015,7 @@ function emptyTask() {
     description: "",
     followUpNotes: "",
     ownerId: currentUser.id,
-    dueDate: "",
+    dueDate: localDateKey(),
     status: "Pendente",
     priority: "Normal",
     recorrencia: null,
@@ -14657,7 +15082,31 @@ function taskStatusOptions(selected = "Pendente") {
 }
 
 function taskStatusValues() {
-  return ["Pendente", "Em andamento", "Aguardando cliente", "Aguardando terceiro", "Concluída"];
+  return ["Pendente", "Em andamento", "Concluída"];
+}
+
+function normalizeTaskStatus(status) {
+  const label = localizeLabel(status || "");
+  if (isCompletedTaskStatus(label)) return "Concluída";
+  if (label === "Em andamento" || isWaitingTaskStatus(label)) return "Em andamento";
+  return "Pendente";
+}
+
+function taskEditorStatusChoices(draft) {
+  return taskStatusValues().filter((status) => status !== "Concluída" || draft.status === status)
+    .map((status) => ({ value: status, label: status }));
+}
+
+function isValidTaskDueDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function taskDueDateWithFallback(task, parentCreatedAt = "") {
+  const created = String(task.createdAt || "").slice(0, 10);
+  const parent = String(parentCreatedAt || "").slice(0, 10);
+  return [task.dueDate, created, parent].find(isValidTaskDueDate) || localDateKey();
 }
 
 function isCompletedTaskStatus(status) {
@@ -14672,7 +15121,9 @@ function taskRecurrenceFromEditorValues(values = {}) {
     soDiasUteis: values.recurrenceDailyMode === "business",
     diasSemana: String(values.recurrenceWeekdays || "")
       .split(",")
-      .map((value) => Number(value.trim()))
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map(Number)
       .filter(Number.isInteger),
     dia: values.recurrenceDay,
     mes: values.recurrenceMonth,
@@ -15012,7 +15463,6 @@ function brazilianStates() {
 
 function taskUrgency(item) {
   if (["Concluída", "Concluído"].includes(localizeLabel(item.status))) return "done";
-  if (item.kind.includes("Tarefa") && isWaitingTaskStatus(item.status)) return "waiting";
   if (!item.date) return "no-date";
   const today = localDateKey();
   if (item.date < today) return "overdue";

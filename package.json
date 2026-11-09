@@ -9,6 +9,6 @@
     "prepare:import": "node scripts/prepare-import.mjs"
   },
   "devDependencies": {
-    "wrangler": "4.114.0"
+    "wrangler": "4.159.0"
   }
 }

@@ -80,9 +80,10 @@ export function isTrustedMutation(request) {
 }
 
 export function sanitizeNext(value) {
-  const next = String(value || "/").trim();
-  if (!next.startsWith("/") || next.startsWith("//")) return "/";
-  if (next.startsWith("/auth/") || next.startsWith("/login")) return "/";
-  return next.slice(0, 1200);
+  const next = String(value || "/").trim().slice(0, 1200);
+  if (!next.startsWith("/") || next.startsWith("//") || /[\\\x00-\x1f\x7f]/.test(next)) return "/";
+  const { pathname } = new URL(next, "https://crm.invalid");
+  if (pathname.startsWith("/auth/") || pathname.startsWith("/login")) return "/";
+  return next;
 }
 

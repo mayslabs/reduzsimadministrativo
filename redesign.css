@@ -943,9 +943,7 @@ body.privacy-mode :is(
 
 .task-stat,
 .task-stat.overdue,
-.task-stat.today,
-.task-stat.waiting,
-.task-stat.no-date {
+.task-stat.today {
   min-height: 127px;
   padding: 16px 18px 18px;
   border: 0;
@@ -957,7 +955,7 @@ body.privacy-mode :is(
   background: var(--soft);
 }
 
-.task-stat-heading {
+.task-stat .task-stat-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -995,6 +993,118 @@ body.privacy-mode :is(
   color: #8a8a8a;
   font-size: 12px;
   font-weight: 400;
+}
+
+button.task-stat {
+  text-align: left;
+}
+
+button.task-stat:hover {
+  background: #e9edeb;
+}
+
+.task-week-stat .task-week-percent {
+  color: #009b77;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.task-week-stat .task-week-tally {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.task-week-tally small {
+  color: #5c5c5c;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.task-week-stat progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  appearance: none;
+  background: #e2e2e2;
+  color: #009b77;
+}
+
+.task-week-stat progress::-webkit-progress-bar { background: #e2e2e2; }
+.task-week-stat progress::-webkit-progress-value { background: #009b77; }
+.task-week-stat progress::-moz-progress-bar { background: #009b77; }
+
+.task-owner-stat .task-stat-heading small {
+  font-size: 11px;
+}
+
+.task-owner-stat-list {
+  display: grid;
+  gap: 4px;
+}
+
+.task-owner-stat-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto minmax(2ch, auto);
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+}
+
+.task-owner-stat-row:hover,
+.task-owner-stat-row[aria-pressed="true"] {
+  background: #ffffff;
+}
+
+.task-owner-stat-row[aria-pressed="true"] {
+  border-color: #009b77;
+}
+
+.task-owner-stat-row .task-owner-avatar {
+  width: 24px;
+  height: 24px;
+  background: #074d40;
+}
+
+.task-owner-stat-row.owner-camilli .task-owner-avatar {
+  background: #009b77;
+}
+
+.task-owner-stat-row .task-owner-stat-name {
+  color: #222222;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.task-owner-stat-row .task-owner-stat-late {
+  color: #c62828;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.task-owner-stat-row strong {
+  grid-column: 4;
+  justify-self: end;
+  font-size: 20px;
+}
+
+body.privacy-mode #tasksSection :is(.task-week-percent, .task-week-tally small, .task-owner-stat-late) {
+  color: transparent;
+  background: var(--privacy-mask);
+}
+
+body.privacy-mode #tasksSection .task-week-stat progress {
+  visibility: hidden;
 }
 
 .task-toolbar {
@@ -4243,10 +4353,25 @@ body.privacy-mode #dataSection :is(
 }
 
 .task-week-outside-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
   margin: 0 0 0 auto;
   color: #8a8a8a;
   font-size: 12px;
   font-weight: 400;
+}
+
+#taskOverdueJump {
+  color: #c62828;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#taskOverdueJump:hover {
+  text-decoration: underline;
 }
 
 #tasksSection .task-center-list {
@@ -4261,9 +4386,9 @@ body.privacy-mode #dataSection :is(
 
 #tasksSection .task-week-board {
   display: grid;
-  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  grid-template-columns: repeat(6, minmax(145px, 1fr));
   gap: 8px;
-  min-width: 1080px;
+  min-width: 910px;
   padding: 0;
   overflow: visible;
 }
@@ -4272,7 +4397,7 @@ body.privacy-mode #dataSection :is(
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 420px;
+  min-height: 340px;
   padding: 10px 8px;
   border: 1px solid transparent;
   border-radius: 12px;
@@ -4284,6 +4409,70 @@ body.privacy-mode #dataSection :is(
   border-color: #009b77;
   background: rgba(0, 155, 119, 0.1);
   box-shadow: none;
+}
+
+#tasksSection .task-day-column.is-drop-target {
+  border-color: var(--green);
+  background: #dff2ed;
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+#tasksSection .task-weekend-column > header {
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+#tasksSection .task-weekend-column > header strong {
+  width: auto;
+  min-width: 26px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.task-weekend-days {
+  display: grid;
+  align-content: start;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.task-weekend-day {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 45px;
+  border-radius: 8px;
+}
+
+.task-weekend-day.is-drop-target {
+  background: #dff2ed;
+  box-shadow: inset 0 0 0 2px #009b77;
+}
+
+.task-weekend-empty {
+  align-self: start;
+  margin: 0;
+  padding: 12px 3px;
+  color: #8a8a8a;
+  font-size: 11px;
+  text-align: center;
+}
+
+.task-weekend-badge {
+  justify-self: start;
+  padding: 2px 7px;
+  border-radius: 8px;
+  color: #5c5c5c;
+  background: #e2e2e2;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.task-weekend-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 #tasksSection .task-day-column > header {
@@ -4385,6 +4574,31 @@ body.privacy-mode #dataSection :is(
 
 .task-week-card:hover {
   border-color: #9fd3c4;
+}
+
+.task-week-card[draggable="true"],
+.task-week-grip {
+  cursor: grab;
+}
+
+.task-week-card.is-dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.task-week-grip {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 20px;
+  margin-left: auto;
+  color: #657b75;
+  flex: 0 0 18px;
+}
+
+.task-week-grip svg {
+  width: 15px;
+  height: 15px;
 }
 
 .task-week-card.overdue {
@@ -4516,6 +4730,235 @@ body.privacy-mode #dataSection :is(
   width: 13px;
   height: 13px;
   stroke-width: 2;
+}
+
+.task-overdue-block {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e2e2;
+}
+
+.task-overdue-heading,
+.task-overdue-heading > div,
+.task-overdue-owner > header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+.task-overdue-heading {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.task-overdue-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.28em;
+  margin: 0;
+  color: #c62828;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  scroll-margin-top: 20px;
+}
+
+.task-overdue-heading h3::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.task-overdue-heading > div > span,
+.task-overdue-empty {
+  color: #8a8a8a;
+  font-size: 12px;
+}
+
+.task-overdue-action {
+  padding: 2px 0;
+  border: 0;
+  color: #074d40;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.task-overdue-action:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.task-overdue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 12px 32px;
+}
+
+.task-overdue-owner {
+  min-width: 0;
+}
+
+.task-overdue-owner > header {
+  min-height: 28px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.task-overdue-owner .task-owner-avatar {
+  width: 20px;
+  height: 20px;
+  color: #ffffff;
+  background: #074d40;
+  font-size: 10px;
+}
+
+.task-overdue-owner.owner-camilli .task-owner-avatar {
+  background: #009b77;
+}
+
+.task-overdue-owner h4 {
+  margin: 0;
+  color: #222222;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.task-overdue-owner header > :is(.overdue-count, .on-track),
+.task-overdue-age {
+  color: #c62828;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.task-overdue-owner header > .on-track {
+  color: #009b77;
+}
+
+.task-overdue-owner ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-overdue-row {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.task-overdue-row:hover {
+  background: #fafafa;
+}
+
+.task-overdue-row .task-week-complete {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.task-overdue-open {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.task-overdue-open > :is(strong, span) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-overdue-open strong {
+  flex: 0 1 auto;
+  color: #222222;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.task-overdue-open span {
+  flex: 0 999 auto;
+  color: #8a8a8a;
+  font-size: 11.5px;
+}
+
+.task-overdue-age {
+  white-space: nowrap;
+}
+
+.task-overdue-today {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: #009b77;
+  font-size: 11.5px;
+}
+
+.task-overdue-today:hover:not(:disabled) {
+  background: rgba(0, 155, 119, 0.10);
+  text-decoration: none;
+}
+
+.task-overdue-today svg {
+  width: 11px;
+  height: 11px;
+}
+
+.task-overdue-empty,
+.task-overdue-expand {
+  margin-top: 8px;
+}
+
+body.privacy-mode #tasksSection :is(
+  #taskOverdueJump,
+  .task-overdue-heading h3 span,
+  .task-overdue-owner .overdue-count,
+  .task-overdue-age
+) {
+  color: transparent;
+  background: var(--privacy-mask);
+  user-select: none;
+}
+
+.task-required-mark,
+.task-required-error {
+  color: #c62828;
+}
+
+.task-required-error {
+  display: block;
+  flex-basis: 100%;
+  margin-top: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+#simpleDialog input[type="date"][aria-invalid="true"],
+#taskDetailDrawer input[type="date"][aria-invalid="true"],
+#marketingDialog input[type="date"][aria-invalid="true"] {
+  border-color: #c62828;
+}
+
+#simpleDialog:has([data-task-due-error]) #simpleDialogSave:disabled,
+#taskDetailDrawer .task-drawer-save:disabled,
+#marketingDialog .marketing-task-save:disabled {
+  background: #9db8b1;
+  cursor: not-allowed;
 }
 
 /* Task detail drawer */

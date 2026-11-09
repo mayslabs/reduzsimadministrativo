@@ -224,3 +224,43 @@ test("cloud saves retry a transient server failure after verification", async ()
   assert.equal(requests.length, 4);
   assert.deepEqual(plain(saved.state.clients), [{ id: "c1", name: "Depois" }]);
 });
+
+test("a discarded poll cannot advance the versions used to save a draft", async () => {
+  const requests = [];
+  const responses = [
+    jsonResponse({ state: {}, versions: { "clients:c1": 1 }, revision: "r1" }),
+    jsonResponse({ ok: true, unchanged: true }),
+    jsonResponse({ state: {}, versions: { "clients:c1": 2 }, revision: "r2" }),
+    jsonResponse({ code: "SYNC_CONFLICT", conflicts: ["clients:c1"] }, 409),
+  ];
+  const context = {
+    structuredClone,
+    encodeURIComponent,
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      return responses.shift();
+    },
+    window: {},
+  };
+  vm.runInNewContext(source, context);
+  const cloud = context.window.ReduzSimCloud;
+  await cloud.load();
+  assert.equal(await cloud.load({ onlyIfChanged: true }), null);
+  assert.equal(await cloud.load({ onlyIfChanged: true, accept: () => false }), null);
+  await assert.rejects(cloud.save({ clients: [{ id: "c1" }] }, ["clients:c1"]), { code: "SYNC_CONFLICT" });
+  assert.equal(requests[1].url, "/api/state?revision=r1");
+  assert.equal(requests[2].url, "/api/state?revision=r1");
+  assert.deepEqual(JSON.parse(requests[3].options.body).versions, { "clients:c1": 1 });
+});
+
+test("an expired session reports the failed save without navigating away", async () => {
+  let redirected = false;
+  const context = {
+    structuredClone,
+    fetch: async () => jsonResponse({ code: "UNAUTHORIZED" }, 401),
+    window: { location: { replace() { redirected = true; } } },
+  };
+  vm.runInNewContext(source, context);
+  await assert.rejects(context.window.ReduzSimCloud.save({}, []), { code: "UNAUTHORIZED" });
+  assert.equal(redirected, false);
+});

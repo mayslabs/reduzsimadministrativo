@@ -21,7 +21,7 @@ O endereco anterior do GitHub Pages encaminha para o ambiente de producao.
 
 ## Desenvolvimento
 
-Requisitos: Node.js 20 ou superior.
+Requisitos: Node.js 22.12 ou superior (Node.js 24 na publicacao automatica).
 
 ```text
 npm ci
@@ -54,9 +54,24 @@ definitiva para evitar perda de alteracoes feitas durante a validacao.
 
 ## Publicacao
 
+O GitHub Actions valida toda alteracao enviada para `main` e, se os testes
+passarem, publica no projeto existente do Cloudflare Pages. Pull requests
+rodam apenas os testes; nao recebem a chave de publicacao. O ambiente
+`production` no GitHub deve aceitar publicacoes somente da branch `main` e ter:
+
+- Variavel `CLOUDFLARE_ACCOUNT_ID`: ID da conta do projeto.
+- Segredo `CLOUDFLARE_API_TOKEN`: token dedicado com `Cloudflare Pages: Edit`,
+  limitado a conta que hospeda o projeto.
+
+A rotina publica apenas os arquivos da versao e as Pages Functions; nao
+aplica migracoes nem altera dados do banco. Apos configurar o segredo pela
+primeira vez, execute a rotina em `Actions` na branch `main`.
+
+Publicacao manual, para contingencia:
+
 ```text
 npm run build
-npx wrangler pages deploy dist --project-name reduzsim-gestao
+npx wrangler pages deploy dist --project-name reduzsim-gestao --branch main
 ```
 
 O segredo de sessao deve ser configurado diretamente no Cloudflare e nunca em
