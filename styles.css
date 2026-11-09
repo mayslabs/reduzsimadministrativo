@@ -2384,7 +2384,7 @@ h3 {
   background: #fff;
 }
 
-.task-stat span {
+.task-stat > span {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -4841,7 +4841,7 @@ button.updates-important-item:hover {
   box-shadow: none;
 }
 
-.task-stat span:not(.task-stat-icon) {
+.task-stat > :where(span:not(.task-stat-icon)) {
   display: block;
   color: #65737f;
   font-size: 12px;

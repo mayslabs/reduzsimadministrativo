@@ -1044,13 +1044,15 @@ button.task-stat:hover {
 .task-owner-stat-list {
   display: grid;
   gap: 4px;
+  container-type: inline-size;
 }
 
 .task-owner-stat-row {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto minmax(2ch, auto);
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  grid-template-areas: "avatar name late total";
   align-items: center;
-  gap: 6px;
+  gap: 2px 8px;
   min-height: 36px;
   width: 100%;
   padding: 4px 6px;
@@ -1070,6 +1072,7 @@ button.task-stat:hover {
 }
 
 .task-owner-stat-row .task-owner-avatar {
+  grid-area: avatar;
   width: 24px;
   height: 24px;
   background: #074d40;
@@ -1080,6 +1083,7 @@ button.task-stat:hover {
 }
 
 .task-owner-stat-row .task-owner-stat-name {
+  grid-area: name;
   color: #222222;
   font-size: 13px;
   font-weight: 600;
@@ -1087,15 +1091,42 @@ button.task-stat:hover {
 }
 
 .task-owner-stat-row .task-owner-stat-late {
+  grid-area: late;
   color: #c62828;
   font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-.task-owner-stat-row strong {
-  grid-column: 4;
-  justify-self: end;
+.task-owner-stat-total {
+  grid-area: total;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.task-owner-stat-total strong {
+  min-width: 2ch;
+  margin: 0;
   font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.task-owner-stat-total small {
+  color: #5c5c5c;
+  font-size: 11px;
+}
+
+@container (max-width: 235px) {
+  .task-owner-stat-row {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    grid-template-areas: "avatar name total";
+  }
+
+  .task-owner-stat-row:has(.task-owner-stat-late) {
+    grid-template-areas: "avatar name total" "avatar late total";
+  }
 }
 
 body.privacy-mode #tasksSection :is(.task-week-percent, .task-week-tally small, .task-owner-stat-late) {
@@ -4417,17 +4448,6 @@ body.privacy-mode #dataSection :is(
   box-shadow: inset 0 0 0 1px var(--green);
 }
 
-#tasksSection .task-weekend-column > header {
-  grid-template-columns: auto auto minmax(0, 1fr);
-}
-
-#tasksSection .task-weekend-column > header strong {
-  width: auto;
-  min-width: 26px;
-  padding: 0 4px;
-  white-space: nowrap;
-}
-
 .task-weekend-days {
   display: grid;
   align-content: start;
@@ -4455,7 +4475,7 @@ body.privacy-mode #dataSection :is(
   padding: 12px 3px;
   color: #8a8a8a;
   font-size: 11px;
-  text-align: center;
+  text-align: left;
 }
 
 .task-weekend-badge {
@@ -4515,6 +4535,17 @@ body.privacy-mode #dataSection :is(
   background: transparent;
   font-size: 10.5px;
   font-weight: 500;
+}
+
+#tasksSection .task-weekend-column > header {
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+}
+
+#tasksSection .task-weekend-column > header strong {
+  width: auto;
+  min-width: 26px;
+  padding: 0 4px;
+  white-space: nowrap;
 }
 
 #tasksSection .task-day-items {
@@ -4702,7 +4733,6 @@ body.privacy-mode #dataSection :is(
   align-items: center;
   gap: 5px;
   min-height: 20px;
-  padding-left: 25px;
 }
 
 .task-week-card .task-owner-avatar {

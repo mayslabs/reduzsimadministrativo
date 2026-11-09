@@ -74,6 +74,34 @@ test("weekly progress includes all current-week tasks and ignores the week being
   assert.deepEqual(JSON.parse(stats), { total: 2, completed: 1, period: "26 out a 1 nov" });
 });
 
+test("the owner summary labels the open total separately from overdue tasks", () => {
+  const context = vm.createContext({
+    localDateKey: () => "2026-11-09",
+    isOpenTaskBefore: (item, date) => item.urgency !== "done" && item.date < date,
+    taskWeekProgress: () => ({ total: 0, completed: 0, period: "9 a 15 nov" }),
+    taskMineOnly: false,
+    el: { taskOverview: {}, taskOwnerFilter: { value: "" } },
+    state: { users: [{ id: "a", name: "Ana" }, { id: "b", name: "Bia" }] },
+    taskOwnerClass: () => "",
+    taskOwnerAvatar: () => "",
+    escapeHtml: String,
+    escapeAttr: String,
+    items: [
+      ...Array.from({ length: 24 }, (_, i) => ({
+        kind: "Tarefa",
+        ownerId: "a",
+        date: i < 18 ? "2026-11-06" : "2026-11-10",
+        urgency: "open",
+      })),
+      { kind: "Tarefa", ownerId: "a", date: "2026-11-06", urgency: "done" },
+    ],
+  });
+  vm.runInContext(app.slice(app.indexOf("function renderTaskOverview("), app.indexOf("function taskCenterItems(")), context);
+  const html = vm.runInContext("renderTaskOverview(items, items); el.taskOverview.innerHTML", context);
+  assert.match(html, /class="task-owner-stat-late">18 atrasadas<\/span>\s*<span class="task-owner-stat-total"><strong>24<\/strong><small>total<\/small>/);
+  assert.match(html, /class="task-owner-stat-name">Bia<\/span>\s*<span class="task-owner-stat-total"><strong>0<\/strong><small>total<\/small>/);
+});
+
 test("task creation requires a real date and a nonempty weekday for weekly recurrence", () => {
   const context = vm.createContext({
     localDateKey: () => "2026-11-09",

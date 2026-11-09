@@ -8777,7 +8777,7 @@ function renderTaskOverview(items, allItems) {
             ${taskOwnerAvatar(user.id)}
             <span class="task-owner-stat-name">${escapeHtml(user.name)}</span>
             ${late ? `<span class="task-owner-stat-late">${late} ${late === 1 ? "atrasada" : "atrasadas"}</span>` : ""}
-            <strong>${open.length}</strong>
+            <span class="task-owner-stat-total"><strong>${open.length}</strong><small>total</small></span>
           </button>`;
         }).join("")}
       </div>
