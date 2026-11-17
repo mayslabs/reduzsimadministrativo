@@ -2682,11 +2682,11 @@ function renderMetrics() {
   const activeClients = state.clients.filter((client) => !isClientFinished(client));
   const finishedClients = state.clients.filter(isClientFinished).length;
   const openTaskCount = activeClients.reduce((total, client) => total + clientOpenTasks(client).length, 0);
-  const deadlineCount = activeClients.reduce((total, client) => total + (client.deadlines || []).length, 0);
+  const deadlineCount = activeClients.reduce((total, client) => total + clientOpenDeadlines(client).length, 0);
   const stats = [
     { label: "Ativos", value: activeClients.length, hint: "obras em andamento", filter: "active" },
     { label: "Com tarefa", value: openTaskCount, hint: "tarefas abertas", filter: "tasks" },
-    { label: "Com prazo", value: deadlineCount, hint: "prazos registrados", filter: "deadlines" },
+    { label: "Com prazo", value: deadlineCount, hint: "prazos em aberto", filter: "deadlines" },
     { label: "Sem status", value: activeClients.filter((client) => !getClientStatuses(client).length).length, hint: "precisam de triagem", filter: "no-status" },
     { label: "Finalizados", value: finishedClients, hint: "processos concluídos", filter: "finished" },
   ];
@@ -8810,7 +8810,7 @@ function taskCenterItems() {
       });
 
     const deadlines = (client.deadlines || []).map((deadline) => {
-      const completed = ["Concluída", "Concluído"].includes(localizeLabel(deadline.status || "Pendente"));
+      const completed = isCompletedTaskStatus(deadline.status);
       const item = {
         id: deadline.id,
         source: "Administrativo",
@@ -11241,7 +11241,7 @@ function isUpcomingDate(dateValue, days = 7) {
 }
 
 function clientDeadlineSummary(client = {}) {
-  const all = client.deadlines || [];
+  const all = clientOpenDeadlines(client);
   return {
     all,
     overdue: all.filter((deadline) => isPastDate(deadline.date)),
@@ -11375,7 +11375,7 @@ function filteredClients() {
 function clientMatchesQuickFilter(client) {
   if (activeClientQuickFilter === "finished") return isClientFinished(client);
   if (activeClientQuickFilter === "tasks") return clientOpenTasks(client).length > 0;
-  if (activeClientQuickFilter === "deadlines") return (client.deadlines || []).length > 0;
+  if (activeClientQuickFilter === "deadlines") return clientOpenDeadlines(client).length > 0;
   if (activeClientQuickFilter === "no-status") return !getClientStatuses(client).length;
   return !isClientFinished(client);
 }
@@ -11390,7 +11390,7 @@ function sortClients(clients) {
     else if (activeClientSortKey === "created") comparison = (clientCreatedTime(a) - clientCreatedTime(b)) * direction;
     else if (activeClientSortKey === "updated") comparison = (clientUpdatedTime(a) - clientUpdatedTime(b)) * direction;
     else if (activeClientSortKey === "tasks") comparison = (clientOpenTasks(a).length - clientOpenTasks(b).length) * direction;
-    else if (activeClientSortKey === "deadlines") comparison = ((a.deadlines || []).length - (b.deadlines || []).length) * direction;
+    else if (activeClientSortKey === "deadlines") comparison = (clientOpenDeadlines(a).length - clientOpenDeadlines(b).length) * direction;
     else comparison = (clientCreatedTime(a) - clientCreatedTime(b)) * direction;
     return comparison || compareClientText(a.clientName, b.clientName, 1);
   });
@@ -11424,6 +11424,10 @@ function formatClientListDate(time) {
 
 function clientOpenTasks(client = {}) {
   return (client.tasks || []).filter((task) => localizeLabel(task.status) !== "Concluída");
+}
+
+function clientOpenDeadlines(client = {}) {
+  return (client.deadlines || []).filter((deadline) => !isCompletedTaskStatus(deadline.status));
 }
 
 function renderCompactClients(clients) {
@@ -11487,7 +11491,7 @@ function setClientSort(key, direction) {
 function renderCompactClientRow(client, position) {
   const statuses = getClientStatuses(client);
   const openTasks = clientOpenTasks(client);
-  const deadlines = client.deadlines || [];
+  const deadlines = clientOpenDeadlines(client);
   const workTitle = client.workTitle && client.workTitle !== "Obra principal" ? `${client.workTitle} | ` : "";
   const workLine = [workTitle ? workTitle.slice(0, -3) : "", destinationLabel(client)].filter(Boolean).join(" | ");
   const taskOwners = ownerSummary(openTasks.map((task) => task.ownerId));
@@ -11718,7 +11722,7 @@ function renderClientDialogMeta() {
 function renderClientSummaryPending() {
   if (!el.clientSummaryPending || !activeClient) return;
   const tasks = clientOpenTasks(activeClient);
-  const deadlines = activeClient.deadlines || [];
+  const deadlines = clientOpenDeadlines(activeClient);
   const monthly = activeClient.monthly || [];
   const paidGuides = monthly.filter((row) => row.guidePaid).length;
   const nextTask = tasks
@@ -11737,7 +11741,7 @@ function renderClientSummaryPending() {
     {
       icon: "calendar-days",
       label: "Prazos",
-      hint: nextDeadline ? `Próximo: ${nextDeadline.title || formatDate(nextDeadline.date)}` : "Nenhum prazo registrado",
+      hint: nextDeadline ? `Próximo: ${nextDeadline.title || formatDate(nextDeadline.date)}` : deadlines.length ? "Sem data definida" : "Nenhum prazo em aberto",
       value: deadlines.length,
     },
     {
@@ -12564,7 +12568,7 @@ function clientWorkItems(client = {}) {
     date: deadline.date || "",
     tag: deadline.type === "Receita" ? "Receita Federal" : deadline.type || "Interno",
     status: localizeLabel(deadline.status || "Pendente"),
-    done: ["Concluída", "Concluído"].includes(localizeLabel(deadline.status || "Pendente")),
+    done: isCompletedTaskStatus(deadline.status),
   }));
   return [...tasks, ...deadlines];
 }

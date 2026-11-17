@@ -28,7 +28,7 @@ test("client metrics act as the new quick filters", () => {
   assert.match(appJs, /data-client-metric-filter/);
   assert.match(appJs, /label: "Sem status"/);
   assert.match(appJs, /hint: "tarefas abertas"/);
-  assert.match(appJs, /hint: "prazos registrados"/);
+  assert.match(appJs, /hint: "prazos em aberto"/);
   assert.match(appJs, /activeClientQuickFilter === stat\.filter/);
 });
 
@@ -59,7 +59,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=226/);
+  assert.match(indexHtml, /app\.js\?v=227/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines", "updated"]) {
@@ -83,7 +83,7 @@ test("client rows are numbered in the current visible order", () => {
     el: { compactView: { querySelectorAll: () => [] } },
     clients: [{ id: "a", clientName: "Ana" }, { id: "b", clientName: "Bruna" }],
     clientSortHeader: () => "",
-    getClientStatuses: () => [], clientOpenTasks: () => [],
+    getClientStatuses: () => [], clientOpenTasks: () => [], clientOpenDeadlines: () => [],
     destinationLabel: () => "Residencial", ownerSummary: () => "", isClientFinished: () => false,
     escapeHtml: String, compactClientDisplayName: String, clientCreatedDate: () => "—",
     compactClientArea: () => "—", compactStatusChips: () => "",
@@ -98,6 +98,49 @@ test("client rows are numbered in the current visible order", () => {
   assert.deepEqual(positions("clients"), [["1", "Ana"], ["2", "Bruna"]]);
   assert.deepEqual(positions("[...clients].reverse()"), [["1", "Bruna"], ["2", "Ana"]]);
   assert.deepEqual(positions("clients.slice(1)"), [["1", "Bruna"]]);
+});
+
+test("only open deadlines count in the client list, filters and summary", () => {
+  const between = (start, end) => appJs.slice(appJs.indexOf(`function ${start}(`), appJs.indexOf(`function ${end}(`));
+  const completed = { id: "a", clientName: "Ana", deadlines: [{ id: "d1", status: "Concluído", date: "2026-11-01" }] };
+  const mixed = { id: "b", clientName: "Bruna", deadlines: [
+    { id: "d2", status: "Concluída", date: "2026-11-02" },
+    { id: "d3", status: "Pendente", date: "2026-11-18", title: "Prazo em aberto" },
+    { id: "d4", status: "Pendente" },
+  ] };
+  const el = { metricsGrid: {}, clientSummaryPending: {} };
+  const context = vm.createContext({
+    el, completed, mixed, activeClient: completed, state: { clients: [completed, mixed] },
+    activeClientQuickFilter: "deadlines", activeClientSortKey: "deadlines", activeClientSortDirection: "desc",
+    isClientFinished: () => false, clientOpenTasks: () => [], getClientStatuses: () => [],
+    compareClientText: () => 0, localizeLabel: String, escapeHtml: String,
+    destinationLabel: () => "Residencial", ownerSummary: () => "", compactClientDisplayName: String,
+    clientCreatedDate: () => "—", compactClientArea: () => "—", compactStatusChips: () => "",
+    formatClientListDate: () => "—", clientUpdatedTime: () => 0,
+    isPastDate: (date) => date && date < "2026-11-17", isTodayDate: () => false,
+    isUpcomingDate: (date) => date && date > "2026-11-17",
+  });
+  vm.runInContext([
+    between("renderMetrics", "renderAttentionPanel"),
+    between("clientDeadlineSummary", "currentMonthKey"),
+    between("clientMatchesQuickFilter", "compareClientText"),
+    between("clientOpenDeadlines", "renderCompactClients"),
+    between("renderCompactClientRow", "compactStatusChips"),
+    between("renderClientSummaryPending", "renderDestinationOptions"),
+    between("clientWorkItems", "clientWorkGroups"),
+    between("isCompletedTaskStatus", "taskRecurrenceFromEditorValues"),
+  ].join("\n"), context);
+  assert.equal(vm.runInContext("clientMatchesQuickFilter(completed)", context), false);
+  assert.equal(vm.runInContext("clientMatchesQuickFilter(mixed)", context), true);
+  assert.equal(vm.runInContext("sortClients([{ ...completed, deadlines: Array(4).fill(completed.deadlines[0]) }, mixed])[0].id", context), "b");
+  assert.match(vm.runInContext("renderCompactClientRow(completed, 1)", context), /aria-label="Sem prazos">—/);
+  assert.match(vm.runInContext("renderCompactClientRow(mixed, 2)", context), /aria-label="2 prazo\(s\)">2/);
+  assert.equal(vm.runInContext("clientDeadlineSummary(mixed).overdue.length", context), 0);
+  assert.equal(vm.runInContext("clientWorkItems(completed).find((item) => item.kind === 'deadline').done", context), true);
+  assert.equal(vm.runInContext("clientWorkItems(mixed).filter((item) => !item.done).length", context), 2);
+  vm.runInContext("renderMetrics(); renderClientSummaryPending();", context);
+  assert.match(el.metricsGrid.innerHTML, /<strong>2<\/strong>\s*<small>prazos em aberto<\/small>/);
+  assert.match(el.clientSummaryPending.innerHTML, /Nenhum prazo em aberto/);
 });
 
 test("the client order menu shares sorting with table headers and keeps the current filters", () => {
