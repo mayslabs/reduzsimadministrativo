@@ -20,7 +20,7 @@ const DEFAULT_GOAL_SETTINGS = {
   stretch: "R$ 25.000,00",
 };
 
-const BILL_YEAR = "2026";
+const BILL_FIRST_YEAR = 2026;
 const BILL_CATEGORY_THEME_COLORS = [
   "#074D40", "#0A5C4D", "#0E6E5B", "#00876A", "#009B77", "#2BAA8B", "#55B9A0",
   "#7FC8B5", "#A3D6C9", "#5C5C5C", "#8A8A8A", "#B0B0B0", "#CFCFCF",
@@ -354,8 +354,7 @@ let marketingDragSuppressClick = false;
 let activeDataDrilldown = null;
 let activeGoalsYear = String(new Date().getFullYear());
 let activeGoalsMonth = currentMonthKey();
-let activeBillsYear = BILL_YEAR;
-let activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
+let [activeBillsYear, activeBillsMonth] = currentMonthKey().split("-");
 let activeBillsStatusFilter = "";
 let activeBillsCategoryFilter = "";
 const expandedBillInvoiceIds = new Set();
@@ -487,8 +486,6 @@ const el = {
   goalsContractsTitle: document.getElementById("goalsContractsTitle"),
   goalsContractsList: document.getElementById("goalsContractsList"),
   goalsMissingData: document.getElementById("goalsMissingData"),
-  billsYearSelect: document.getElementById("billsYearSelect"),
-  billsMonthSelect: document.getElementById("billsMonthSelect"),
   billsPrevMonthButton: document.getElementById("billsPrevMonthButton"),
   billsNextMonthButton: document.getElementById("billsNextMonthButton"),
   billsPeriodLabel: document.getElementById("billsPeriodLabel"),
@@ -1061,7 +1058,7 @@ function normalizeCompanyBill(bill = {}) {
   const dueDate = bill.dueDate || "";
   const dueYear = dueDate.slice(0, 4);
   const dueMonth = dueDate.slice(5, 7);
-  const year = String(bill.year || dueYear || BILL_YEAR);
+  const year = String(bill.year || dueYear || BILL_FIRST_YEAR);
   const month = String(bill.month || dueMonth || "01").padStart(2, "0");
   const billId = bill.id || id();
   const legacyCategoryName = normalizeBillCategoryName(bill.category || bill.categoria || "");
@@ -1077,7 +1074,7 @@ function normalizeCompanyBill(bill = {}) {
     : Array.isArray(bill.invoiceItems) ? bill.invoiceItems : [];
   return {
     id: billId,
-    year: year === BILL_YEAR ? BILL_YEAR : year,
+    year,
     month: month >= "01" && month <= "12" ? month : "01",
     description: bill.description || bill.title || bill.name || "",
     category: isCartao ? null : legacyCategoryName,
@@ -2259,15 +2256,6 @@ function bindEvents() {
   el.goalsPrevMonthButton.addEventListener("click", () => shiftGoalMonth(-1));
   el.goalsNextMonthButton.addEventListener("click", () => shiftGoalMonth(1));
   el.editGoalsButton.addEventListener("click", openGoalsDialog);
-  el.billsYearSelect.addEventListener("change", () => {
-    activeBillsYear = BILL_YEAR;
-    el.billsYearSelect.value = BILL_YEAR;
-    renderBillsDashboard();
-  });
-  el.billsMonthSelect.addEventListener("change", () => {
-    activeBillsMonth = el.billsMonthSelect.value || activeBillsMonth;
-    renderBillsDashboard();
-  });
   el.billsPrevMonthButton.addEventListener("click", () => shiftBillsMonth(-1));
   el.billsNextMonthButton.addEventListener("click", () => shiftBillsMonth(1));
   el.billsSearchInput.addEventListener("input", renderBillsDashboard);
@@ -3994,10 +3982,8 @@ function renderBillsDashboard() {
   if (!el.billsSummary || currentUser?.role !== "admin") return;
   state.companyBills = Array.isArray(state.companyBills) ? state.companyBills.map(normalizeCompanyBill) : [];
   state.companyBillCategories = normalizeBillCategories(state.companyBillCategories, state.companyBills);
-  activeBillsYear = BILL_YEAR;
-  if (!activeBillsMonth || activeBillsMonth < "01" || activeBillsMonth > "12") activeBillsMonth = String(new Date().getMonth() + 1).padStart(2, "0");
-  el.billsYearSelect.value = BILL_YEAR;
-  el.billsMonthSelect.value = activeBillsMonth;
+  el.billsPrevMonthButton.disabled = !offsetBillMonth(-1);
+  el.billsNextMonthButton.disabled = !offsetBillMonth(1);
   if (el.billsPeriodLabel) el.billsPeriodLabel.textContent = `${monthName(activeBillsMonth)} ${activeBillsYear}`;
 
   const monthBills = currentMonthBills();
@@ -4017,10 +4003,10 @@ function renderBillsDashboard() {
 }
 
 function shiftBillsMonth(direction) {
-  const currentIndex = Number(activeBillsMonth) - 1;
-  const nextIndex = currentIndex + direction;
-  if (nextIndex < 0 || nextIndex > 11) return;
-  activeBillsMonth = String(nextIndex + 1).padStart(2, "0");
+  const next = offsetBillMonth(direction);
+  if (!next) return;
+  activeBillsYear = next.year;
+  activeBillsMonth = next.month;
   renderBillsDashboard();
 }
 
@@ -4686,8 +4672,9 @@ function openBillDialog(billId) {
       alert("Informe o valor da conta.");
       return false;
     }
-    if (!dueDate || !dueDate.startsWith(`${BILL_YEAR}-`)) {
-      alert("Informe um vencimento dentro de 2026.");
+    const due = new Date(`${dueDate}T00:00:00Z`);
+    if (!Number.isFinite(due.getTime()) || due.toISOString().slice(0, 10) !== dueDate || due.getUTCFullYear() < BILL_FIRST_YEAR) {
+      alert(`Informe um vencimento válido a partir de ${BILL_FIRST_YEAR}.`);
       return false;
     }
 
@@ -4706,7 +4693,7 @@ function openBillDialog(billId) {
       itensFatura: isCartao ? current.itensFatura : [],
       amount,
       dueDate,
-      year: BILL_YEAR,
+      year: dueDate.slice(0, 4),
       month: dueDate.slice(5, 7),
       status,
       paidAt: status === "Pago" ? values.paidAt || localDateKey() : "",
@@ -4722,6 +4709,7 @@ function openBillDialog(billId) {
       state.companyBills.unshift(payload);
       recordActivity("finance", `Criou conta interna: ${payload.description}.`, `${payload.amount} | ${billEffectiveStatus(payload)}`, billActivityOptions(payload));
     }
+    activeBillsYear = payload.year;
     activeBillsMonth = payload.month;
     saveState();
     renderBillsDashboard();
@@ -4930,9 +4918,9 @@ function deleteBill(billId) {
 
 function copyPreviousMonthBills() {
   if (currentUser?.role !== "admin") return;
-  const previous = previousBillMonth();
+  const previous = offsetBillMonth(-1);
   if (!previous) {
-    alert("Janeiro de 2026 não tem mês anterior dentro deste controle.");
+    alert("Não há mês anterior dentro deste controle.");
     return;
   }
 
@@ -5035,10 +5023,11 @@ function billStatusKey(status) {
   }[status] || "pending";
 }
 
-function previousBillMonth() {
-  const monthNumber = Number(activeBillsMonth);
-  if (monthNumber <= 1) return null;
-  return { year: activeBillsYear, month: String(monthNumber - 1).padStart(2, "0") };
+function offsetBillMonth(direction) {
+  const date = new Date(Number(activeBillsYear), Number(activeBillsMonth) - 1 + direction, 1);
+  const year = date.getFullYear();
+  if (year < BILL_FIRST_YEAR || year > 9999) return null;
+  return { year: String(year), month: String(date.getMonth() + 1).padStart(2, "0") };
 }
 
 function shiftBillDueDate(dueDate, year, month) {

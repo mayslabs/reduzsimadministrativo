@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 
 const [indexHtml, appJs, redesignCss, stylesCss] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
@@ -15,6 +16,79 @@ test("accounts header uses the compact period navigator from the reference", () 
   assert.match(indexHtml, /id="billsPeriodLabel"/);
   assert.match(indexHtml, /id="billsNextMonthButton"/);
   assert.match(appJs, /function shiftBillsMonth\(direction\)/);
+});
+
+test("accounts navigate and copy from December to January and save future due dates", async () => {
+  const between = (start, end) => appJs.slice(appJs.indexOf(`function ${start}(`), appJs.indexOf(`function ${end}(`));
+  const alerts = [];
+  let nextId = 0;
+  let form;
+  const el = { billsSummary: {}, billsPrevMonthButton: {}, billsNextMonthButton: {}, billsPeriodLabel: {} };
+  const decemberBill = {
+    id: "december", description: "Fatura de teste", year: "2026", month: "12", dueDate: "2026-12-31", amount: "R$ 100,00",
+    status: "Pago", paidAt: "2026-12-31", isCartao: true,
+    itensFatura: [{ id: "item-dec", contaId: "december", categoriaId: "contract", descricao: "Serviço", data: "2026-12-20" }],
+  };
+  const state = { companyBills: [decemberBill] };
+  const context = vm.createContext({
+    BILL_FIRST_YEAR: 2026,
+    BILL_CARD_INVOICE_OPTION: "card",
+    BILL_STATUS_OPTIONS: ["A pagar", "Pago"],
+    activeBillsYear: "2026", activeBillsMonth: "12", activeBillsCategoryFilter: "",
+    currentUser: { role: "admin" }, el, state,
+    alert: (message) => alerts.push(message),
+    id: () => `test-${++nextId}`,
+    normalize: String,
+    normalizeBillCategoryName: String,
+    billCategoryIdForName: () => "contract",
+    normalizeBillCategories: () => [],
+    normalizeSelectValue: (value) => value,
+    formatFlexibleCurrencyValue: String,
+    billCategories: () => [],
+    defaultBillCategoryId: () => "contract",
+    billCategoryById: (id) => ({ id }),
+    billEffectiveStatus: (bill) => bill.status,
+    billActivityOptions: () => ({}),
+    openSimpleDialog: (_title, fields, save) => { form = { fields, save }; },
+    monthName: (month) => ({ "01": "Janeiro", "02": "Fevereiro", "12": "Dezembro" }[month]),
+    companyBillsSummary() {}, filteredCompanyBills: (bills) => bills,
+    renderBillsSummary() {}, renderBillsAlert() {}, renderBillsFilters() {}, renderBillsTable() {},
+    renderBillsCategoryChart() {}, bindBillDashboardActions() {}, refreshIcons() {},
+    recordActivity() {}, saveState() {}, renderUpdates() {},
+  });
+  vm.runInContext([
+    between("normalizeCompanyBill", "normalizeBillCategoryName"),
+    between("renderBillsDashboard", "filteredCompanyBills"),
+    between("openBillDialog", "openBillCategoriesDialog"),
+    between("copyPreviousMonthBills", "exportBillsCsv"),
+    between("offsetBillMonth", "monthName"),
+  ].join("\n"), context);
+
+  vm.runInContext("renderBillsDashboard(); shiftBillsMonth(1);", context);
+  assert.equal(el.billsPeriodLabel.textContent, "Janeiro 2027");
+  assert.equal(vm.runInContext("currentMonthBills().length", context), 0);
+  vm.runInContext("copyPreviousMonthBills();", context);
+  const copy = state.companyBills[0];
+  assert.equal(copy.dueDate, "2027-01-31");
+  assert.equal(copy.status, "A pagar");
+  assert.equal(copy.itensFatura[0].data, "2027-01-20");
+  assert.equal(copy.itensFatura[0].contaId, copy.id);
+  assert.equal(decemberBill.itensFatura[0].data, "2026-12-20");
+
+  vm.runInContext("shiftBillsMonth(-1); openBillDialog();", context);
+  assert.equal(el.billsPeriodLabel.textContent, "Dezembro 2026");
+  assert.equal(form.fields.find(({ name }) => name === "dueDate").value, "2026-12-01");
+  assert.equal(await form.save({ description: "Nova conta", amount: "50", dueDate: "2027-02-10", status: "A pagar" }), true);
+  assert.equal(el.billsPeriodLabel.textContent, "Fevereiro 2027");
+  assert.equal(state.companyBills[0].year, "2027");
+  assert.equal(state.companyBills[0].month, "02");
+
+  vm.runInContext('activeBillsYear = "2027"; activeBillsMonth = "12"; shiftBillsMonth(1);', context);
+  assert.equal(el.billsPeriodLabel.textContent, "Janeiro 2028");
+  assert.deepEqual(alerts, []);
+  vm.runInContext("openBillDialog();", context);
+  assert.equal(await form.save({ description: "Vencimento inválido", amount: "50", dueDate: "2027-02-29" }), false);
+  assert.match(alerts[0], /Informe um vencimento válido/);
 });
 
 test("accounts summary shows composition and actionable status totals", () => {
