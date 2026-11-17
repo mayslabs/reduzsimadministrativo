@@ -587,6 +587,25 @@ textarea:focus {
   background: rgba(0, 155, 119, 0.045);
 }
 
+.compact-client-main {
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 8px;
+}
+
+.compact-client-position {
+  min-width: 4ch;
+  color: #5c5c5c;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.compact-client-name {
+  display: grid;
+  gap: 3px;
+}
+
 .compact-client-main strong {
   color: #111111;
   font-size: 14px;

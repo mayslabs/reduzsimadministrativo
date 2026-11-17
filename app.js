@@ -11441,7 +11441,7 @@ function renderCompactClients(clients) {
           ${clientSortHeader("updated", "Última atualização")}
           <span></span>
         </div>
-        ${clients.map((client) => renderCompactClientRow(client)).join("")}
+        ${clients.map((client, index) => renderCompactClientRow(client, index + 1)).join("")}
       </div>
     `
     : `<p class="empty-state">Nenhum cliente encontrado.</p>`;
@@ -11484,7 +11484,7 @@ function setClientSort(key, direction) {
   renderClients();
 }
 
-function renderCompactClientRow(client) {
+function renderCompactClientRow(client, position) {
   const statuses = getClientStatuses(client);
   const openTasks = clientOpenTasks(client);
   const deadlines = client.deadlines || [];
@@ -11494,9 +11494,12 @@ function renderCompactClientRow(client) {
   return `
     <button class="compact-client-row ${isClientFinished(client) ? "finished" : "active-work"}" type="button" data-open-client="${client.id}">
       <span class="compact-client-main">
-        <strong>${escapeHtml(compactClientDisplayName(client.clientName || "Cliente sem nome"))}</strong>
-        <small>${escapeHtml(workLine)}</small>
-        ${client.linkedRegularizationId ? `<small class="service-link-badge"><i data-lucide="link-2"></i> Também em Regularização</small>` : ""}
+        <span class="compact-client-position">${position}.</span>
+        <span class="compact-client-name">
+          <strong>${escapeHtml(compactClientDisplayName(client.clientName || "Cliente sem nome"))}</strong>
+          <small>${escapeHtml(workLine)}</small>
+          ${client.linkedRegularizationId ? `<small class="service-link-badge"><i data-lucide="link-2"></i> Também em Regularização</small>` : ""}
+        </span>
       </span>
       <span class="compact-client-created">${escapeHtml(clientCreatedDate(client))}</span>
       <span class="compact-client-state">${escapeHtml(client.state || "--")}</span>

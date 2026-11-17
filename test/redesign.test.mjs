@@ -12,7 +12,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 
 test("the supplied redesign is loaded and shipped", () => {
   assert.match(indexHtml, /styles\.css\?v=211/);
-  assert.match(indexHtml, /redesign\.css\?v=222/);
+  assert.match(indexHtml, /redesign\.css\?v=223/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -59,7 +59,7 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=225/);
+  assert.match(indexHtml, /app\.js\?v=226/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines", "updated"]) {
@@ -75,6 +75,29 @@ test("client table headers sort records and card mode is removed", () => {
   assert.match(redesignCss, /\.compact-client-updated::before\s*\{\s*content: "Última atualização"/);
   assert.match(redesignCss, /\.compact-client-sort/);
   assert.match(redesignCss, /\.compact-client-row,[\s\S]*?min-height:\s*68px;[\s\S]*?padding:\s*13px 20px/);
+});
+
+test("client rows are numbered in the current visible order", () => {
+  const between = (start, end) => appJs.slice(appJs.indexOf(`function ${start}(`), appJs.indexOf(`function ${end}(`));
+  const context = vm.createContext({
+    el: { compactView: { querySelectorAll: () => [] } },
+    clients: [{ id: "a", clientName: "Ana" }, { id: "b", clientName: "Bruna" }],
+    clientSortHeader: () => "",
+    getClientStatuses: () => [], clientOpenTasks: () => [],
+    destinationLabel: () => "Residencial", ownerSummary: () => "", isClientFinished: () => false,
+    escapeHtml: String, compactClientDisplayName: String, clientCreatedDate: () => "—",
+    compactClientArea: () => "—", compactStatusChips: () => "",
+    formatClientListDate: () => "—", clientUpdatedTime: () => 0,
+  });
+  vm.runInContext(between("renderCompactClients", "clientSortHeader") + between("renderCompactClientRow", "compactStatusChips"), context);
+  const positions = (expression) => {
+    const html = vm.runInContext(`renderCompactClients(${expression}); el.compactView.innerHTML;`, context);
+    return [...html.matchAll(/class="compact-client-position">(\d+)\.<\/span>\s*<span class="compact-client-name">\s*<strong>([^<]+)<\/strong>/g)]
+      .map(([, position, name]) => [position, name]);
+  };
+  assert.deepEqual(positions("clients"), [["1", "Ana"], ["2", "Bruna"]]);
+  assert.deepEqual(positions("[...clients].reverse()"), [["1", "Bruna"], ["2", "Ana"]]);
+  assert.deepEqual(positions("clients.slice(1)"), [["1", "Bruna"]]);
 });
 
 test("the client order menu shares sorting with table headers and keeps the current filters", () => {
