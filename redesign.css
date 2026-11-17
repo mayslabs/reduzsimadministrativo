@@ -572,11 +572,6 @@ textarea:focus {
   color: var(--green);
 }
 
-.compact-client-head > [data-client-sort-key="area"] {
-  width: 100%;
-  justify-content: flex-end;
-}
-
 .compact-client-row,
 .compact-client-row.active-work,
 .compact-client-row.finished {
@@ -616,7 +611,7 @@ textarea:focus {
   font-size: 13.5px;
   font-variant-numeric: tabular-nums;
   font-weight: 400;
-  text-align: right;
+  text-align: left;
 }
 
 .compact-client-created,
