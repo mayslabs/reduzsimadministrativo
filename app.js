@@ -950,6 +950,7 @@ function normalizeActivity(activity = {}) {
     type: activity.type || "client",
     title: activity.title || "Atualização registrada",
     detail: activity.detail || "",
+    ...(Number.isSafeInteger(activity.changeCount) && activity.changeCount > 1 ? { changeCount: activity.changeCount } : {}),
     actorId: activity.actorId || "",
     ownerId: activity.ownerId || "",
     clientId: activity.clientId || "",
@@ -1816,6 +1817,7 @@ function recordActivity(type, title, detail = "", options = {}) {
     type,
     title,
     detail,
+    ...(Number.isSafeInteger(options.changeCount) && options.changeCount > 1 ? { changeCount: options.changeCount } : {}),
     actorId: currentUser.id,
     ownerId: options.ownerId || "",
     clientId: options.clientId || "",
@@ -9653,7 +9655,10 @@ function compactUpdateActivitiesForFeed(activities) {
     compacted[compacted.length - 1] = {
       ...previous,
       title,
-      detail: members.map((item) => activityDetailLines(item)[0]).filter(Boolean).join("\n"),
+      detail: members.flatMap((item) => {
+        const lines = activityDetailLines(item);
+        return item.changeCount > 1 ? lines : lines.slice(0, 1);
+      }).join("\n"),
       groupCount: members.reduce((total, item) => total + updateActivityWeight(item), 0),
       readBy,
       _groupActivities: members,
@@ -13324,13 +13329,9 @@ function recordClientChangeActivities(previousClient, nextClient, changes) {
   changedDeadlines.forEach((deadline) => {
     recordActivity("deadline", `Atualizou prazo em ${context.clientName}.`, `${deadline.title || "Prazo sem título"}${deadline.date ? ` | ${formatDate(deadline.date)}` : ""}`, deadlineActivityOptions(deadline, context));
   });
-  addedMonthly.forEach((row) => {
-    recordActivity("monthly", `Criou controle mensal em ${context.clientName}.`, monthlyActivityDetail(row), context);
-  });
+  recordMonthlyActivity(addedMonthly, context);
   const previousMonthlyById = new Map((previousClient.monthly || []).map((row) => [row.id, row]));
-  changedMonthly.forEach((row) => {
-    recordActivity("monthly", `Atualizou mensal em ${context.clientName}.`, monthlyActivityDetail(row, previousMonthlyById.get(row.id)), context);
-  });
+  recordMonthlyActivity(changedMonthly, context, previousMonthlyById);
   addedHistory.forEach((entry) => {
     recordActivity("history", `Registrou histórico em ${context.clientName}.`, truncateHistoryValue((entry.details || []).join(" "), 120), context);
   });
@@ -13400,6 +13401,17 @@ function monthlyFieldLabels() {
     guidePaid: "Guia paga",
     notes: "Obs.",
   };
+}
+
+function recordMonthlyActivity(rows, context, previousById = null) {
+  if (!rows.length) return;
+  const action = previousById ? "Atualizou" : "Criou";
+  const subject = rows.length === 1 ? "controle mensal" : "controles mensais";
+  const detail = rows.map((row) => monthlyActivityDetail(row, previousById?.get(row.id))).join("\n");
+  recordActivity("monthly", `${action} ${subject} em ${context.clientName}.`, detail, {
+    ...context,
+    changeCount: rows.length,
+  });
 }
 
 function monthlyActivityDetail(row = {}, previousRow = null) {
