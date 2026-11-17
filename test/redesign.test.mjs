@@ -12,7 +12,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 
 test("the supplied redesign is loaded and shipped", () => {
   assert.match(indexHtml, /styles\.css\?v=211/);
-  assert.match(indexHtml, /redesign\.css\?v=220/);
+  assert.match(indexHtml, /redesign\.css\?v=221/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -70,7 +70,7 @@ test("client table headers sort records and card mode is removed", () => {
   assert.match(appJs, /clientSortHeader\("name", "Cliente"\)[\s\S]*clientSortHeader\("created", "Cadastro"\)[\s\S]*clientSortHeader\("state", "UF"\)[\s\S]*clientSortHeader\("area", "Área"\)/);
   assert.match(appJs, /clientSortHeader\("deadlines", "Prazos"\)\}\s*\$\{clientSortHeader\("updated", "Última atualização"\)/);
   assert.match(appJs, /class="compact-client-deadline [^\n]+\n\s*<span class="compact-client-updated">\$\{escapeHtml\(formatClientListDate\(clientUpdatedTime\(client\)\)\)\}/);
-  assert.match(redesignCss, /grid-template-columns:\s*minmax\(190px, 2\.5fr\) 92px 36px 84px/);
+  assert.match(redesignCss, /grid-template-columns:\s*minmax\(190px, 2\.25fr\) minmax\(92px, 0\.6fr\) minmax\(36px, 0\.25fr\) minmax\(84px, 0\.57fr\) minmax\(160px, 1\.6fr\) minmax\(104px, 0\.67fr\) minmax\(65px, 0\.42fr\) minmax\(146px, 0\.85fr\) 36px/);
   assert.match(redesignCss, /\.compact-client-head > \[data-client-sort-key="area"\]/);
   assert.match(redesignCss, /\.compact-client-updated::before\s*\{\s*content: "Última atualização"/);
   assert.match(redesignCss, /\.compact-client-sort/);

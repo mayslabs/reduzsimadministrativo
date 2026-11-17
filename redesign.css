@@ -524,7 +524,7 @@ textarea:focus {
 .compact-client-head,
 .compact-client-row {
   min-width: 1060px;
-  grid-template-columns: minmax(190px, 2.5fr) 92px 36px 84px minmax(160px, 1.8fr) 104px 65px 146px 36px;
+  grid-template-columns: minmax(190px, 2.25fr) minmax(92px, 0.6fr) minmax(36px, 0.25fr) minmax(84px, 0.57fr) minmax(160px, 1.6fr) minmax(104px, 0.67fr) minmax(65px, 0.42fr) minmax(146px, 0.85fr) 36px;
   gap: clamp(10px, 0.8vw, 13px);
 }
 
