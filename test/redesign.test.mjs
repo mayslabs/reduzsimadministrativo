@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import vm from "node:vm";
 
 const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
@@ -11,7 +12,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 
 test("the supplied redesign is loaded and shipped", () => {
   assert.match(indexHtml, /styles\.css\?v=211/);
-  assert.match(indexHtml, /redesign\.css\?v=218/);
+  assert.match(indexHtml, /redesign\.css\?v=219/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -58,20 +59,67 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=222/);
+  assert.match(indexHtml, /app\.js\?v=223/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
   for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
     assert.match(appJs, new RegExp(`clientSortHeader\\("${key}"`));
   }
   assert.match(appJs, /function setClientSort/);
-  assert.match(appJs, /\["area", "created", "tasks", "deadlines"\]\.includes\(key\) \? "desc" : "asc"/);
-  assert.match(appJs, /activeClientSortDirection = activeClientSortDirection === "asc" \? "desc" : "asc"/);
   assert.match(appJs, /class="compact-client-created">\$\{escapeHtml\(clientCreatedDate\(client\)\)\}/);
   assert.match(appJs, /clientSortHeader\("name", "Cliente"\)[\s\S]*clientSortHeader\("created", "Cadastro"\)[\s\S]*clientSortHeader\("state", "UF"\)[\s\S]*clientSortHeader\("area", "Área"\)/);
   assert.match(redesignCss, /grid-template-columns:\s*minmax\(220px, 2\.8fr\) 106px 48px 100px/);
   assert.match(redesignCss, /\.compact-client-sort/);
   assert.match(redesignCss, /\.compact-client-row,[\s\S]*?min-height:\s*68px;[\s\S]*?padding:\s*13px 20px/);
+});
+
+test("the client order menu shares sorting with table headers and keeps the current filters", () => {
+  const menuHtml = indexHtml.match(/<select id="clientOrderSelect"[^>]*>([\s\S]*?)<\/select>/)[1];
+  const options = [...menuHtml.matchAll(/value="([^"]*)"/g)].map((match) => match[1]);
+  assert.deepEqual(options, ["", "name:asc", "name:desc", "created:desc", "created:asc", "updated:desc"]);
+  assert.match(menuHtml, /value="created:desc" selected/);
+
+  const menu = { value: "created:desc", get selectedIndex() { return options.indexOf(this.value); } };
+  const el = { clientOrderSelect: menu, searchInput: { value: "recife" } };
+  let shown = [];
+  const context = vm.createContext({
+    el,
+    activeClientSortKey: "created",
+    activeClientSortDirection: "desc",
+    state: { clients: [
+      { clientName: "Zélia", workType: "Recife", state: "PE", createdAt: "2026-07-01", updatedAt: "2026-07-01" },
+      { clientName: "Álvaro", workType: "Recife", state: "AL", createdAt: "2026-01-01", updatedAt: "2026-10-01" },
+      { clientName: "Bruna", workType: "Recife", state: "SP", createdAt: "2026-10-01" },
+      { clientName: "Antônio", workType: "Aracaju" },
+      { clientName: "Alana", workType: "Recife", finished: true },
+    ] },
+    normalize: (value) => value.toLowerCase(),
+    clientMatchesQuickFilter: (client) => !client.finished,
+    renderClients: () => { shown = Array.from(vm.runInContext("filteredClients()", context), ({ clientName }) => clientName); },
+  });
+  const between = (start, end) => appJs.slice(appJs.indexOf(`function ${start}(`), appJs.indexOf(`function ${end}(`));
+  vm.runInContext([
+    between("filteredClients", "clientMatchesQuickFilter"),
+    between("sortClients", "clientCreatedDate"),
+    between("setClientSort", "renderCompactClientRow"),
+  ].join("\n"), context);
+  for (const [key, direction, expected] of [
+    ["name", "asc", ["Álvaro", "Bruna", "Zélia"]],
+    ["name", "desc", ["Zélia", "Bruna", "Álvaro"]],
+    ["created", "desc", ["Bruna", "Zélia", "Álvaro"]],
+    ["created", "asc", ["Álvaro", "Zélia", "Bruna"]],
+    ["updated", "desc", ["Álvaro", "Bruna", "Zélia"]],
+  ]) {
+    vm.runInContext(`setClientSort("${key}", "${direction}")`, context);
+    assert.equal(menu.value, `${key}:${direction}`);
+    assert.deepEqual(shown, expected);
+  }
+  vm.runInContext('setClientSort("name"); setClientSort("name");', context);
+  assert.equal(menu.value, "name:desc");
+  assert.deepEqual(shown, ["Zélia", "Bruna", "Álvaro"]);
+  vm.runInContext('setClientSort("state")', context);
+  assert.equal(menu.value, "");
+  assert.deepEqual(shown, ["Álvaro", "Zélia", "Bruna"]);
 });
 
 test("client dialog combines tasks and deadlines and ends with history", () => {

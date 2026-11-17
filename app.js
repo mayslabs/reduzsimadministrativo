@@ -513,6 +513,7 @@ const el = {
   billCategoriesCount: document.getElementById("billCategoriesCount"),
   billCategoriesList: document.getElementById("billCategoriesList"),
   searchInput: document.getElementById("searchInput"),
+  clientOrderSelect: document.getElementById("clientOrderSelect"),
   regularizationSearchInput: document.getElementById("regularizationSearchInput"),
   regularizationMetricsGrid: document.getElementById("regularizationMetricsGrid"),
   regularizationStatusFilter: document.getElementById("regularizationStatusFilter"),
@@ -2149,6 +2150,10 @@ function bindEvents() {
     if (event.key === "Escape" && !el.taskDetailOverlay?.hidden) closeTaskDetailDrawer();
   });
   el.searchInput.addEventListener("input", renderClients);
+  el.clientOrderSelect.addEventListener("change", () => {
+    const [key, direction] = el.clientOrderSelect.value.split(":");
+    if (key) setClientSort(key, direction);
+  });
   el.regularizationSearchInput.addEventListener("input", renderRegularizationClients);
   el.regularizationStatusFilter.addEventListener("change", renderRegularizationClients);
   el.regularizationSort.addEventListener("change", renderRegularizationClients);
@@ -11394,6 +11399,7 @@ function sortClients(clients) {
     else if (activeClientSortKey === "state") comparison = compareClientText(a.state, b.state, direction);
     else if (activeClientSortKey === "area") comparison = (areaAmount(a.area) - areaAmount(b.area)) * direction;
     else if (activeClientSortKey === "created") comparison = (clientCreatedTime(a) - clientCreatedTime(b)) * direction;
+    else if (activeClientSortKey === "updated") comparison = (clientUpdatedTime(a) - clientUpdatedTime(b)) * direction;
     else if (activeClientSortKey === "tasks") comparison = (clientOpenTasks(a).length - clientOpenTasks(b).length) * direction;
     else if (activeClientSortKey === "deadlines") comparison = ((a.deadlines || []).length - (b.deadlines || []).length) * direction;
     else comparison = (clientCreatedTime(a) - clientCreatedTime(b)) * direction;
@@ -11412,6 +11418,11 @@ function compareClientText(leftValue, rightValue, direction) {
 function clientCreatedTime(client) {
   const time = new Date(client.createdAt || client.updatedAt || 0).getTime();
   return Number.isFinite(time) ? time : 0;
+}
+
+function clientUpdatedTime(client) {
+  const time = Date.parse(client.updatedAt);
+  return Number.isFinite(time) ? time : clientCreatedTime(client);
 }
 
 function clientCreatedDate(client) {
@@ -11469,14 +11480,14 @@ function clientSortHeader(key, label) {
   `;
 }
 
-function setClientSort(key) {
-  const defaultDirection = ["area", "created", "tasks", "deadlines"].includes(key) ? "desc" : "asc";
-  if (activeClientSortKey === key) {
-    activeClientSortDirection = activeClientSortDirection === "asc" ? "desc" : "asc";
-  } else {
-    activeClientSortKey = key;
-    activeClientSortDirection = defaultDirection;
-  }
+function setClientSort(key, direction) {
+  const defaultDirection = ["area", "created", "updated", "tasks", "deadlines"].includes(key) ? "desc" : "asc";
+  activeClientSortDirection = direction || (activeClientSortKey === key
+    ? activeClientSortDirection === "asc" ? "desc" : "asc"
+    : defaultDirection);
+  activeClientSortKey = key;
+  el.clientOrderSelect.value = `${key}:${activeClientSortDirection}`;
+  if (el.clientOrderSelect.selectedIndex < 0) el.clientOrderSelect.value = "";
   renderClients();
 }
 

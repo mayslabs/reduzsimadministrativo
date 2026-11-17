@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=211" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=218" />
+    <link rel="stylesheet" href="./redesign.css?v=219" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -108,6 +108,14 @@
               <i data-lucide="search"></i>
               <input id="searchInput" type="search" placeholder="Buscar cliente, CPF, obra ou responsável" />
             </label>
+            <select id="clientOrderSelect" aria-label="Ordenar clientes">
+              <option value="" disabled hidden>Ordenação pela tabela</option>
+              <option value="name:asc">Nome: A–Z</option>
+              <option value="name:desc">Nome: Z–A</option>
+              <option value="created:desc" selected>Cadastro mais recente</option>
+              <option value="created:asc">Cadastro mais antigo</option>
+              <option value="updated:desc">Atualização mais recente</option>
+            </select>
           </div>
           <div class="client-quick-filters" role="group" aria-label="Filtros rápidos de clientes">
             <button class="active" type="button" data-client-quick-filter="active">Ativos</button>
@@ -1485,7 +1493,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=6"></script>
     <script src="./task-recurrence.js?v=1"></script>
-    <script src="./app.js?v=222"></script>
+    <script src="./app.js?v=223"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

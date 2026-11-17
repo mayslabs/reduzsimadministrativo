@@ -495,13 +495,16 @@ textarea:focus {
 }
 
 #clientsSection > .toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  grid-template-columns: minmax(0, 1fr) 224px;
   align-items: center;
 }
 
-#clientsSection > .toolbar .search-field {
-  flex: 1 1 320px;
+#clientsSection > .toolbar > * {
+  min-width: 0;
+}
+
+#clientOrderSelect {
+  color: var(--green-dark);
 }
 
 .client-quick-filters {
@@ -8019,7 +8022,6 @@ body.privacy-mode :is(
     background: var(--soft);
   }
 
-  #clientsSection > .toolbar,
   .marketing-toolbar,
   .updates-toolbar,
   .bills-toolbar {
@@ -8027,7 +8029,6 @@ body.privacy-mode :is(
     grid-template-columns: 1fr 1fr;
   }
 
-  #clientsSection > .toolbar .search-field,
   .marketing-toolbar .search-field,
   .updates-toolbar .search-field,
   .bills-toolbar .search-field {
