@@ -11426,7 +11426,10 @@ function clientUpdatedTime(client) {
 }
 
 function clientCreatedDate(client) {
-  const time = clientCreatedTime(client);
+  return formatClientListDate(clientCreatedTime(client));
+}
+
+function formatClientListDate(time) {
   return time ? new Date(time).toLocaleDateString("pt-BR") : "—";
 }
 
@@ -11446,6 +11449,7 @@ function renderCompactClients(clients) {
           <span>Status</span>
           ${clientSortHeader("tasks", "Tarefas")}
           ${clientSortHeader("deadlines", "Prazos")}
+          ${clientSortHeader("updated", "Última atualização")}
           <span></span>
         </div>
         ${clients.map((client) => renderCompactClientRow(client)).join("")}
@@ -11515,6 +11519,7 @@ function renderCompactClientRow(client) {
           : `<span class="compact-client-empty" aria-label="Sem tarefas">—</span>`
       }
       <span class="compact-client-deadline ${deadlines.length ? "has-value" : ""}" aria-label="${deadlines.length ? `${deadlines.length} prazo(s)` : "Sem prazos"}">${deadlines.length || "—"}</span>
+      <span class="compact-client-updated">${escapeHtml(formatClientListDate(clientUpdatedTime(client)))}</span>
       <span class="compact-open-pill" aria-hidden="true"><i data-lucide="chevron-right"></i></span>
     </button>
   `;

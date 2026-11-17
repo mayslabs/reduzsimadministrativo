@@ -12,7 +12,7 @@ const [indexHtml, appJs, redesignCss, buildScript] = await Promise.all([
 
 test("the supplied redesign is loaded and shipped", () => {
   assert.match(indexHtml, /styles\.css\?v=211/);
-  assert.match(indexHtml, /redesign\.css\?v=219/);
+  assert.match(indexHtml, /redesign\.css\?v=220/);
   assert.match(buildScript, /"redesign\.css"/);
   assert.match(redesignCss, /grid-template-columns:\s*248px minmax\(0, 1fr\)/);
   assert.match(redesignCss, /background:\s*var\(--green-dark\)/);
@@ -59,16 +59,20 @@ test("home client labels use the new palette without a status dropdown", () => {
 });
 
 test("client table headers sort records and card mode is removed", () => {
-  assert.match(indexHtml, /app\.js\?v=223/);
+  assert.match(indexHtml, /app\.js\?v=224/);
   assert.doesNotMatch(indexHtml, /id="clientSort"|id="listModeButton"|id="compactModeButton"|id="listView"/);
   assert.doesNotMatch(appJs, /activeViewMode|function setViewMode|function renderClientCard/);
-  for (const key of ["name", "state", "area", "created", "tasks", "deadlines"]) {
+  for (const key of ["name", "state", "area", "created", "tasks", "deadlines", "updated"]) {
     assert.match(appJs, new RegExp(`clientSortHeader\\("${key}"`));
   }
   assert.match(appJs, /function setClientSort/);
   assert.match(appJs, /class="compact-client-created">\$\{escapeHtml\(clientCreatedDate\(client\)\)\}/);
   assert.match(appJs, /clientSortHeader\("name", "Cliente"\)[\s\S]*clientSortHeader\("created", "Cadastro"\)[\s\S]*clientSortHeader\("state", "UF"\)[\s\S]*clientSortHeader\("area", "Área"\)/);
-  assert.match(redesignCss, /grid-template-columns:\s*minmax\(220px, 2\.8fr\) 106px 48px 100px/);
+  assert.match(appJs, /clientSortHeader\("deadlines", "Prazos"\)\}\s*\$\{clientSortHeader\("updated", "Última atualização"\)/);
+  assert.match(appJs, /class="compact-client-deadline [^\n]+\n\s*<span class="compact-client-updated">\$\{escapeHtml\(formatClientListDate\(clientUpdatedTime\(client\)\)\)\}/);
+  assert.match(redesignCss, /grid-template-columns:\s*minmax\(190px, 2\.5fr\) 92px 36px 84px/);
+  assert.match(redesignCss, /\.compact-client-head > \[data-client-sort-key="area"\]/);
+  assert.match(redesignCss, /\.compact-client-updated::before\s*\{\s*content: "Última atualização"/);
   assert.match(redesignCss, /\.compact-client-sort/);
   assert.match(redesignCss, /\.compact-client-row,[\s\S]*?min-height:\s*68px;[\s\S]*?padding:\s*13px 20px/);
 });
@@ -100,7 +104,7 @@ test("the client order menu shares sorting with table headers and keeps the curr
   const between = (start, end) => appJs.slice(appJs.indexOf(`function ${start}(`), appJs.indexOf(`function ${end}(`));
   vm.runInContext([
     between("filteredClients", "clientMatchesQuickFilter"),
-    between("sortClients", "clientCreatedDate"),
+    between("sortClients", "clientOpenTasks"),
     between("setClientSort", "renderCompactClientRow"),
   ].join("\n"), context);
   for (const [key, direction, expected] of [
@@ -120,6 +124,14 @@ test("the client order menu shares sorting with table headers and keeps the curr
   vm.runInContext('setClientSort("state")', context);
   assert.equal(menu.value, "");
   assert.deepEqual(shown, ["Álvaro", "Zélia", "Bruna"]);
+  vm.runInContext('setClientSort("updated")', context);
+  assert.equal(menu.value, "updated:desc");
+  assert.deepEqual(shown, ["Álvaro", "Bruna", "Zélia"]);
+  vm.runInContext('setClientSort("updated")', context);
+  assert.deepEqual(shown, ["Zélia", "Álvaro", "Bruna"]);
+  assert.equal(vm.runInContext('formatClientListDate(clientUpdatedTime({ updatedAt: "2026-11-17T15:00:00Z" }))', context), "17/11/2026");
+  assert.equal(vm.runInContext('formatClientListDate(clientUpdatedTime({ createdAt: "2026-10-12T15:00:00Z" }))', context), "12/10/2026");
+  assert.equal(vm.runInContext('formatClientListDate(clientUpdatedTime({}))', context), "—");
 });
 
 test("client dialog combines tasks and deadlines and ends with history", () => {
