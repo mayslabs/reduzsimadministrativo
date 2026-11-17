@@ -81,7 +81,7 @@ test("the owner summary labels the open total separately from overdue tasks", ()
     taskWeekProgress: () => ({ total: 0, completed: 0, period: "9 a 15 nov" }),
     taskMineOnly: false,
     el: { taskOverview: {}, taskOwnerFilter: { value: "" } },
-    state: { users: [{ id: "a", name: "Ana" }, { id: "b", name: "Bia" }] },
+    state: { users: [{ id: "a", name: "Ana" }, { id: "b", name: "Bia" }, { id: "c", name: "Inativa", enabled: false }] },
     taskOwnerClass: () => "",
     taskOwnerAvatar: () => "",
     escapeHtml: String,
@@ -97,9 +97,11 @@ test("the owner summary labels the open total separately from overdue tasks", ()
     ],
   });
   vm.runInContext(app.slice(app.indexOf("function renderTaskOverview("), app.indexOf("function taskCenterItems(")), context);
+  vm.runInContext(app.slice(app.indexOf("function activeTeamUsers("), app.indexOf("function userOptions(")), context);
   const html = vm.runInContext("renderTaskOverview(items, items); el.taskOverview.innerHTML", context);
   assert.match(html, /class="task-owner-stat-late">18 atrasadas<\/span>\s*<span class="task-owner-stat-total"><strong>24<\/strong><small>total<\/small>/);
   assert.match(html, /class="task-owner-stat-name">Bia<\/span>\s*<span class="task-owner-stat-total"><strong>0<\/strong><small>total<\/small>/);
+  assert.doesNotMatch(html, /Inativa/);
 });
 
 test("task creation requires a real date and a nonempty weekday for weekly recurrence", () => {

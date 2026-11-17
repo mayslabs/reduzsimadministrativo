@@ -5,6 +5,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 import { compactStatePayload, onRequestGet, onRequestPost } from "../functions/api/state.js";
+import { createSessionCookie, readSession } from "../functions/lib/auth.js";
 
 test("state API returns only records changed by a compact save", () => {
   const payload = {
@@ -145,6 +146,35 @@ test("an unchanged poll skips payload reads and a card save queries only the req
   assert.equal((await saveRecord("clients", { id: "c2", name: "Editou o cliente", tasks: [task] }, 1)).status, 200);
   assert.equal((await saveRecord("clients", { id: "c2", tasks: [{ ...task, title: "Editou a tarefa" }] }, 2)).status, 400);
   assert.equal((await saveRecord("clients", { id: "c2", tasks: [{ ...task, dueDate: "2026-11-09" }] }, 2)).status, 200);
+});
+
+test("a disabled account keeps historical identity but cannot access the app or be reactivated by a state save", async (t) => {
+  const { sqlite, context, path, save } = await createStateTestDatabase(t);
+  const id = "former";
+  const uid = "test-uid";
+  const name = "Autora anterior";
+  const email = "former@example.test";
+  const now = new Date().toISOString();
+  sqlite.prepare(`INSERT INTO app_users (id, firebase_uid, email, name, role, enabled, session_version, created_at, updated_at)
+    VALUES (?, ?, ?, ?, 'user', 1, 1, ?, ?)`).run(id, uid, email, name, now, now);
+  const env = { ...context(new Request(path)).env, SESSION_SECRET: "a-test-secret-not-used-outside-testing" };
+  const cookie = await createSessionCookie({ id, firebaseUid: uid, email, role: "user", sessionVersion: 1 }, env);
+  const request = new Request(path, { headers: { Cookie: cookie.split(";")[0] } });
+  assert.equal((await readSession(request, env)).id, id);
+  sqlite.prepare("UPDATE app_users SET enabled = 0, session_version = 2 WHERE id = ?").run(id);
+  assert.equal(await readSession(request, env), null);
+
+  const listed = await (await onRequestGet(context(new Request(path)))).json();
+  assert.deepEqual(listed.state.users.find((user) => user.id === id), { id, name, email, role: "user", enabled: false });
+  const response = await save({
+    state: { users: [{ id, name: "Novo nome", email, role: "user", enabled: true }] },
+    versions: { "users:former": 2 }, dirtyKeys: ["users:former"],
+  });
+  assert.equal(response.status, 200);
+  const saved = sqlite.prepare("SELECT enabled, name, session_version FROM app_users WHERE id = ?").get(id);
+  assert.equal(saved.enabled, 0);
+  assert.equal(saved.name, name);
+  assert.equal(saved.session_version, 2);
 });
 
 test("generating and completing 57 months saves as one card and a grouped activity", async (t) => {

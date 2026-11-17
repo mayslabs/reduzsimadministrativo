@@ -1640,13 +1640,15 @@ function splitClientWorksIntoCards(client = {}, fallbackUserId = "") {
 
 function normalizeUsersForMigration(users) {
   const idMap = {};
+  const disabledIds = new Set();
   (users || []).forEach((user) => {
     if (!user?.id) return;
     idMap[user.id] = targetUserIdForMigration(user);
+    if (user.enabled === false && user.id === idMap[user.id]) disabledIds.add(user.id);
   });
 
   return {
-    users: defaultUsers.map((user) => ({ ...user })),
+    users: defaultUsers.map((user) => disabledIds.has(user.id) ? { ...user, enabled: false } : { ...user }),
     idMap,
   };
 }
@@ -2055,7 +2057,7 @@ function userForFirebaseUser(firebaseUser) {
     return state.users.find((user) => user.id === cloudSessionUser.id) || cloudSessionUser;
   }
   const email = firebaseUser?.email?.toLowerCase() || "";
-  return state.users.find((user) => user.email?.toLowerCase() === email) || null;
+  return activeTeamUsers().find((user) => user.email?.toLowerCase() === email) || null;
 }
 
 function bindEvents() {
@@ -5984,7 +5986,7 @@ function openMarketingDialog(itemId = "", kind = "content", preset = {}) {
   el.marketingFormatInput.innerHTML = marketingSelectOptions(MARKETING_FORMATS, item.format, "Selecione");
   renderMarketingFormatChoices(item.format);
   renderMarketingChannelPicker(item.channels);
-  el.marketingOwnerInput.innerHTML = `<option value="">Sem responsável</option>${state.users.map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === item.ownerId ? "selected" : ""}>${escapeHtml(user.name)}</option>`).join("")}`;
+  el.marketingOwnerInput.innerHTML = `<option value="">Sem responsável</option>${userOptions(item.ownerId)}`;
   el.marketingContentStatusInput.innerHTML = MARKETING_CONTENT_STATUSES.map((status) => `<option value="${escapeAttr(status)}" ${status === item.status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("");
   el.marketingPriorityInput.innerHTML = taskPriorityValues().map((priority) => `<option value="${escapeAttr(priority)}" ${priority === item.priority ? "selected" : ""}>${escapeHtml(priority)}</option>`).join("");
   renderMarketingPriorityChoices(item.priority);
@@ -6115,7 +6117,7 @@ function renderMarketingTaskEditor(task) {
   const optionButton = (field, value, label, active) => `
     <button class="marketing-task-option ${active ? "active" : ""}" type="button" data-marketing-task-option="${escapeAttr(field)}" data-task-id="${escapeAttr(task.id)}" data-task-value="${escapeAttr(value)}" aria-pressed="${active}">${escapeHtml(label)}</button>
   `;
-  const ownerButtons = state.users.map((user) => {
+  const ownerButtons = activeTeamUsers().map((user) => {
     const active = task.ownerId === user.id;
     const initial = user.name.trim().charAt(0).toUpperCase() || "?";
     return `
@@ -7857,7 +7859,7 @@ function tasksOverdueBeforeCurrentWeek(items, today = new Date()) {
 
 function overdueOwnerGroups(items) {
   const selectedOwner = taskMineOnly ? currentUser.id : el.taskOwnerFilter.value;
-  const groups = new Map((selectedOwner ? [selectedOwner] : state.users.map((user) => user.id))
+  const groups = new Map((selectedOwner ? [selectedOwner] : activeTeamUsers().map((user) => user.id))
     .map((id) => [id, []]));
   for (const item of items) {
     const ownerId = item.ownerId || "";
@@ -8766,7 +8768,7 @@ function renderTaskOverview(items, allItems) {
     <article class="task-stat task-owner-stat">
       <span class="task-stat-heading"><span>Por responsável</span><small>em aberto</small></span>
       <div class="task-owner-stat-list">
-        ${state.users.map((user) => {
+        ${activeTeamUsers().map((user) => {
           const open = allItems.filter((item) => item.ownerId === user.id && item.kind.includes("Tarefa") && item.urgency !== "done");
           const late = open.filter((item) => isOpenTaskBefore(item, today)).length;
           return `<button class="task-owner-stat-row ${taskOwnerClass(user.id)}" type="button" data-task-overview-owner="${escapeAttr(user.id)}" aria-pressed="${selectedOwner === user.id}">
@@ -9297,7 +9299,7 @@ function renderTaskDetailDrawer() {
         <div class="task-drawer-setting-row">
           <span>Responsável</span>
           <div class="task-drawer-choice-row">
-            ${state.users.map((user) => `<button class="task-drawer-person ${activeTaskDrawerDraft.ownerId === user.id ? "active" : ""}" type="button" data-task-drawer-owner="${escapeAttr(user.id)}"><i>${escapeHtml(userInitials(user.name))}</i>${escapeHtml(user.name)}</button>`).join("")}
+            ${activeTeamUsers().map((user) => `<button class="task-drawer-person ${activeTaskDrawerDraft.ownerId === user.id ? "active" : ""}" type="button" data-task-drawer-owner="${escapeAttr(user.id)}"><i>${escapeHtml(userInitials(user.name))}</i>${escapeHtml(user.name)}</button>`).join("")}
           </div>
         </div>
         <div class="task-drawer-setting-row">
@@ -10636,7 +10638,7 @@ function openRegularizationChecklistDialog(stepId = "") {
       name: "ownerId",
       type: "select",
       value: step?.ownerId || currentUser.id,
-      options: state.users.map((user) => ({ value: user.id, label: user.name })),
+      options: activeTeamUsers().map((user) => ({ value: user.id, label: user.name })),
     },
     { label: "Prazo", name: "dueDate", type: "date", value: step?.dueDate || "" },
     {
@@ -10758,7 +10760,7 @@ function openRegularizationTaskDialog(taskId = "") {
       name: "ownerId",
       type: "select",
       value: task?.ownerId || currentUser.id,
-      options: state.users.map((user) => ({ value: user.id, label: user.name })),
+      options: activeTeamUsers().map((user) => ({ value: user.id, label: user.name })),
     },
     { label: "Prazo", name: "dueDate", type: "date", required: true, value: task?.dueDate || localDateKey() },
     {
@@ -10874,7 +10876,7 @@ function openRegularizationDeadlineDialog(deadlineId = "") {
       name: "ownerId",
       type: "select",
       value: deadline?.ownerId || currentUser.id,
-      options: state.users.map((user) => ({ value: user.id, label: user.name })),
+      options: activeTeamUsers().map((user) => ({ value: user.id, label: user.name })),
     },
     { label: "Data", name: "date", type: "date", value: deadline?.date || "" },
     {
@@ -12151,8 +12153,9 @@ function documentIsReady(client = {}, keywords = []) {
 
 function renderUserSelects() {
   document.querySelectorAll('select[data-field="internalOwner"]').forEach((select) => {
-    select.innerHTML = state.users.map((user) => `<option value="${user.id}">${escapeHtml(user.name)}</option>`).join("");
-    select.value = activeClient.internalOwner || currentUser.id;
+    const selected = activeClient.internalOwner || currentUser.id;
+    select.innerHTML = userOptions(selected);
+    select.value = selected;
     activeClient.internalOwner = select.value;
   });
 }
@@ -13652,13 +13655,13 @@ function renderUserManager() {
     return;
   }
 
-  const adminCount = state.users.filter((user) => user.role === "admin").length;
+  const adminCount = activeTeamUsers().filter((user) => user.role === "admin").length;
   el.userManager.innerHTML = `
     <article class="user-access-notice">
       <i data-lucide="shield-check"></i>
       <div>
         <strong>Controle de acesso</strong>
-        <p>Os acessos oficiais são Mayssa e Camilli. As senhas ficam no Firebase e podem ser redefinidas por e-mail, sem aparecer dentro do sistema.</p>
+        <p>As senhas são gerenciadas no Firebase. Usuários inativos permanecem no histórico, mas não têm acesso ao sistema.</p>
       </div>
       <span>${adminCount} administradora(s)</span>
     </article>
@@ -13689,7 +13692,7 @@ function renderUserAccessCard(user) {
         </div>
         <div class="user-badges">
           <span class="user-role-badge ${user.role === "admin" ? "admin" : "user"}"><i data-lucide="${roleIcon}"></i>${roleLabel}</span>
-          <span class="user-status-badge">Ativo</span>
+          <span class="user-status-badge">${user.enabled === false ? "Inativo" : "Ativo"}</span>
         </div>
       </header>
 
@@ -13714,11 +13717,11 @@ function renderUserAccessCard(user) {
         <span><i data-lucide="lock"></i>Usuário fixo</span>
       </div>
 
-      <div class="user-access-actions">
+      ${user.enabled === false ? "" : `<div class="user-access-actions">
         <button class="small-button" type="button" data-reset-user-password="${escapeAttr(user.email || "")}">
           <i data-lucide="mail"></i> Enviar redefinição de senha
         </button>
-      </div>
+      </div>`}
     </article>
   `;
 }
@@ -13833,7 +13836,7 @@ function openStatusDialog() {
 }
 
 function openUserDialog() {
-  alert("Os usuários agora são fixos: Mayssa e Camilli.");
+  alert("O acesso dos usuários é gerenciado pela administração do sistema.");
 }
 
 function openClientTaskDialog(taskId = null) {
@@ -13978,7 +13981,7 @@ function renderClientTaskEditorBody(draft, statusChoices) {
       <textarea class="client-editor-description-input" rows="2" maxlength="1000" placeholder="Adicionar descrição, objetivo ou contexto" aria-label="Descrição da tarefa" data-client-editor-field="description">${escapeHtml(draft.description || "")}</textarea>
     </div>
     <div class="client-editor-settings">
-      ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", state.users.map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
+      ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", activeTeamUsers().map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
       ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate, true)}
       ${clientEditorSettingRow("flag", "Prioridade", clientEditorChoiceButtons("priority", taskPriorityValues().map((value) => ({ value, label: value })), normalizeTaskPriority(draft.priority)))}
       ${clientEditorSettingRow("clock-3", "Status", clientEditorChoiceButtons("status", statusChoices, draft.status || "Pendente"))}
@@ -14018,7 +14021,7 @@ function renderClientDeadlineEditorBody(draft, editing = false) {
     </div>
     <div class="client-editor-settings">
       ${clientEditorDateRow("Data", "date", draft.date || "")}
-      ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", state.users.map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
+      ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", activeTeamUsers().map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
       ${clientEditorSettingRow("bell", "Lembrete", clientEditorChoiceButtons("reminderDays", [
         { value: "", label: "Sem lembrete" },
         { value: "1", label: "1 dia antes" },
@@ -14284,7 +14287,7 @@ function openQuickInternalTaskDialog() {
 
   openSimpleDialog("Tarefa rápida", [
     { label: "Tarefa", name: "title", type: "text", value: "" },
-    { label: "Responsável", name: "ownerId", type: "select", value: currentUser.id, options: state.users.map((user) => ({ value: user.id, label: user.name })) },
+    { label: "Responsável", name: "ownerId", type: "select", value: currentUser.id, options: activeTeamUsers().map((user) => ({ value: user.id, label: user.name })) },
     { label: "Prazo", name: "dueDate", type: "date", required: true, value: localDateKey() },
     { label: "Prioridade", name: "priority", type: "select", value: "Normal", options: taskPriorityValues().map((value) => ({ value, label: value })) },
     { label: "Visibilidade", name: "visibility", type: "select", value: "team", options: visibilityOptions },
@@ -14552,7 +14555,7 @@ function openMeetingDialog(meetingId = null) {
 }
 
 function renderTaskCenterTaskEditorBody(draft, options = {}) {
-  const ownerOptions = state.users.map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) }));
+  const ownerOptions = activeTeamUsers().map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) }));
   const clientRow = options.includeClient
     ? clientEditorSettingRow("building-2", "Cliente", clientEditorSelectControl("clientId", options.clientOptions || [], "", "task-center-client-select"))
     : "";
@@ -14663,7 +14666,7 @@ function renderTaskCenterMeetingEditorBody(draft, clientOptions, selectedClient)
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean);
-  const participantOptions = state.users.map((user) => ({ value: user.name, label: user.name, avatar: userInitials(user.name) }));
+  const participantOptions = activeTeamUsers().map((user) => ({ value: user.name, label: user.name, avatar: userInitials(user.name) }));
   return `
     <input type="hidden" value="${escapeAttr(draft.ownerId || currentUser.id)}" data-client-editor-field="ownerId" />
     <div class="client-editor-intro task-center-editor-intro">
@@ -15095,8 +15098,13 @@ function ownerSummary(userIds = []) {
   return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
 }
 
+function activeTeamUsers() {
+  return state.users.filter((user) => user.enabled !== false);
+}
+
 function userOptions(selectedId) {
-  return state.users.map((user) => `<option value="${user.id}" ${user.id === selectedId ? "selected" : ""}>${escapeHtml(user.name)}</option>`).join("");
+  return state.users.filter((user) => user.enabled !== false || user.id === selectedId)
+    .map((user) => `<option value="${escapeAttr(user.id)}" ${user.id === selectedId ? "selected" : ""} ${user.enabled === false ? "disabled" : ""}>${escapeHtml(user.name)}</option>`).join("");
 }
 
 function taskStatusOptions(selected = "Pendente") {

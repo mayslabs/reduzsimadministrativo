@@ -197,8 +197,7 @@ async function readState(db, user, dirtyKeys = null) {
   if (!userIds || userIds.length) statements.push(db.prepare(`
     SELECT id, email, name, role, enabled, session_version
     FROM app_users
-    WHERE enabled = 1
-      ${userIds ? "AND id IN (SELECT value FROM json_each(?))" : ""}
+    ${userIds ? "WHERE id IN (SELECT value FROM json_each(?))" : ""}
     ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, lower(name)
   `).bind(...(userIds ? [JSON.stringify(userIds)] : [])));
   const settingsIndex = statements.length;
@@ -258,6 +257,7 @@ async function readState(db, user, dirtyKeys = null) {
     email: String(row.email || ""),
     name: String(row.name || ""),
     role: row.role === "admin" ? "admin" : "user",
+    enabled: Number(row.enabled) === 1,
   }));
   userRows.forEach((row) => {
     versions[versionKey("users", row.id)] = Number(row.session_version || 1);
@@ -602,12 +602,12 @@ async function prepareUsers(db, actor, desiredUsers, clientVersions, now, dirtyK
     if (dirtyKeys && !dirtyKeys.has(versionKey("users", id))) return;
 
     const existing = existingById.get(id);
+    if (existing && Number(existing.enabled) !== 1) return;
     if (
       existing
       && String(existing.email).toLowerCase() === email
       && String(existing.name) === name
       && String(existing.role) === role
-      && Number(existing.enabled) === 1
     ) {
       return;
     }
@@ -632,7 +632,6 @@ async function prepareUsers(db, actor, desiredUsers, clientVersions, now, dirtyK
         email = excluded.email,
         name = excluded.name,
         role = excluded.role,
-        enabled = 1,
         session_version = app_users.session_version + 1,
         updated_at = excluded.updated_at
     `).bind(id, email, name, role, now, now));

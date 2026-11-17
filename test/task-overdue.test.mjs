@@ -53,6 +53,7 @@ test("overdue columns include an empty owner, paginate independently, and honor 
   const context = overdueContext({
     el, items, taskMineOnly: false, currentUser: { id: "mayssa" },
     state: { users: Object.keys(owners).map((id) => ({ id })) },
+    activeTeamUsers: () => Object.keys(owners).map((id) => ({ id })),
     ownerName: (id) => owners[id],
     taskOwnerClass: String, taskOwnerAvatar: () => "",
     escapeAttr: String, escapeHtml: String,
