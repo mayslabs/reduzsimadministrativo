@@ -49,7 +49,8 @@ export function transferStatements(table, row, changes, to, now) {
   const condition = `id = ${sqlString(row.id)} AND version = ${Number(row.version)} AND deleted_at IS NULL`;
   const audit = `INSERT INTO sync_log (record_type, record_id, action, version, scope, changed_at, changed_by) SELECT ${sqlString(collections[table])}, id, 'upsert', version + 1, scope, ${sqlString(now)}, ${sqlString(to)} FROM ${table} WHERE ${condition};`;
   const patches = changes.flatMap(({ path }) => [sqlString(path), sqlString(to)]);
-  patches.push("'$.updatedAt'", sqlString(now));
+  // Client lists use the payload timestamp for card edits, not administrative transfers.
+  if (table !== "clients" && table !== "regularization_clients") patches.push("'$.updatedAt'", sqlString(now));
   if (table === "marketing_items") patches.push("'$.updatedBy'", sqlString(to));
   const update = `UPDATE ${table} SET payload = json_set(payload, ${patches.join(", ")}), version = version + 1, updated_at = ${sqlString(now)}, updated_by = ${sqlString(to)} WHERE ${condition};`;
   return [audit, update];
