@@ -5846,6 +5846,13 @@ body.task-detail-open {
   cursor: pointer;
 }
 
+.monthly-competency-control:has(input[aria-invalid="true"]) {
+  border-radius: 4px;
+  outline: 1px solid #c62828;
+  outline-offset: 2px;
+  color: #c62828;
+}
+
 #monthlyTable .monthly-stage-checkbox {
   position: relative;
   width: 21px;

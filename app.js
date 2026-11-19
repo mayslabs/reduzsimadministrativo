@@ -12390,10 +12390,10 @@ function renderStatusPicker() {
 }
 
 function renderMonthlyTable() {
-  const rows = [...(activeClient.monthly || [])].sort((a, b) => a.month.localeCompare(b.month));
+  const rows = [...(activeClient.monthly || [])].sort((a, b) => String(a.month || "").localeCompare(String(b.month || "")));
   const groups = new Map();
   rows.forEach((row) => {
-    const year = /^\d{4}-\d{2}$/.test(row.month || "") ? row.month.slice(0, 4) : "Sem ano";
+    const year = isValidMonthlyCompetence(row.month) ? row.month.slice(0, 4) : "Competência pendente";
     if (!groups.has(year)) groups.set(year, []);
     groups.get(year).push(row);
   });
@@ -12401,8 +12401,8 @@ function renderMonthlyTable() {
     ? Array.from(groups.entries()).map(([year, yearRows]) => {
         const completedMonths = yearRows.filter((row) => monthlyStatusProgress(row).done).length;
         const yearPercent = yearRows.length ? Math.round((completedMonths / yearRows.length) * 100) : 0;
-        const yearSummary = year === "Sem ano"
-          ? "Competências sem mês definido"
+        const yearSummary = year === "Competência pendente"
+          ? "Mês e ano não informados"
           : `${completedMonths} de ${yearRows.length} ${yearRows.length === 1 ? "mês concluído" : "meses concluídos"}`;
         return `
           <tr class="monthly-year-row">
@@ -12422,12 +12422,40 @@ function renderMonthlyTable() {
   document.querySelectorAll("[data-month-row]").forEach((tr) => {
     const row = activeClient.monthly.find((item) => item.id === tr.dataset.monthRow);
     tr.querySelectorAll("[data-month-field]").forEach((input) => {
+      if (input.dataset.monthField === "month") {
+        const validate = () => {
+          input.dataset.monthEdited = "true";
+          const message = monthlyCompetenceError(input.value, row.id, activeClient.monthly);
+          input.setCustomValidity(message);
+          input.setAttribute("aria-invalid", String(Boolean(message)));
+          input.closest("label").querySelector("span").textContent = monthlyMonthLabel(input.value);
+          return !message;
+        };
+        input.addEventListener("input", validate);
+        input.addEventListener("change", () => {
+          if (!validate()) {
+            input.reportValidity();
+            return;
+          }
+          row.month = input.value;
+          renderMonthlyTable();
+        });
+        return;
+      }
       if (input.dataset.monthField === "notes") {
         input.addEventListener("input", () => {
           row.notes = input.value;
+          if (!isValidMonthlyCompetence(row.month)) tr.querySelector('[data-month-field="month"]').dataset.monthEdited = "true";
         });
       }
       input.addEventListener("change", () => {
+        if (!isValidMonthlyCompetence(row.month)) {
+          const monthInput = tr.querySelector('[data-month-field="month"]');
+          monthInput.dataset.monthEdited = "true";
+          monthInput.reportValidity();
+          if (input.type === "checkbox") input.checked = Boolean(row[input.dataset.monthField]);
+          return;
+        }
         row[input.dataset.monthField] = input.type === "checkbox" ? input.checked : input.value;
         if (input.type === "checkbox" || input.dataset.monthField === "month") renderMonthlyTable();
       });
@@ -12455,7 +12483,7 @@ function renderMonthlyRow(row) {
       <td>
         <label class="monthly-competency-control">
           <span>${escapeHtml(monthLabel)}</span>
-          <input type="month" value="${escapeAttr(row.month || "")}" data-month-field="month" aria-label="Competência ${escapeAttr(monthLabel)}" />
+          <input type="month" required value="${escapeAttr(row.month || "")}" data-month-field="month" aria-label="Competência ${escapeAttr(monthLabel)}" aria-invalid="${!isValidMonthlyCompetence(row.month)}" />
         </label>
       </td>
       ${MONTHLY_BOOLEAN_FIELDS.map((field) => `
@@ -12470,18 +12498,18 @@ function renderMonthlyRow(row) {
 }
 
 function monthlyMonthLabel(value) {
-  if (!/^\d{4}-\d{2}$/.test(value || "")) return "Selecionar mês";
+  if (!isValidMonthlyCompetence(value)) return "Selecionar mês";
   return monthName(value.slice(5, 7));
 }
 
 function monthlyShortMonthYear(value) {
-  if (!/^\d{4}-\d{2}$/.test(value || "")) return "";
+  if (!isValidMonthlyCompetence(value)) return "";
   return `${monthName(value.slice(5, 7)).slice(0, 3).toLocaleLowerCase("pt-BR")}/${value.slice(0, 4)}`;
 }
 
 function renderMonthlyRangeSummary(rows = []) {
   if (!el.monthlyRangeSummary) return;
-  const datedRows = rows.filter((row) => /^\d{4}-\d{2}$/.test(row.month || ""));
+  const datedRows = rows.filter((row) => isValidMonthlyCompetence(row.month));
   if (!rows.length) {
     el.monthlyRangeSummary.textContent = "Nenhuma competência cadastrada";
     return;
@@ -13346,6 +13374,12 @@ function commitActiveClientToState() {
 
 async function persistActiveClient(options = {}) {
   if (!activeClient) return false;
+  const invalidCompetence = el.clientDialog.querySelector?.('[data-month-field="month"][data-month-edited="true"]:invalid');
+  if (invalidCompetence) {
+    switchTab("monthlyTab");
+    invalidCompetence.reportValidity();
+    return false;
+  }
   const draft = activeClient;
   if (clientSaveInFlight) {
     const saved = await clientSaveInFlight;
@@ -15181,11 +15215,11 @@ function addMonthlyRow() {
   if (!activeClient) return;
   const existingMonths = (activeClient.monthly || [])
     .map((row) => row.month)
-    .filter((month) => /^\d{4}-\d{2}$/.test(month || ""))
+    .filter(isValidMonthlyCompetence)
     .sort();
   let nextMonth = existingMonths.length
     ? nextMonthKey(existingMonths.at(-1))
-    : activeClient.startDate?.slice(0, 7) || currentMonthKey();
+    : isValidMonthlyCompetence(activeClient.startDate?.slice(0, 7)) ? activeClient.startDate.slice(0, 7) : currentMonthKey();
   const existing = new Set(existingMonths);
   while (existing.has(nextMonth)) nextMonth = nextMonthKey(nextMonth);
   activeClient.monthly.push(emptyMonth(nextMonth));
@@ -15210,7 +15244,18 @@ function monthRange(startDate, endDate) {
   return result;
 }
 
-function emptyMonth(month = "") {
+function isValidMonthlyCompetence(value) {
+  return typeof value === "string" && /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+function monthlyCompetenceError(value, rowId, rows = []) {
+  if (!isValidMonthlyCompetence(value)) return "Informe o mês e o ano da competência.";
+  if (rows.some((row) => row.id !== rowId && row.month === value)) return "Essa competência já está cadastrada.";
+  return "";
+}
+
+function emptyMonth(month = currentMonthKey()) {
+  if (!isValidMonthlyCompetence(month)) throw new Error("Informe o mes e o ano da competencia.");
   return {
     id: id(),
     month,

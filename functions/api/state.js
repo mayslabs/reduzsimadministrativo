@@ -414,6 +414,7 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
       }
 
       validateTaskDueDates(config.stateKey, item, existingPayload ? parsePayload(existingPayload) : null);
+      validateMonthlyCompetences(config.stateKey, item, existingPayload ? parsePayload(existingPayload) : null);
       mutationCount += 1;
       statements.push(upsertStatement(db, config, item, payload, scope, existing, user, now));
       statements.push(syncLogStatement(
@@ -703,6 +704,33 @@ function validateTaskDueDates(stateKey, item, previous) {
   validateTasks(item, previous);
   const priorWorks = new Map((Array.isArray(previous?.works) ? previous.works : []).map((work) => [work?.id, work]));
   for (const work of Array.isArray(item.works) ? item.works : []) validateTasks(work, priorWorks.get(work?.id));
+}
+
+function validateMonthlyCompetences(stateKey, item, previous) {
+  if (stateKey !== "clients") return;
+  const fields = ["receiptSent", "receiptSigned", "remunerationSent", "guideIssued", "guideSent", "guidePaid"];
+  const sameRow = (first, second) => first && String(first.month || "") === String(second.month || "")
+    && String(first.notes || "") === String(second.notes || "")
+    && fields.every((field) => Boolean(first[field]) === Boolean(second[field]));
+  const validate = (owner, priorOwner) => {
+    const prior = new Map((Array.isArray(priorOwner?.monthly) ? priorOwner.monthly : []).filter(isObject).map((row) => [row.id, row]));
+    const rows = Array.isArray(owner?.monthly) ? owner.monthly : [];
+    for (const row of rows) {
+      if (!isObject(row)) throw new ValidationError("Competencia invalida no controle mensal.");
+      const before = prior.get(row.id);
+      // Keep unrelated edits to unchanged legacy rows possible without inventing a month.
+      if (sameRow(before, row)) continue;
+      if (typeof row.month !== "string" || !/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(row.month)) {
+        throw new ValidationError("Informe o mes e o ano da competencia no controle mensal.");
+      }
+      if ((!before || before.month !== row.month) && rows.some((other) => other !== row && other.month === row.month)) {
+        throw new ValidationError("Essa competencia ja esta cadastrada no controle mensal.");
+      }
+    }
+  };
+  validate(item, previous);
+  const priorWorks = new Map((Array.isArray(previous?.works) ? previous.works : []).map((work) => [work.id, work]));
+  for (const work of Array.isArray(item.works) ? item.works : []) validate(work, priorWorks.get(work.id));
 }
 
 export function protectExistingHistory(existingClient, nextClient, user, now) {

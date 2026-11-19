@@ -96,6 +96,35 @@ async function createStateTestDatabase(t) {
   return { sqlite, statements, context, path, save, insertClient, user };
 }
 
+test("monthly saves reject missing, invalid or duplicated competences", async (t) => {
+  const { save, sqlite } = await createStateTestDatabase(t);
+  const store = (monthly, version = 0) => save({ state: { clients: [{ id: "monthly-example", monthly }] }, versions: { "clients:monthly-example": version }, dirtyKeys: ["clients:monthly-example"] });
+  for (const month of ["", undefined, "2026-00", "2026-13", "0000-11"]) {
+    const response = await store([{ id: "m1", month }]);
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /competencia/);
+  }
+  assert.equal((await store([{ id: "m1", month: "2026-11" }, { id: "m2", month: "2026-11" }])).status, 400);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM clients").get().n, 0);
+  assert.equal((await store([{ id: "m1", month: "2026-12" }, { id: "m2", month: "2027-01" }])).status, 200);
+  assert.equal((await store([{ id: "m1", month: "" }, { id: "m2", month: "2027-01" }], 1)).status, 400);
+});
+
+test("unchanged legacy competence rows do not block unrelated saves or lose their existing data", async (t) => {
+  const { save, insertClient } = await createStateTestDatabase(t);
+  const client = { id: "legacy-month", monthly: [{ id: "m1", receiptSent: true, notes: "Preservar" }] };
+  insertClient(client);
+  const store = (value, version) => save({ state: { clients: [value] }, versions: { "clients:legacy-month": version }, dirtyKeys: ["clients:legacy-month"] });
+  const normalized = { ...client, phone: "new", monthly: [{ ...client.monthly[0], month: "", guidePaid: false }] };
+  const response = await store(normalized, 1);
+  assert.equal(response.status, 200);
+  const saved = (await response.json()).statePatch.clients[0];
+  assert.equal(saved.monthly[0].receiptSent, true);
+  assert.equal(saved.monthly[0].notes, "Preservar");
+  assert.equal((await store({ ...saved, monthly: [{ ...saved.monthly[0], receiptSigned: true }] }, 2)).status, 400);
+  assert.equal((await store({ ...saved, monthly: [{ ...saved.monthly[0], month: "2026-11" }] }, 2)).status, 200);
+});
+
 test("an unchanged poll skips payload reads and a card save queries only the requested record", async (t) => {
   const { sqlite, statements, context, path, save, insertClient } = await createStateTestDatabase(t);
   for (const id of ["c1", "c2"]) insertClient({ id, name: "Antes" });
