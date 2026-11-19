@@ -9530,12 +9530,13 @@ function saveTaskDrawerChanges() {
 
 function applyTaskDetailChanges(item, context, updates, changes, { deferSave = false } = {}) {
   const task = context.record;
+  const previous = { ...task };
   const now = new Date().toISOString();
   Object.assign(task, updates, { updatedAt: now });
   changes.forEach((change) => appendTaskHistory(task, change, now));
   if (context.client) {
     context.client.updatedAt = now;
-    addHistoryEntry(context.client, "Tarefa atualizada", changes.map((change) => `${task.title}: ${change}.`));
+    addHistoryEntry(context.client, "Tarefa atualizada", taskHistoryChanges(previous, task));
   }
   recordActivity("task", `Atualizou tarefa: ${task.title || "Tarefa sem título"}.`, changes.join(" · "), taskActivityOptions(task, {
     internalTaskId: item.internalTaskId || "",
@@ -9564,7 +9565,9 @@ function toggleTaskCenterItemCompletion(key) {
   }
   if (context.client) {
     context.client.updatedAt = now;
-    addHistoryEntry(context.client, completed ? "Tarefa reaberta" : "Tarefa concluída", [record.title || "Tarefa sem título"]);
+    addHistoryEntry(context.client, completed ? "Tarefa reaberta" : "Tarefa concluída", [
+      `${completed ? "Reabriu" : "Concluiu"} ${context.kind === "deadline" ? "o prazo" : "a tarefa"} “${record.title || "Sem título"}”${completed ? ", deixando a etapa pendente" : ""}.`,
+    ]);
   }
   recordActivity(context.kind === "deadline" ? "deadline" : "task", `${completed ? "Reabriu" : "Concluiu"} ${context.kind === "deadline" ? "prazo" : "tarefa"}: ${record.title || "Sem título"}.`, "", taskActivityOptions(record, {
     internalTaskId: item.internalTaskId || "",
@@ -12972,13 +12975,7 @@ const CLIENT_HISTORY_CATEGORY_ORDER = ["status", "tasks", "notes", "manual", "fi
 function clientHistoryCategory(entry = {}) {
   if (entry.type === "manual") return "manual";
   const details = Array.isArray(entry.details) ? entry.details : [];
-  const searchableText = normalize([entry.title, ...details].join(" "));
-  if (/(status|etiqueta)/.test(searchableText)) return "status";
-  if (/(tarefa|prazo)/.test(searchableText)) return "tasks";
-  if (/(anotacao|anotacoes|nota)/.test(searchableText)) return "notes";
-  if (/(finance|honorario|pagamento|parcela|inss|comissao)/.test(searchableText)) return "finance";
-  if (/(controle mensal|competencia|recibo|remuneracao|guia)/.test(searchableText)) return "monthly";
-  return "client";
+  return clientHistoryTextCategory(details[0]) || clientHistoryTextCategory(entry.title) || "client";
 }
 
 function clientHistoryCategoryMeta(category) {
@@ -12989,18 +12986,57 @@ function clientHistoryCategoryMeta(category) {
     manual: { label: "Manual" },
     finance: { label: "Financeiro" },
     monthly: { label: "Mensal" },
-    client: { label: "Dados" },
+    client: { label: "Dados do cliente" },
   }[category] || { label: "Dados" };
 }
 
 function clientHistoryDescription(entry = {}) {
-  const details = (Array.isArray(entry.details) ? entry.details : [])
-    .map((detail) => String(detail || "").trim())
-    .filter(Boolean);
+  const details = clientHistoryDetails(entry);
   if (!details.length) return entry.title || "Registro do histórico.";
-  if (entry.type === "manual") return details.join(" ");
-  if (details.length === 1) return details[0];
-  return `${details[0]} (+${details.length - 1} ${details.length === 2 ? "alteração" : "alterações"})`;
+  return details[0];
+}
+
+function clientHistoryTextCategory(value = "") {
+  const text = normalize(value);
+  const field = text.match(/^(?:preencheu|alterou|removeu o valor de) [“"]([^”"]+)[”"]/)?.[1]
+    || text.match(/^([^:\n]+):/)?.[1] || "";
+  if (/^(honorarios|inss |forma de pagamento|parcelas|status financeiro|situacao do pagamento|comissao|quem indicou|observacoes financeiras)/.test(field)) return "finance";
+  if (/^(nome|cliente$|telefone|cpf|tipo de documento|ddd|responsavel|pasta|titulo da obra|destinacao|tipo de obra|concreto|estado|data do fechamento|inicio da obra|fim da obra|area|origem)/.test(field)) return "client";
+  if (/^(status do processo|status:|adicionou o status|removeu o status|atualizou status|status alterado)/.test(text)) return "status";
+  if (/^(controle mensal|competencia |marcou (?:a etapa|a caixa)|desmarcou |adicionou a competencia|removeu a competencia|alterou a competencia|atualizou a observacao da competencia|adicionou uma observacao a competencia|removeu a observacao da competencia)/.test(text)) return "monthly";
+  if (/^(tarefas?|prazos?|status de tarefa|acompanhamento de tarefa|proxima tarefa recorrente|(?:criou|removeu|concluiu|reabriu|renomeou|transferiu) (?:a tarefa|o prazo)|(?:alterou|atualizou|adicionou|removeu).*(?:da tarefa|do prazo|a tarefa|o prazo))/.test(text)) return "tasks";
+  if (/^(anotacoes|anotacao|alterou o texto da anotacao|(?:adicionou|removeu|atualizou|fixou|desafixou) (?:uma |a )?anotacao)/.test(text)) return "notes";
+  if (/^(observacoes financeiras|(?:adicionou|removeu|atualizou) (?:uma |a )?observacao financeira|financeiro|pagamento)/.test(text)) return "finance";
+  return null;
+}
+
+function clientHistoryDetails(entry = {}) {
+  const details = (Array.isArray(entry.details) ? entry.details : []).map((detail) => String(detail || "").trim()).filter(Boolean);
+  if (entry.type === "manual") return details;
+  return details.flatMap((detail, index) => {
+    const status = detail.match(/^Status do processo: (.*?) → (.*?)\.$/);
+    if (status) {
+      const before = status[1] === "sem status" ? [] : status[1].split(", ");
+      const after = status[2] === "sem status" ? [] : status[2].split(", ");
+      const changes = [...after.filter((name) => !before.includes(name)).map((name) => `Adicionou o status “${name}”.`),
+        ...before.filter((name) => !after.includes(name)).map((name) => `Removeu o status “${name}”.`)];
+      return changes.length ? changes : [detail];
+    }
+    const legacy = detail.match(/^(Controle mensal|Tarefas|Prazos|Anotações|Documentos|Trabalhadores|Observações financeiras): (\d+) item\(ns\) (adicionado\(s\)|removido\(s\)|alterado\(s\)) \((.*)\)\.$/s);
+    if (legacy) {
+      const names = { "Controle mensal": ["competência", "competências"], Tarefas: ["tarefa", "tarefas"], Prazos: ["prazo", "prazos"], Anotações: ["anotação", "anotações"], Documentos: ["documento", "documentos"], Trabalhadores: ["mensagem dos trabalhadores", "mensagens dos trabalhadores"], "Observações financeiras": ["observação financeira", "observações financeiras"] };
+      const verb = legacy[3] === "adicionado(s)" ? "Adicionou" : legacy[3] === "removido(s)" ? "Removeu" : "Atualizou";
+      const subject = names[legacy[1]][Number(legacy[2]) === 1 ? 0 : 1];
+      const value = legacy[1] === "Controle mensal" ? legacy[4].replace(/\b(\d{4})-(\d{2})\b/g, "$2/$1") : legacy[4];
+      return [`${verb} ${legacy[2]} ${subject}: ${value}.`];
+    }
+    const scalar = detail.match(/^([^:\n]+): (.*?) → (.*?)\.$/s);
+    if (scalar && ["client", "finance"].includes(clientHistoryTextCategory(detail))) return historyFieldChange(scalar[1], scalar[2], scalar[3]);
+    if (index === 0 && ["Tarefa concluída", "Tarefa reaberta"].includes(entry.title) && !/^(Concluiu|Reabriu) /.test(detail)) {
+      return `${entry.title === "Tarefa concluída" ? "Concluiu" : "Reabriu"} a tarefa “${detail}”.`;
+    }
+    return detail;
+  });
 }
 
 function renderHistory() {
@@ -13048,11 +13084,24 @@ function renderHistory() {
               const category = clientHistoryCategory(entry);
               const meta = clientHistoryCategoryMeta(category);
               const owner = ownerName(entry.userId);
+              const details = clientHistoryDetails(entry);
               return `
                 <article class="client-history-row category-${category}" data-history="${escapeAttr(entry.id)}">
                   <time datetime="${escapeAttr(entry.createdAt || "")}">${escapeHtml(activityTimeLabel(entry.createdAt))}</time>
                   <span class="client-history-category"><i></i>${escapeHtml(meta.label)}</span>
-                  <p class="client-history-description" title="${escapeAttr(entry.updatedAt ? "Editado" : "")}">${escapeHtml(clientHistoryDescription(entry))}</p>
+                  <details class="client-history-content">
+                    <summary class="client-history-toggle">
+                      <p class="client-history-description">${escapeHtml(clientHistoryDescription(entry))}</p>
+                      ${details.length > 1 ? `<span class="client-history-more">+${details.length - 1} ${entry.type === "manual" ? (details.length === 2 ? "detalhe" : "detalhes") : (details.length === 2 ? "alteração" : "alterações")}</span>` : ""}
+                      <i data-lucide="chevron-down" aria-hidden="true"></i>
+                    </summary>
+                    <div class="client-history-details">
+                      <p class="client-history-recorded">${escapeHtml(owner)} · ${escapeHtml(formatDateTime(entry.createdAt))}</p>
+                      <ul>${(details.length ? details : [entry.title || "Registro do histórico."]).map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul>
+                      ${(entry.details || []).some((detail) => /item\(ns\) alterado\(s\)/.test(detail)) && entry.type !== "manual" ? '<p class="client-history-recorded">Este registro antigo não informa quais campos foram alterados.</p>' : ""}
+                      ${entry.updatedAt ? `<p class="client-history-recorded">Registro editado em ${escapeHtml(formatDateTime(entry.updatedAt))}.</p>` : ""}
+                    </div>
+                  </details>
                   <span class="client-history-avatar" title="${escapeAttr(owner)}">${escapeHtml(userInitials(owner).slice(0, 1))}</span>
                   ${isAdmin ? `
                     <div class="client-history-row-actions">
@@ -13261,7 +13310,13 @@ function commitActiveClientToState() {
   activeClient.updatedAt = new Date().toISOString();
 
   if (previousClient && changes.length) {
-    addHistoryEntry(activeClient, "Card atualizado", changes, "system");
+    const grouped = new Map();
+    changes.forEach((detail) => {
+      const category = clientHistoryCategory({ type: "system", details: [detail] });
+      if (!grouped.has(category)) grouped.set(category, []);
+      grouped.get(category).push(detail);
+    });
+    grouped.forEach((details, category) => addHistoryEntry(activeClient, clientHistoryCategoryMeta(category).label, details, "system"));
     recordClientChangeActivities(previousClient, activeClient, changes);
   }
 
@@ -13495,7 +13550,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     fullName: "Nome completo",
     documentType: "Tipo de documento",
     cpf: "CPF/CNPJ",
-    phone: "Telefone",
+    phone: "Telefone do cliente",
     whatsappDdd: "DDD do WhatsApp",
     infoOwner: "Responsável por informações",
     internalOwner: "Responsável interno",
@@ -13516,7 +13571,7 @@ function summarizeClientChanges(previousClient, nextClient) {
     inssReducedValue: "INSS com redução",
     paymentMethod: "Forma de pagamento",
     installments: "Parcelas",
-    financeStatus: "Status financeiro",
+    financeStatus: "Situação do pagamento",
     financePaidInstallments: "Parcelas pagas",
     clientOrigin: "Origem",
     hasReferralCommission: "Comissão de indicação",
@@ -13527,14 +13582,19 @@ function summarizeClientChanges(previousClient, nextClient) {
   };
 
   Object.entries(fieldLabels).forEach(([field, label]) => {
-    const before = historyFieldValue(previousClient[field], field);
-    const after = historyFieldValue(nextClient[field], field);
-    if (before !== after) changes.push(`${label}: ${before} → ${after}.`);
+    const before = historyFieldValue(previousClient[field], field, true);
+    const after = historyFieldValue(nextClient[field], field, true);
+    if (before !== after) changes.push(historyFieldChange(label, before, after));
   });
 
-  const previousStatuses = statusNames(previousClient.statusIds);
-  const nextStatuses = statusNames(nextClient.statusIds);
-  if (previousStatuses !== nextStatuses) changes.push(`Status do processo: ${previousStatuses} → ${nextStatuses}.`);
+  const previousStatuses = new Set(previousClient.statusIds || []);
+  const nextStatuses = new Set(nextClient.statusIds || []);
+  nextStatuses.forEach((statusId) => {
+    if (!previousStatuses.has(statusId)) changes.push(`Adicionou o status “${statusName(statusId)}”.`);
+  });
+  previousStatuses.forEach((statusId) => {
+    if (!nextStatuses.has(statusId)) changes.push(`Removeu o status “${statusName(statusId)}”.`);
+  });
 
   collectionChangeSummary(changes, "Controle mensal", previousClient.monthly, nextClient.monthly, (item) => item.month || "mês sem competência");
   collectionChangeSummary(changes, "Tarefas", previousClient.tasks, nextClient.tasks, (item) => item.title || "tarefa sem título");
@@ -13544,20 +13604,82 @@ function summarizeClientChanges(previousClient, nextClient) {
   collectionChangeSummary(changes, "Observações financeiras", previousClient.financeMessages, nextClient.financeMessages, (item) => item.text || "observação financeira sem texto");
   collectionChangeSummary(changes, "Documentos", previousClient.documents, nextClient.documents, (item) => item.name || "documento sem nome");
 
-  const maxVisibleChanges = 12;
-  if (changes.length > maxVisibleChanges) {
-    const hiddenCount = changes.length - maxVisibleChanges;
-    return [...changes.slice(0, maxVisibleChanges), `Mais ${hiddenCount} alteração(ões) registrada(s) neste salvamento.`];
-  }
-
   return changes;
 }
 
-function historyFieldValue(value, field) {
+function historyFieldChange(label, before, after) {
+  if (before === "vazio") return `Preencheu “${label}” com “${after}”.`;
+  if (after === "vazio") return `Removeu o valor de “${label}” (antes: “${before}”).`;
+  return `Alterou “${label}” de “${before}” para “${after}”.`;
+}
+
+function historyCompetence(value) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || "")) ? `${value.slice(5)}/${value.slice(0, 4)}` : String(value || "sem competência");
+}
+
+function monthlyHistoryChanges(previous, next) {
+  const label = historyCompetence(next.month || previous?.month);
+  const context = ` · Competência ${label}.`;
+  const changes = [];
+  if (!previous) changes.push(`Adicionou a competência ${label} ao controle mensal.`);
+  else if (previous.month !== next.month) changes.push(`Alterou a competência de ${historyCompetence(previous.month)} para ${label}.`);
+  MONTHLY_BOOLEAN_FIELDS.forEach((field) => {
+    if (Boolean(previous?.[field]) === Boolean(next[field])) return;
+    const step = monthlyFieldLabels()[field];
+    changes.push(next[field]
+      ? `Marcou a etapa “${step}” como realizada${context}`
+      : `Desmarcou “${step}”, deixando a etapa pendente${context}`);
+  });
+  if (String(previous?.notes || "") !== String(next.notes || "")) {
+    changes.push(!previous?.notes ? `Adicionou uma observação à competência ${label}: “${next.notes}”.`
+      : !next.notes ? `Removeu a observação da competência ${label} (antes: “${previous.notes}”).`
+        : `Atualizou a observação da competência ${label} de “${previous.notes}” para “${next.notes}”.`);
+  }
+  return changes;
+}
+
+function taskHistoryChanges(previous, next, kind = "tarefa") {
+  const subject = `${kind === "prazo" ? "o prazo" : "a tarefa"} “${next.title || previous.title || "Sem título"}”`;
+  const changes = [];
+  const beforeStatus = localizeLabel(previous.status || "Pendente");
+  const afterStatus = localizeLabel(next.status || "Pendente");
+  if (beforeStatus !== afterStatus) {
+    if (isCompletedTaskStatus(afterStatus) && !isCompletedTaskStatus(beforeStatus)) changes.push(`Concluiu ${subject}.`);
+    else if (isCompletedTaskStatus(beforeStatus) && !isCompletedTaskStatus(afterStatus)) changes.push(`Reabriu ${subject}, deixando-${kind === "prazo" ? "o" : "a"} ${afterStatus === "Pendente" ? "pendente" : `em “${afterStatus}”`}.`);
+    else changes.push(`Alterou a situação ${kind === "prazo" ? "do prazo" : "da tarefa"} “${next.title}” de “${beforeStatus}” para “${afterStatus}”.`);
+  }
+  if (String(previous.title || "") !== String(next.title || "")) changes.push(`Renomeou ${kind === "prazo" ? "o prazo" : "a tarefa"} “${previous.title || "Sem título"}” para “${next.title || "Sem título"}”.`);
+  const dateField = kind === "prazo" ? "date" : "dueDate";
+  if (String(previous[dateField] || "") !== String(next[dateField] || "")) {
+    changes.push(`Alterou a data ${kind === "prazo" ? "do prazo" : "de vencimento da tarefa"} “${next.title}” de ${previous[dateField] ? formatDate(previous[dateField]) : "sem data"} para ${next[dateField] ? formatDate(next[dateField]) : "sem data"}.`);
+  }
+  if (String(previous.ownerId || "") !== String(next.ownerId || "")) changes.push(`Transferiu ${subject} de ${ownerName(previous.ownerId)} para ${ownerName(next.ownerId)}.`);
+  for (const [field, label, fallback] of [["priority", "prioridade", "Normal"], ["type", "tipo", ""], ["reminderDays", "antecedência do lembrete", ""]]) {
+    const before = String(previous[field] ?? fallback);
+    const after = String(next[field] ?? fallback);
+    if (before !== after) changes.push(`Alterou ${label === "tipo" ? "o" : "a"} ${label} ${kind === "prazo" ? "do prazo" : "da tarefa"} “${next.title}” de “${before || "não definido"}” para “${after || "não definido"}”.`);
+  }
+  for (const [field, label] of [["description", "descrição"], ["followUpNotes", "observação de acompanhamento"]]) {
+    if (String(previous[field] || "") !== String(next[field] || "")) changes.push(`Atualizou a ${label} ${kind === "prazo" ? "do prazo" : "da tarefa"} “${next.title}” de “${previous[field] || "não preenchida"}” para “${next[field] || "não preenchida"}”.`);
+  }
+  if (String(previous.startDate || "") !== String(next.startDate || "")) changes.push(`Alterou o início ${kind === "prazo" ? "do prazo" : "da tarefa"} “${next.title}” de ${previous.startDate ? formatDate(previous.startDate) : "sem data"} para ${next.startDate ? formatDate(next.startDate) : "sem data"}.`);
+  if (JSON.stringify(previous.recorrencia || null) !== JSON.stringify(next.recorrencia || null)) changes.push(`Alterou a repetição ${kind === "prazo" ? "do prazo" : "da tarefa"} “${next.title}” de “${TASK_RECURRENCE.fullLabel(previous.recorrencia) || "Não repete"}” para “${TASK_RECURRENCE.fullLabel(next.recorrencia) || "Não repete"}”.`);
+  if ((previous.visibility || "team") !== (next.visibility || "team")) changes.push(`Alterou a visibilidade ${kind === "prazo" ? "do prazo" : "da tarefa"} “${next.title}” para ${next.visibility === "admin" ? "somente administração" : "equipe"}.`);
+  const beforeNotes = new Map((previous.annotations || []).map((note) => [note.id, note]));
+  const afterNotes = new Map((next.annotations || []).map((note) => [note.id, note]));
+  afterNotes.forEach((note, id) => {
+    if (!beforeNotes.has(id)) changes.push(`Adicionou um acompanhamento à tarefa “${next.title}”: “${note.text || ""}”.`);
+    else if (beforeNotes.get(id).text !== note.text) changes.push(`Atualizou um acompanhamento da tarefa “${next.title}”: ${historyFieldChange("Texto", beforeNotes.get(id).text || "vazio", note.text || "vazio")}`);
+  });
+  beforeNotes.forEach((note, id) => { if (!afterNotes.has(id)) changes.push(`Removeu um acompanhamento da tarefa “${next.title}”: “${note.text || ""}”.`); });
+  return changes;
+}
+
+function historyFieldValue(value, field, full = false) {
   if (field === "internalOwner") return ownerName(value);
   if (field === "contractClosedDate" || field === "startDate" || field === "endDate") return value ? formatDate(value) : "vazio";
   if (value === undefined || value === null || value === "") return "vazio";
-  return truncateHistoryValue(String(value));
+  return full ? String(value).trim() : truncateHistoryValue(String(value));
 }
 
 function statusNames(statusIds = []) {
@@ -13576,9 +13698,34 @@ function collectionChangeSummary(changes, label, previousItems = [], nextItems =
   const removed = previous.filter((item) => !nextById.has(item.id));
   const changed = next.filter((item) => previousById.has(item.id) && JSON.stringify(previousById.get(item.id)) !== JSON.stringify(item));
 
-  if (added.length) changes.push(`${label}: ${added.length} item(ns) adicionado(s) (${shortItemList(added, getLabel)}).`);
-  if (removed.length) changes.push(`${label}: ${removed.length} item(ns) removido(s) (${shortItemList(removed, getLabel)}).`);
-  if (changed.length) changes.push(`${label}: ${changed.length} item(ns) alterado(s) (${shortItemList(changed, getLabel)}).`);
+  if (label === "Controle mensal") {
+    added.forEach((item) => changes.push(...monthlyHistoryChanges(null, item)));
+    removed.forEach((item) => changes.push(`Removeu a competência ${historyCompetence(item.month)} do controle mensal.`));
+    changed.forEach((item) => changes.push(...monthlyHistoryChanges(previousById.get(item.id), item)));
+    return;
+  }
+  const subject = { Tarefas: "a tarefa", Prazos: "o prazo", Anotações: "a anotação", Documentos: "o documento", Trabalhadores: "a mensagem dos trabalhadores", "Observações financeiras": "a observação financeira", "Check-list": "a etapa" }[label] || "o registro";
+  added.forEach((item) => changes.push(`Adicionou ${subject} “${getLabel(item)}”.`));
+  removed.forEach((item) => changes.push(`Removeu ${subject} “${getLabel(item)}”.`));
+  changed.forEach((item) => {
+    const before = previousById.get(item.id);
+    if (label === "Tarefas" || label === "Prazos") {
+      changes.push(...taskHistoryChanges(before, item, label === "Prazos" ? "prazo" : "tarefa"));
+      return;
+    }
+    const beforeContent = Object.fromEntries(Object.entries(before).filter(([key]) => !["updatedAt", "pinnedAt"].includes(key)));
+    const afterContent = Object.fromEntries(Object.entries(item).filter(([key]) => !["updatedAt", "pinnedAt"].includes(key)));
+    if (JSON.stringify(beforeContent) === JSON.stringify(afterContent)) return;
+    if (label === "Anotações" && Boolean(before.pinned) !== Boolean(item.pinned)) changes.push(`${item.pinned ? "Fixou" : "Desafixou"} a anotação “${getLabel(item)}”.`);
+    if (label === "Documentos") {
+      for (const [field, name] of [["name", "nome"], ["status", "situação"], ["path", "caminho/link"]]) {
+        if (String(before[field] || "") !== String(item[field] || "")) changes.push(`Alterou ${field === "status" ? "a" : "o"} ${name} do documento “${getLabel(item)}” de “${before[field] || "não informado"}” para “${item[field] || "não informado"}”.`);
+      }
+    } else if (String(before.text || "") !== String(item.text || "")) changes.push(label === "Anotações"
+      ? `Alterou o texto da anotação de “${before.text || "não preenchido"}” para “${item.text || "não preenchido"}”.`
+      : `Atualizou ${subject} de “${before.text || "não preenchido"}” para “${item.text || "não preenchido"}”.`);
+    else if (label !== "Anotações" || Boolean(before.pinned) === Boolean(item.pinned)) changes.push(`Atualizou ${subject} “${getLabel(item)}”.`);
+  });
 }
 
 function shortItemList(items, getLabel) {

@@ -13866,7 +13866,7 @@ body.privacy-mode #marketingDialog :is(
 
 .client-history-row {
   display: grid;
-  grid-template-columns: 60px 120px minmax(0, 1fr) 26px 45px;
+  grid-template-columns: 54px 124px minmax(0, 1fr) 26px 45px;
   min-height: 44px;
   padding: 6px 10px 6px 12px;
   align-items: center;
@@ -13909,6 +13909,84 @@ body.privacy-mode #marketingDialog :is(
   font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.client-history-content {
+  min-width: 0;
+}
+
+.client-history-toggle {
+  display: flex;
+  min-width: 0;
+  min-height: 30px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.client-history-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.client-history-toggle:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.client-history-toggle .client-history-description {
+  flex: 1 1 auto;
+}
+
+.client-history-toggle > svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: var(--green-dark);
+}
+
+.client-history-content[open] .client-history-toggle > svg {
+  transform: rotate(180deg);
+}
+
+.client-history-more {
+  flex: 0 0 auto;
+  color: var(--green-dark);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.client-history-row:has(.client-history-content[open]) {
+  align-items: start;
+}
+
+.client-history-row:has(.client-history-content[open]) > :not(.client-history-content) {
+  margin-top: 5px;
+}
+
+.client-history-details {
+  padding: 8px 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.client-history-details ul {
+  display: grid;
+  margin: 8px 0;
+  padding-left: 18px;
+  gap: 8px;
+}
+
+.client-history-details li {
+  color: #4b4b4b;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.client-history-recorded {
+  margin: 0;
+  color: #757575;
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
 .client-history-avatar {
@@ -13984,6 +14062,10 @@ body.privacy-mode #historyTab .client-history-description {
   user-select: none;
 }
 
+body.privacy-mode #historyTab .client-history-details {
+  visibility: hidden;
+}
+
 @media (max-width: 700px) {
   #clientDialog #historyTab {
     padding: 18px;
@@ -14012,13 +14094,17 @@ body.privacy-mode #historyTab .client-history-description {
     grid-row: 1;
   }
 
-  .client-history-description {
+  .client-history-content {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+
+  .client-history-description {
     overflow: visible;
     line-height: 1.4;
     text-overflow: clip;
     white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .client-history-avatar {

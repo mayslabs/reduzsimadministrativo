@@ -198,6 +198,8 @@ test("moving a task changes its shared due date, keeps its recurrence and saves 
     taskRecordContext: () => ({ kind, record, client }),
     el: { taskCenterList: { querySelector: () => scroll } },
     formatDate: (value) => value.split("-").reverse().join("/"),
+    localizeLabel: String,
+    isCompletedTaskStatus: (value) => ["Concluída", "Concluído"].includes(value),
     appendTaskHistory: (_, text) => timeline.push(text),
     addHistoryEntry: (_, title, details) => timeline.push(title, ...details),
     recordActivity: (...args) => activity.push(args),
@@ -207,7 +209,8 @@ test("moving a task changes its shared due date, keeps its recurrence and saves 
     renderUpdates() {},
   });
   vm.runInContext(app.slice(start, app.indexOf("function taskItemKey(", start))
-    + app.slice(apply, app.indexOf("function toggleTaskCenterItemCompletion(", apply)), context);
+    + app.slice(apply, app.indexOf("function toggleTaskCenterItemCompletion(", apply))
+    + app.slice(app.indexOf("function taskHistoryChanges("), app.indexOf("function historyFieldValue(")), context);
   assert.equal(vm.runInContext('rescheduleWeekTask("test", "2026-11-06")', context), false);
   assert.equal(vm.runInContext('rescheduleWeekTask("test", "2026-11-08")', context), false);
   assert.equal(vm.runInContext('rescheduleWeekTask("test", "2026-11-07")', context), true);
