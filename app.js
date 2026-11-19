@@ -941,6 +941,7 @@ function normalizeHistoryEntry(entry) {
     type: entry.type || "manual",
     createdAt: entry.createdAt || new Date().toISOString(),
     updatedAt: entry.updatedAt || null,
+    ...(entry.monthlyEvidence?.activityId ? { monthlyEvidence: cloneData(entry.monthlyEvidence) } : {}),
   };
 }
 
@@ -12993,7 +12994,11 @@ function clientHistoryCategoryMeta(category) {
 function clientHistoryDescription(entry = {}) {
   const details = clientHistoryDetails(entry);
   if (!details.length) return entry.title || "Registro do histórico.";
-  return details[0];
+  const description = details[0];
+  if (entry.type !== "manual" && /^(Assinalou|Desmarcou|Marcou|Adicionou|Removeu|Atualizou|Alterou|Concluiu|Reabriu|Renomeou|Transferiu|Preencheu|Fixou|Desafixou) /.test(description)) {
+    return `${ownerName(entry.userId)} ${description[0].toLocaleLowerCase("pt-BR")}${description.slice(1)}`;
+  }
+  return description;
 }
 
 function clientHistoryTextCategory(value = "") {
@@ -13003,7 +13008,7 @@ function clientHistoryTextCategory(value = "") {
   if (/^(honorarios|inss |forma de pagamento|parcelas|status financeiro|situacao do pagamento|comissao|quem indicou|observacoes financeiras)/.test(field)) return "finance";
   if (/^(nome|cliente$|telefone|cpf|tipo de documento|ddd|responsavel|pasta|titulo da obra|destinacao|tipo de obra|concreto|estado|data do fechamento|inicio da obra|fim da obra|area|origem)/.test(field)) return "client";
   if (/^(status do processo|status:|adicionou o status|removeu o status|atualizou status|status alterado)/.test(text)) return "status";
-  if (/^(controle mensal|competencia |marcou (?:a etapa|a caixa)|desmarcou |adicionou a competencia|removeu a competencia|alterou a competencia|atualizou a observacao da competencia|adicionou uma observacao a competencia|removeu a observacao da competencia)/.test(text)) return "monthly";
+  if (/^(controle mensal|competencia |assinalou que |marcou (?:a etapa|a caixa)|desmarcou |adicionou a competencia|removeu a competencia|alterou a competencia|atualizou a observacao da competencia|adicionou uma observacao a competencia|removeu a observacao da competencia)/.test(text)) return "monthly";
   if (/^(tarefas?|prazos?|status de tarefa|acompanhamento de tarefa|proxima tarefa recorrente|(?:criou|removeu|concluiu|reabriu|renomeou|transferiu) (?:a tarefa|o prazo)|(?:alterou|atualizou|adicionou|removeu).*(?:da tarefa|do prazo|a tarefa|o prazo))/.test(text)) return "tasks";
   if (/^(anotacoes|anotacao|alterou o texto da anotacao|(?:adicionou|removeu|atualizou|fixou|desafixou) (?:uma |a )?anotacao)/.test(text)) return "notes";
   if (/^(observacoes financeiras|(?:adicionou|removeu|atualizou) (?:uma |a )?observacao financeira|financeiro|pagamento)/.test(text)) return "finance";
@@ -13014,6 +13019,11 @@ function clientHistoryDetails(entry = {}) {
   const details = (Array.isArray(entry.details) ? entry.details : []).map((detail) => String(detail || "").trim()).filter(Boolean);
   if (entry.type === "manual") return details;
   return details.flatMap((detail, index) => {
+    const marked = detail.match(/^Marcou a etapa “([^”]+)” como realizada · Competência (\d{2}\/\d{4})\.$/);
+    if (marked) {
+      const field = Object.keys(monthlyFieldLabels()).find((key) => monthlyFieldLabels()[key] === marked[1]);
+      if (MONTHLY_BOOLEAN_FIELDS.includes(field)) return monthlyHistoryAction(field, true, marked[2]);
+    }
     const status = detail.match(/^Status do processo: (.*?) → (.*?)\.$/);
     if (status) {
       const before = status[1] === "sem status" ? [] : status[1].split(", ");
@@ -13617,18 +13627,29 @@ function historyCompetence(value) {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(value || "")) ? `${value.slice(5)}/${value.slice(0, 4)}` : String(value || "sem competência");
 }
 
+function monthlyHistoryAction(field, checked, competence) {
+  const statements = {
+    receiptSent: "o recibo foi enviado",
+    receiptSigned: "o recibo foi assinado",
+    remunerationSent: "a remuneração foi enviada",
+    guideIssued: "a guia foi emitida",
+    guideSent: "a guia foi enviada",
+    guidePaid: "a guia foi paga",
+  };
+  const context = ` · Competência ${historyCompetence(competence)}.`;
+  return checked
+    ? `Assinalou que ${statements[field]}${context}`
+    : `Desmarcou “${monthlyFieldLabels()[field]}”, deixando essa etapa pendente${context}`;
+}
+
 function monthlyHistoryChanges(previous, next) {
   const label = historyCompetence(next.month || previous?.month);
-  const context = ` · Competência ${label}.`;
   const changes = [];
   if (!previous) changes.push(`Adicionou a competência ${label} ao controle mensal.`);
   else if (previous.month !== next.month) changes.push(`Alterou a competência de ${historyCompetence(previous.month)} para ${label}.`);
   MONTHLY_BOOLEAN_FIELDS.forEach((field) => {
     if (Boolean(previous?.[field]) === Boolean(next[field])) return;
-    const step = monthlyFieldLabels()[field];
-    changes.push(next[field]
-      ? `Marcou a etapa “${step}” como realizada${context}`
-      : `Desmarcou “${step}”, deixando a etapa pendente${context}`);
+    changes.push(monthlyHistoryAction(field, Boolean(next[field]), label));
   });
   if (String(previous?.notes || "") !== String(next.notes || "")) {
     changes.push(!previous?.notes ? `Adicionou uma observação à competência ${label}: “${next.notes}”.`

@@ -13911,6 +13911,14 @@ body.privacy-mode #marketingDialog :is(
   white-space: nowrap;
 }
 
+.client-history-row.category-monthly .client-history-description {
+  overflow: visible;
+  line-height: 1.5;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .client-history-content {
   min-width: 0;
 }

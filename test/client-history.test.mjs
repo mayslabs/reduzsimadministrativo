@@ -46,14 +46,44 @@ test("each monthly checkbox records its exact action and reference competence", 
     const previous = { id: "row", month: "2026-11", [field]: false };
     const next = { ...previous, [field]: true };
     const label = f.monthlyFieldLabels()[field];
-    assert.equal(f.monthlyHistoryChanges(previous, next)[0], `Marcou a etapa “${label}” como realizada · Competência 11/2026.`);
-    assert.equal(f.monthlyHistoryChanges(next, previous)[0], `Desmarcou “${label}”, deixando a etapa pendente · Competência 11/2026.`);
+    const meanings = { receiptSent: "o recibo foi enviado", receiptSigned: "o recibo foi assinado", remunerationSent: "a remuneração foi enviada", guideIssued: "a guia foi emitida", guideSent: "a guia foi enviada", guidePaid: "a guia foi paga" };
+    assert.equal(f.monthlyHistoryChanges(previous, next)[0], `Assinalou que ${meanings[field]} · Competência 11/2026.`);
+    assert.equal(f.monthlyHistoryChanges(next, previous)[0], `Desmarcou “${label}”, deixando essa etapa pendente · Competência 11/2026.`);
     assert.equal(f.monthlyHistoryChanges(next, { ...next, updatedAt: "new" }).length, 0);
   }
   const created = f.monthlyHistoryChanges(null, { month: "2026-11" });
   assert.equal(created.length, 1);
   assert.match(created[0], /Adicionou a competência 11\/2026/);
   assert.doesNotMatch(created[0], /Marcou/);
+});
+
+test("the main sentence names the person and explains exactly what the check confirms", () => {
+  const f = fixture();
+  const entry = { type: "system", userId: "m", details: ["Assinalou que o recibo foi enviado · Competência 11/2026."] };
+  assert.equal(f.clientHistoryDescription(entry), "Mayssa assinalou que o recibo foi enviado · Competência 11/2026.");
+  const older = { ...entry, userId: "c", details: ["Marcou a etapa “Guia paga” como realizada · Competência 10/2026."] };
+  assert.equal(f.clientHistoryDescription(older), "Camilli assinalou que a guia foi paga · Competência 10/2026.");
+  assert.equal(f.clientHistoryDescription({ ...entry, type: "manual" }), entry.details[0]);
+  assert.equal(older.details[0], "Marcou a etapa “Guia paga” como realizada · Competência 10/2026.");
+});
+
+test("verified legacy detail keeps its original evidence and appears directly in the main row", () => {
+  const f = fixture();
+  vm.runInContext(between("normalizeHistoryEntry", "normalizeActivity"), f);
+  const original = {
+    id: "verified", title: "Card atualizado", type: "system", userId: "m", createdAt: "2026-11-19T18:38:13.389Z", updatedAt: null,
+    details: ["Assinalou que o recibo foi enviado · Competência 11/2026."],
+    monthlyEvidence: { activityId: "source", activityCreatedAt: "2026-11-19T18:38:13.390Z", activityActorId: "m", activityDetail: "Competência 2026-11\nRecibo enviado: desmarcado → marcado.", originalDetails: ["Controle mensal: 1 item(ns) alterado(s) (2026-11)."] },
+  };
+  const normalized = f.normalizeHistoryEntry(original);
+  assert.deepEqual(normalized.monthlyEvidence, original.monthlyEvidence);
+  assert.notEqual(normalized.monthlyEvidence, original.monthlyEvidence);
+  assert.equal(normalized.createdAt, original.createdAt);
+  f.activeClient.history = [normalized];
+  f.renderHistory();
+  assert.match(f.el.historyList.innerHTML, /class="client-history-description">Mayssa assinalou que o recibo foi enviado · Competência 11\/2026\./);
+  assert.doesNotMatch(f.el.historyList.innerHTML, /Este registro antigo|Atualizou 1 competência/);
+  assert.equal(f.clientHistoryCategory(normalized), "monthly");
 });
 
 test("bulk monthly edits retain every competence instead of discarding details after twelve", () => {
