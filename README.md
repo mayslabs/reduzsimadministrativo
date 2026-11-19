@@ -77,6 +77,33 @@ npx wrangler pages deploy dist --project-name reduzsim-gestao --branch main
 O segredo de sessao deve ser configurado diretamente no Cloudflare e nunca em
 arquivo versionado.
 
+## Rotina Mensal de Clientes
+
+A configuracao inicial pode ser conferida sem gravar dados:
+
+```text
+node scripts/configure-monthly-client-tasks.mjs 2026-11
+node scripts/configure-monthly-client-tasks.mjs 2026-11 --apply
+```
+
+O comando inclui os cards ativos atuais, exceto os que possuem status
+`Processo administrativo` ou `Finalizado`. Novos clientes precisam ser
+incluidos na configuracao explicitamente. A lista de cards e o checkpoint
+ficam no D1 em `app_settings.monthlyClientTasks`, com escopo administrativo.
+Definir `enabled` como `false` pausa novas ocorrencias sem apagar tarefas.
+
+Cada competencia gera cinco lembretes: documentos de 1 a 3; assinaturas no
+dia 10; revisao no dia 15; eSocial/DCTFWeb no dia 10 do mes seguinte;
+pagamentos no dia 18 do mes seguinte. As datas sao lembretes internos,
+nao substituem o prazo legal ou o vencimento real do DARF.
+
+Ao abrir/sincronizar o painel, o servidor gera competencias novas sem esperar
+a conclusao das anteriores. Ocorrencias ja criadas ou concluidas nao se
+repetem. O processamento usa versoes, transacao e checkpoint para evitar
+duplicacoes e sobrescritas concorrentes. Nao sao alterados `payload.updatedAt`,
+o historico do card, os indicadores mensais nem o feed de atualizacoes.
+Somente as tarefas novas e os metadados internos de sincronizacao mudam.
+
 ## Controles de seguranca
 
 - Todo o painel e toda a API exigem sessao validada no servidor.

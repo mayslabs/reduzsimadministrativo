@@ -1,5 +1,6 @@
 import { isTrustedMutation, jsonResponse } from "../lib/http.js";
 import { activityRetentionCutoff } from "../lib/activity-retention.js";
+import { ensureMonthlyClientTasks, preserveMonthlyTaskIdentity } from "../lib/monthly-client-tasks.js";
 
 const MAX_REQUEST_BYTES = 8_000_000;
 const MAX_RECORD_BYTES = 900_000;
@@ -62,6 +63,7 @@ export async function onRequestGet(context) {
   if (!user) return unauthorized();
 
   try {
+    await ensureMonthlyClientTasks(context.env.DB);
     const revision = new URL(context.request.url).searchParams.get("revision");
     if (revision && revision.length <= 256) {
       const row = await revisionQuery(context.env.DB, user, activityRetentionCutoff()).first();
@@ -366,6 +368,11 @@ async function prepareMutations(db, user, desiredState, clientVersions, dirtyKey
       const existing = existingById.get(id);
       desiredById.set(id, item);
       if (dirtyKeys && !dirtyKeys.has(recordKey)) return;
+
+      if (config.stateKey === "clients" && existing && !existing.deleted_at) {
+        item = preserveMonthlyTaskIdentity(parsePayload(existing.payload), item);
+        desiredById.set(id, item);
+      }
 
       if (config.stateKey === "marketingItems") {
         const previous = existing && !existing.deleted_at ? parsePayload(existing.payload) : null;

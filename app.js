@@ -1527,6 +1527,8 @@ function normalizeClientTask(task, client = {}, fallbackUserId = "") {
     followUpNotes: task.followUpNotes || "",
     ownerId: task.ownerId || client.internalOwner || fallbackUserId,
     dueDate: taskDueDateWithFallback(task, client.createdAt),
+    ...(task.startDate ? { startDate: task.startDate } : {}),
+    ...(task.monthlyRoutine ? { monthlyRoutine: task.monthlyRoutine } : {}),
     status: normalizeTaskStatus(task.status),
     priority: normalizeTaskPriority(task.priority),
     visibility: task.visibility === "admin" ? "admin" : "team",
@@ -9338,6 +9340,8 @@ function renderTaskDetailDrawer() {
             <small class="${relativeDate.overdue ? "overdue" : ""}" data-task-drawer-date-hint>${escapeHtml(relativeDate.text)}</small>
           </div>
         </div>
+        ${task.startDate ? `<div class="task-drawer-setting-row readonly"><span>Início</span><strong>${escapeHtml(formatDate(task.startDate))}</strong></div>` : ""}
+        ${task.monthlyRoutine ? `<div class="task-drawer-setting-row readonly"><span>Competência</span><strong>${escapeHtml(task.monthlyRoutine.competence.slice(5) + "/" + task.monthlyRoutine.competence.slice(0, 4))}</strong></div>` : ""}
         <div class="task-drawer-setting-row">
           <span>Prioridade</span>
           <div class="task-drawer-choice-row">
@@ -9346,7 +9350,7 @@ function renderTaskDetailDrawer() {
         </div>
         <div class="task-drawer-setting-row readonly">
           <span>Repetição</span>
-          <strong>${escapeHtml(recurrence ? TASK_RECURRENCE.fullLabel(recurrence) : "Não repete")}</strong>
+          <strong>${escapeHtml(task.monthlyRoutine ? "Ciclo mensal por competência" : recurrence ? TASK_RECURRENCE.fullLabel(recurrence) : "Não repete")}</strong>
         </div>
         <div class="task-drawer-setting-row readonly">
           <span>Visibilidade</span>
@@ -14013,6 +14017,7 @@ function renderClientTaskEditorBody(draft, statusChoices) {
     <div class="client-editor-settings">
       ${clientEditorSettingRow("user-round", "Responsável", clientEditorChoiceButtons("ownerId", activeTeamUsers().map((user) => ({ value: user.id, label: user.name, avatar: userInitials(user.name) })), draft.ownerId || currentUser.id, "owner"))}
       ${clientEditorDateRow("Prazo", "dueDate", draft.dueDate, true)}
+      ${draft.startDate ? clientEditorSettingRow("calendar-days", "Início", `<strong>${escapeHtml(formatDate(draft.startDate))}</strong>`) : ""}
       ${clientEditorSettingRow("flag", "Prioridade", clientEditorChoiceButtons("priority", taskPriorityValues().map((value) => ({ value, label: value })), normalizeTaskPriority(draft.priority)))}
       ${clientEditorSettingRow("clock-3", "Status", clientEditorChoiceButtons("status", statusChoices, draft.status || "Pendente"))}
     </div>
@@ -15194,6 +15199,7 @@ function taskRecurrenceFromEditorValues(values = {}) {
 }
 
 function createNextRecurringTask(task, context = {}) {
+  if (task?.monthlyRoutine) return null;
   const recurrence = TASK_RECURRENCE.normalize(task?.recorrencia);
   if (!task || !recurrence || task.proximaGerada) return null;
 
