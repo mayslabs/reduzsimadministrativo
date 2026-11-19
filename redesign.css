@@ -4022,7 +4022,7 @@ body.privacy-mode #dataSection :is(
 
 .client-document-control {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) 40px;
   min-height: 42px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -4063,6 +4063,43 @@ body.privacy-mode #dataSection :is(
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+#clientDialog .client-document-copy {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  color: var(--green-dark);
+  background: #ffffff;
+}
+
+#clientDialog .client-document-copy:hover:not(:disabled),
+#clientDialog .client-document-copy[data-copied="true"] {
+  background: var(--green-soft);
+}
+
+#clientDialog .client-document-copy:disabled {
+  color: #8a8a8a;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.client-document-copy svg {
+  width: 16px;
+  height: 16px;
+}
+
+.client-document-copy .lucide-check,
+.client-document-copy[data-copied="true"] .lucide-copy {
+  display: none;
+}
+
+.client-document-copy[data-copied="true"] .lucide-check {
+  display: block;
 }
 
 .client-details-row {
@@ -4336,14 +4373,18 @@ body.privacy-mode #dataSection :is(
     padding-inline: 14px;
   }
 
-  .client-details-row,
-  .client-document-control {
+  .client-details-row {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .client-document-control {
+    grid-template-columns: minmax(0, 1fr) 40px;
   }
 
   .client-document-types {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-column: 1 / -1;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }

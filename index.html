@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css?v=211" />
     <link rel="stylesheet" href="./goals-patch.css?v=5" />
-    <link rel="stylesheet" href="./redesign.css?v=223" />
+    <link rel="stylesheet" href="./redesign.css?v=224" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   </head>
   <body>
@@ -647,7 +647,12 @@
                       <button type="button" data-client-choice-field="documentType" data-client-choice-value="cnpj">CNPJ</button>
                     </div>
                     <input data-field="cpf" type="text" inputmode="numeric" maxlength="18" aria-label="CPF ou CNPJ" />
+                    <button id="copyClientDocumentButton" class="icon-button client-document-copy" type="button" title="Copiar CPF/CNPJ sem pontuação" aria-label="Copiar CPF/CNPJ sem pontuação" disabled>
+                      <i data-lucide="copy" aria-hidden="true"></i>
+                      <i data-lucide="check" aria-hidden="true"></i>
+                    </button>
                   </div>
+                  <span id="clientDocumentCopyStatus" class="sr-only" role="status"></span>
                   <select class="client-control-value" data-field="documentType" aria-hidden="true" tabindex="-1">
                     <option value="cpf">CPF</option>
                     <option value="cnpj">CNPJ</option>
@@ -1472,7 +1477,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="./cloudflare-sync.js?v=6"></script>
     <script src="./task-recurrence.js?v=1"></script>
-    <script src="./app.js?v=228"></script>
+    <script src="./app.js?v=229"></script>
     <script src="./goals-patch.js?v=1"></script>
   </body>
 </html>

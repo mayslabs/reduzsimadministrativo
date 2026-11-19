@@ -559,6 +559,8 @@ const el = {
   clientDialogTitle: document.getElementById("clientDialogTitle"),
   clientDialogHeaderStatuses: document.getElementById("clientDialogHeaderStatuses"),
   clientDialogMeta: document.getElementById("clientDialogMeta"),
+  copyClientDocumentButton: document.getElementById("copyClientDocumentButton"),
+  clientDocumentCopyStatus: document.getElementById("clientDocumentCopyStatus"),
   clientTasksTabCount: document.getElementById("clientTasksTabCount"),
   clientNotesTabCount: document.getElementById("clientNotesTabCount"),
   clientDestinationSelection: document.getElementById("clientDestinationSelection"),
@@ -2409,6 +2411,7 @@ function bindEvents() {
   document.querySelectorAll(".tab-button").forEach((button) => {
     button.addEventListener("click", () => switchTab(button.dataset.tab));
   });
+  el.copyClientDocumentButton.addEventListener("click", copyClientDocument);
   document.querySelectorAll("[data-field]").forEach((input) => {
     const syncField = () => {
       if (!activeClient) return;
@@ -2432,6 +2435,7 @@ function bindEvents() {
         }
       }
       if (["documentType", "workType", "concrete"].includes(field)) renderClientWorkControls();
+      if (["cpf", "documentType"].includes(field)) renderClientDocumentCopy();
       if (["startDate", "endDate"].includes(field)) renderClientWorkDuration();
       if (["clientName", "destination", "state", "area", "cpf", "contractClosedDate"].includes(field)) renderClientDialogMeta();
       if (field === "clientOrigin" || field === "hasReferralCommission") syncReferralCommissionFields();
@@ -2469,6 +2473,31 @@ function syncDocumentTypeFromNumber(value) {
   const documentTypeInput = document.querySelector('[data-field="documentType"]');
   if (documentTypeInput) documentTypeInput.value = "cnpj";
   renderClientWorkControls();
+}
+
+function renderClientDocumentCopy(copied = false) {
+  const button = el.copyClientDocumentButton;
+  const digits = onlyDigits(el.clientDialog.querySelector('[data-field="cpf"]')?.value);
+  button.disabled = !digits;
+  button.dataset.copied = String(copied && Boolean(digits));
+  const label = copied && digits ? "CPF/CNPJ copiado sem pontuação" : "Copiar CPF/CNPJ sem pontuação";
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  el.clientDocumentCopyStatus.textContent = copied && digits ? label : "";
+}
+
+async function copyClientDocument() {
+  const input = el.clientDialog.querySelector('[data-field="cpf"]');
+  const digits = onlyDigits(input?.value);
+  if (!digits) return;
+  const client = activeClient;
+  el.clientDocumentCopyStatus.textContent = "";
+  try {
+    await navigator.clipboard.writeText(digits);
+    if (activeClient === client && onlyDigits(input.value) === digits) renderClientDocumentCopy(true);
+  } catch {
+    prompt("Copie o CPF/CNPJ sem pontuação:", digits);
+  }
 }
 
 function syncReferralCommissionFields() {
@@ -11676,6 +11705,7 @@ function openClient(client) {
   setDestinationMenuExpanded(false);
   renderUserSelects();
   fillClientFields();
+  renderClientDocumentCopy();
   renderDestinationOptions();
   renderClientWorkControls();
   renderClientWorkDuration();
