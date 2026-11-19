@@ -160,6 +160,7 @@ test("history expands all details with original author and time, escapes text an
   assert.match(output, /<summary class="client-history-toggle">/);
   assert.match(output, /\+2 alterações/);
   assert.match(output, /Camilli · 19\/11\/2026 às 15:38/);
+  assert.match(output, /class="client-history-author">Camilli<\/span>/);
   assert.match(output, /datetime="2026-11-10T17:53:00Z"/);
   assert.match(output, /data-edit-history="original-id"/);
   assert.match(output, /Este registro antigo não informa quais campos foram alterados/);
@@ -169,6 +170,17 @@ test("history expands all details with original author and time, escapes text an
   f.currentUser.role = "user";
   f.renderHistory();
   assert.doesNotMatch(f.el.historyList.innerHTML, /data-edit-history|data-remove-history/);
+});
+
+test("history shows the author's name on each closed row, including inactive historical authors", () => {
+  const f = fixture();
+  f.activeClient.history = ["m", "c"].map((userId) => ({ id: userId, userId, title: "Registro", type: "system", createdAt: "2026-11-19T18:38:00Z", details: ["Alteração registrada."] }));
+  const before = structuredClone(f.activeClient.history);
+  f.renderHistory();
+  assert.match(f.el.historyList.innerHTML, /class="client-history-author">Mayssa<\/span>/);
+  assert.match(f.el.historyList.innerHTML, /class="client-history-author">Camilli<\/span>/);
+  assert.doesNotMatch(f.el.historyList.innerHTML, /client-history-avatar/);
+  assert.deepEqual(f.activeClient.history, before);
 });
 
 test("new saves group independent categories without losing old history or attributing it to a new author", () => {

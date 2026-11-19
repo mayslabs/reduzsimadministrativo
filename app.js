@@ -13102,7 +13102,7 @@ function renderHistory() {
                       ${entry.updatedAt ? `<p class="client-history-recorded">Registro editado em ${escapeHtml(formatDateTime(entry.updatedAt))}.</p>` : ""}
                     </div>
                   </details>
-                  <span class="client-history-avatar" title="${escapeAttr(owner)}">${escapeHtml(userInitials(owner).slice(0, 1))}</span>
+                  <span class="client-history-author">${escapeHtml(owner)}</span>
                   ${isAdmin ? `
                     <div class="client-history-row-actions">
                       <button class="client-history-edit-action" type="button" data-edit-history="${escapeAttr(entry.id)}" aria-label="Editar registro"><i data-lucide="pencil"></i></button>
